@@ -271,6 +271,60 @@ button:hover {
     background-color: #e9ecef;
 }
 
+#mode-selection {
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.mode-btn {
+    background-color: #f0f2f5;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.mode-btn:first-child {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+.mode-btn:last-child {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+
+.mode-btn.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+#upload-area {
+    width: 100%;
+    padding: 2rem;
+    border: 2px dashed #ccc;
+    border-radius: 5px;
+    text-align: center;
+}
+
+#upload-thumbnails-container {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+#upload-thumbnails-container .thumbnail {
+    height: 80px;
+    width: auto;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+}
+
 .placed-sticker-wrapper.active .selection-box {
     position: absolute;
     top: 0;

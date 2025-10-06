@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragStart = { x: 0, y: 0, initialX: 0, initialY: 0 };
     let selectedTimer = 0; // 0 for manual, otherwise seconds
     let isCapturing = false;
+    let captureMode = 'camera';
 
     // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
@@ -24,6 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const timerControls = document.getElementById('timer-controls');
     const startCaptureBtn = document.getElementById('start-capture-btn');
     const countdownDisplay = document.getElementById('countdown-display');
+    const modeSelection = document.getElementById('mode-selection');
+    const uploadArea = document.getElementById('upload-area');
+    const photoUploadInput = document.getElementById('photo-upload-input');
+    const photoUploadBtn = document.getElementById('photo-upload-btn');
+    const uploadThumbnailsContainer = document.getElementById('upload-thumbnails-container');
 
     // === INITIALIZATION ===
     function initApp() {
@@ -40,6 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedTimer = parseInt(e.target.dataset.time, 10);
             }
         });
+        modeSelection.addEventListener('click', (e) => {
+            if (e.target.classList.contains('mode-btn')) {
+                const newMode = e.target.dataset.mode;
+                if (newMode !== captureMode) {
+                    switchCaptureMode(newMode);
+                }
+            }
+        });
+        photoUploadBtn.addEventListener('click', () => photoUploadInput.click());
+        photoUploadInput.addEventListener('change', handlePhotoUpload);
         finalizeBtn.addEventListener('click', handleComposition);
         window.addEventListener('mousemove', handleStickerMove);
         window.addEventListener('mouseup', handleStickerMouseUp);
@@ -121,7 +137,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startCaptureSequence() {
+        if (captureMode === 'upload') {
+            if (capturedPhotos.length !== templateInfo.hole_count) {
+                alert(`사진을 ${templateInfo.hole_count}개 선택해야 합니다.`);
+                return;
+            }
+            showReviewScreen();
+            return;
+        }
+
         isCapturing = true;
+        modeSelection.style.display = 'none';
         timerControls.style.display = 'none';
         startCaptureBtn.style.display = 'none';
 
@@ -155,16 +181,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     }
 
+    function switchCaptureMode(newMode) {
+        captureMode = newMode;
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.mode-btn[data-mode="${newMode}"]`).classList.add('active');
+
+        if (newMode === 'camera') {
+            document.getElementById('camera-stream').style.display = 'block';
+            uploadArea.style.display = 'none';
+            timerControls.style.display = 'flex';
+            startCaptureBtn.textContent = '시작';
+        } else {
+            document.getElementById('camera-stream').style.display = 'none';
+            uploadArea.style.display = 'block';
+            timerControls.style.display = 'none';
+            startCaptureBtn.textContent = '계속';
+        }
+    }
+
+    function handlePhotoUpload(event) {
+        const files = event.target.files;
+        const requiredPhotos = templateInfo.hole_count;
+        if (files.length + capturedPhotos.length > requiredPhotos) {
+            alert(`최대 ${requiredPhotos}개의 이미지만 업로드할 수 있습니다.`);
+            return;
+        }
+
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) continue;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const blob = new Blob([e.target.result], { type: file.type });
+                capturedPhotos.push(blob);
+                const t = document.createElement('img');
+                t.src = URL.createObjectURL(blob);
+                t.classList.add('thumbnail');
+                uploadThumbnailsContainer.appendChild(t);
+                updatePhotoStatus();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        photoUploadInput.value = null; // Reset file input
+    }
+
     async function startPhotoSession() { 
         mainMenu.style.display = 'none'; 
         appContent.style.display = 'block'; 
         document.getElementById('app-title').textContent = '사진 촬영'; 
+        switchCaptureMode('camera');
+        modeSelection.style.display = 'flex';
         timerControls.style.display = 'flex';
         startCaptureBtn.style.display = 'block';
         document.getElementById('capture-btn').style.display = 'none';
         capturedPhotos = [];
         photoAssignments = [];
         document.getElementById('thumbnails-container').innerHTML = '';
+        uploadThumbnailsContainer.innerHTML = '';
 
         const h = templateInfo.holes[0]; 
         const r = h.w / h.h; 

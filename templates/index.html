@@ -27,7 +27,16 @@
             <h2 id="app-title"></h2>
             <p id="app-status"></p>
             <div id="photo-booth">
+                <div id="mode-selection">
+                    <button class="mode-btn active" data-mode="camera">카메라</button>
+                    <button class="mode-btn" data-mode="upload">업로드</button>
+                </div>
                 <video id="camera-stream" autoplay playsinline></video>
+                <div id="upload-area" style="display: none;">
+                    <input type="file" id="photo-upload-input" accept="image/png, image/jpeg" multiple style="display: none;">
+                    <button id="photo-upload-btn">이미지 선택</button>
+                    <div id="upload-thumbnails-container"></div>
+                </div>
                 <canvas id="capture-canvas" style="display: none;"></canvas>
                 <div id="countdown-display" style="display: none; font-size: 5rem; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
                 <div id="thumbnails-container"></div>
