@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웹 포토부스</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>웹 포토부스</h1>
+        <div id="main-menu">
+            <input type="file" id="template-upload-input" accept="image/png" style="display: none;">
+            <button id="register-template-btn">새 템플릿 등록</button>
+            <button id="take-photo-btn">사진 찍기</button>
+        </div>
+        <div id="app-content" style="display: none;">
+            <h2 id="app-title"></h2>
+            <p id="app-status"></p>
+            
+            <div id="photo-booth">
+                <video id="camera-stream" autoplay playsinline></video>
+                <canvas id="capture-canvas" style="display: none;"></canvas>
+                <div id="thumbnails-container"></div>
+            </div>
+
+            <div id="action-buttons">
+                <button id="capture-btn">촬영</button>
+                <button id="compose-btn" style="display: none;">사진 합성하기</button>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

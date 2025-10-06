@@ -1,0 +1,75 @@
+/* Basic Styles */
+body {
+    font-family: sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 0.5rem;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+#app-content {
+    width: 80%;
+    max-width: 900px;
+}
+
+#photo-booth {
+    margin: 1rem 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 5px;
+}
+
+#camera-stream {
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    border-radius: 5px;
+}
+
+#thumbnails-container {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.thumbnail {
+    height: 80px;
+    width: auto;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+}
+
+#action-buttons {
+    margin-top: 1rem;
+}
