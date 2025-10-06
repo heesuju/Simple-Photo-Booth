@@ -29,10 +29,18 @@
             <div id="photo-booth">
                 <video id="camera-stream" autoplay playsinline></video>
                 <canvas id="capture-canvas" style="display: none;"></canvas>
+                <div id="countdown-display" style="display: none; font-size: 5rem; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
                 <div id="thumbnails-container"></div>
             </div>
+            <div id="timer-controls">
+                <button class="timer-btn" data-time="3">3초</button>
+                <button class="timer-btn" data-time="5">5초</button>
+                <button class="timer-btn" data-time="10">10초</button>
+                <button class="timer-btn active" data-time="0">수동</button>
+            </div>
             <div id="action-buttons">
-                <button id="capture-btn">촬영</button>
+                <button id="start-capture-btn">시작</button>
+                <button id="capture-btn" style="display: none;">촬영</button>
             </div>
         </div>
 

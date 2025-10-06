@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let stream = null;
     let activeSticker = { element: null, data: null, action: null };
     let dragStart = { x: 0, y: 0, initialX: 0, initialY: 0 };
+    let selectedTimer = 0; // 0 for manual, otherwise seconds
+    let isCapturing = false;
 
     // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
@@ -19,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const addTemplateFloatBtn = document.getElementById('add-template-float-btn');
     const continueBtn = document.getElementById('continue-btn');
     const finalizeBtn = document.getElementById('finalize-btn');
+    const timerControls = document.getElementById('timer-controls');
+    const startCaptureBtn = document.getElementById('start-capture-btn');
+    const countdownDisplay = document.getElementById('countdown-display');
 
     // === INITIALIZATION ===
     function initApp() {
@@ -26,7 +31,15 @@ document.addEventListener('DOMContentLoaded', () => {
         stickerUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_sticker', loadStickerGallery));
         addTemplateFloatBtn.addEventListener('click', () => templateUploadInput.click());
         continueBtn.addEventListener('click', () => { if (selectedTemplate.data) { templateInfo = selectedTemplate.data; startPhotoSession(); } });
-        document.getElementById('capture-btn').addEventListener('click', handleCapture);
+        startCaptureBtn.addEventListener('click', startCaptureSequence);
+        document.getElementById('capture-btn').addEventListener('click', handleManualCapture);
+        timerControls.addEventListener('click', (e) => {
+            if (e.target.classList.contains('timer-btn')) {
+                document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                selectedTimer = parseInt(e.target.dataset.time, 10);
+            }
+        });
         finalizeBtn.addEventListener('click', handleComposition);
         window.addEventListener('mousemove', handleStickerMove);
         window.addEventListener('mouseup', handleStickerMouseUp);
@@ -99,8 +112,74 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
     async function handleFileUpload(event, endpoint, callback) { const f = event.target.files[0]; if (!f) return; const d = new FormData(); d.append('file', f); try { const r = await fetch(endpoint, { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); callback(); } catch (e) { console.error(e); } event.target.value = null; }
 
+    function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
+
     // --- 2. PHOTO TAKING ---
-    async function startPhotoSession() { mainMenu.style.display = 'none'; appContent.style.display = 'block'; document.getElementById('app-title').textContent = '사진 촬영'; const h = templateInfo.holes[0]; const r = h.w / h.h; try { stream = await navigator.mediaDevices.getUserMedia({ video: { aspectRatio: { ideal: r } } }); } catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ video: true }); } catch (e2) { return; } } document.getElementById('camera-stream').srcObject = stream; updatePhotoStatus(); }
+
+    function handleManualCapture() {
+        if (isCapturing) handleCapture();
+    }
+
+    function startCaptureSequence() {
+        isCapturing = true;
+        timerControls.style.display = 'none';
+        startCaptureBtn.style.display = 'none';
+
+        if (selectedTimer === 0) {
+            document.getElementById('capture-btn').style.display = 'block';
+        } else {
+            document.getElementById('capture-btn').style.display = 'none';
+            runTimerCapture();
+        }
+    }
+
+    function runTimerCapture() {
+        if (capturedPhotos.length >= templateInfo.hole_count) {
+            isCapturing = false;
+            return;
+        }
+
+        let countdown = selectedTimer;
+        countdownDisplay.style.display = 'block';
+        countdownDisplay.textContent = countdown;
+
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            countdownDisplay.textContent = countdown;
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                countdownDisplay.style.display = 'none';
+                handleCapture();
+                setTimeout(runTimerCapture, 1000); // Wait 1 sec before next cycle
+            }
+        }, 1000);
+    }
+
+    async function startPhotoSession() { 
+        mainMenu.style.display = 'none'; 
+        appContent.style.display = 'block'; 
+        document.getElementById('app-title').textContent = '사진 촬영'; 
+        timerControls.style.display = 'flex';
+        startCaptureBtn.style.display = 'block';
+        document.getElementById('capture-btn').style.display = 'none';
+        capturedPhotos = [];
+        photoAssignments = [];
+        document.getElementById('thumbnails-container').innerHTML = '';
+
+        const h = templateInfo.holes[0]; 
+        const r = h.w / h.h; 
+        try { 
+            stream = await navigator.mediaDevices.getUserMedia({ video: { aspectRatio: { ideal: r } } }); 
+        } catch (e) { 
+            try { 
+                stream = await navigator.mediaDevices.getUserMedia({ video: true }); 
+            } catch (e2) { 
+                return; 
+            } 
+        } 
+        document.getElementById('camera-stream').srcObject = stream; 
+        updatePhotoStatus(); 
+    }
     function updatePhotoStatus() { const n = templateInfo.hole_count, t = capturedPhotos.length; document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`; if (t >= n) { if (stream) stream.getTracks().forEach(tr => tr.stop()); showReviewScreen(); } }
     function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
 

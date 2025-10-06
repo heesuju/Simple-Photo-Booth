@@ -236,6 +236,41 @@ button:hover {
     margin-top: 1rem;
 }
 
+#timer-controls {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.timer-btn {
+    background-color: #f0f2f5;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.timer-btn:first-child {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+.timer-btn:last-child {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+
+.timer-btn.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.timer-btn:not(.active):hover {
+    background-color: #e9ecef;
+}
+
 .placed-sticker-wrapper.active .selection-box {
     position: absolute;
     top: 0;
