@@ -23,7 +23,6 @@ UPLOAD_DIR = "static/uploads"
 STICKERS_DIR = "static/stickers" # New directory for stickers
 RESULTS_DIR = "static/results"
 
-# --- Helper Functions (unchanged) ---
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -59,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- Static Files and Root HTML (unchanged) ---
+# --- Static Files and Root HTML ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
@@ -77,8 +76,39 @@ async def get_templates(request: Request):
 
 @app.post("/upload_template")
 async def upload_template(request: Request, file: UploadFile = File(...)):
-    # ... (logic is unchanged)
-    pass
+    if not file.content_type == 'image/png':
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PNG image.")
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    try:
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            content = await file.read()
+            await out_file.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving file: {e}")
+    try:
+        img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+        if img is None or img.shape[2] < 4:
+            raise ValueError("Image must be a PNG with an alpha channel.")
+        alpha_channel = img[:, :, 3]
+        _, thresh = cv2.threshold(alpha_channel, 1, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        holes = []
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            holes.append({"x": x, "y": y, "w": w, "h": h})
+        db_manager = request.app.state.db_manager
+        db_manager.add_template(f"/{file_path}", len(holes), holes)
+        return JSONResponse(content={
+            "template_path": f"/{file_path}",
+            "hole_count": len(holes),
+            "holes": holes
+        })
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
 
 @app.get("/stickers")
 async def get_stickers(request: Request):
@@ -106,10 +136,7 @@ async def upload_sticker(request: Request, file: UploadFile = File(...)):
 
 @app.post("/compose_image")
 async def compose_image(request: Request, template_path: str = Form(...), holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...)):
-    # ... (code for photo composition is mostly unchanged)
-    # ADDED: sticker overlay logic
     try:
-        # ... (photo composition logic as before) ...
         hole_data = json.loads(holes)
         base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
@@ -127,7 +154,7 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
         alpha_mask = np.dstack((alpha_channel, alpha_channel, alpha_channel))
         composite_img = ((template_bgr * alpha_mask) + (canvas * (1 - alpha_mask))).astype(np.uint8)
 
-        # --- NEW: Sticker Overlay Logic ---
+        # --- Sticker Overlay Logic ---
         placed_stickers = json.loads(stickers)
         final_image_bgra = cv2.cvtColor(composite_img, cv2.COLOR_BGR2BGRA)
 
@@ -197,43 +224,5 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compose image: {e}")
 
-# --- Main Execution (unchanged) ---
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=PORT, reload=True)
-
-# Note: Pasting in the unchanged upload_template function for completeness
-@app.post("/upload_template")
-async def upload_template(request: Request, file: UploadFile = File(...)):
-    if not file.content_type == 'image/png':
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PNG image.")
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(UPLOAD_DIR, unique_filename)
-    try:
-        async with aiofiles.open(file_path, 'wb') as out_file:
-            content = await file.read()
-            await out_file.write(content)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving file: {e}")
-    try:
-        img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
-        if img is None or img.shape[2] < 4:
-            raise ValueError("Image must be a PNG with an alpha channel.")
-        alpha_channel = img[:, :, 3]
-        _, thresh = cv2.threshold(alpha_channel, 1, 255, cv2.THRESH_BINARY_INV)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        holes = []
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            holes.append({"x": x, "y": y, "w": w, "h": h})
-        db_manager = request.app.state.db_manager
-        db_manager.add_template(f"/{file_path}", len(holes), holes)
-        return JSONResponse(content={
-            "template_path": f"/{file_path}",
-            "hole_count": len(holes),
-            "holes": holes
-        })
-    except Exception as e:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
