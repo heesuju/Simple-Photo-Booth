@@ -1,15 +1,14 @@
-
 document.addEventListener('DOMContentLoaded', () => {
-    // State variables
+    // === STATE VARIABLES ===
     let templateInfo = null;
     let capturedPhotos = [];
     let stream = null;
 
-    // DOM Elements
+    // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
     const appContent = document.getElementById('app-content');
-    
-    const registerTemplateBtn = document.getElementById('register-template-btn');
+    const galleryContainer = document.getElementById('template-gallery');
+    const addTemplateBtn = document.getElementById('add-template-btn');
     const templateUploadInput = document.getElementById('template-upload-input');
     
     const appTitle = document.getElementById('app-title');
@@ -21,12 +20,50 @@ document.addEventListener('DOMContentLoaded', () => {
     const captureBtn = document.getElementById('capture-btn');
     const composeBtn = document.getElementById('compose-btn');
 
-    // --- 1. TEMPLATE UPLOAD ---
-    registerTemplateBtn.addEventListener('click', () => {
-        templateUploadInput.click();
-    });
+    // === INITIALIZATION ===
+    function initApp() {
+        addTemplateBtn.addEventListener('click', () => templateUploadInput.click());
+        templateUploadInput.addEventListener('change', handleTemplateUpload);
+        captureBtn.addEventListener('click', handleCapture);
+        composeBtn.addEventListener('click', handleComposition);
+        loadTemplateGallery();
+    }
 
-    templateUploadInput.addEventListener('change', async (event) => {
+    // --- 1. TEMPLATE GALLERY & UPLOAD ---
+    async function loadTemplateGallery() {
+        try {
+            const response = await fetch('/templates');
+            const templates = await response.json();
+            
+            galleryContainer.innerHTML = ''; // Clear existing gallery
+
+            if (templates.length === 0) {
+                galleryContainer.textContent = '저장된 템플릿이 없습니다. 새 템플릿을 추가해보세요.';
+            }
+
+            templates.forEach(template => {
+                const item = document.createElement('div');
+                item.className = 'template-item';
+                
+                const img = document.createElement('img');
+                img.src = template.template_path;
+                img.alt = `Template ${template.id}`;
+                
+                item.appendChild(img);
+                item.addEventListener('click', () => {
+                    templateInfo = template;
+                    console.log('Selected template:', templateInfo);
+                    startPhotoSession();
+                });
+                galleryContainer.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Failed to load templates:', error);
+            galleryContainer.textContent = '템플릿을 불러오는 데 실패했습니다.';
+        }
+    }
+
+    async function handleTemplateUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -39,35 +76,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'File upload failed');
             }
-            templateInfo = await response.json();
-
-            if (templateInfo.hole_count === 0) {
-                alert('템플릿에서 투명 영역을 찾을 수 없습니다. 다른 파일을 시도해주세요.');
-                return;
-            }
-            
-            console.log('Template analysis result:', templateInfo);
-            startPhotoSession();
+            alert('새 템플릿이 성공적으로 추가되었습니다.');
+            loadTemplateGallery(); // Refresh the gallery
         } catch (error) {
             console.error('Error:', error);
             alert(`오류가 발생했습니다: ${error.message}`);
         }
-    });
+        // Reset file input to allow uploading the same file again
+        event.target.value = null;
+    }
 
     // --- 2. PHOTO TAKING ---
     async function startPhotoSession() {
         mainMenu.style.display = 'none';
         appContent.style.display = 'block';
         appTitle.textContent = '사진 촬영';
-        
+
+        // --- Aspect Ratio Constraint ---
+        const firstHole = templateInfo.holes[0];
+        const desiredAspectRatio = firstHole.w / firstHole.h;
+
+        const constraints = {
+            video: { aspectRatio: { ideal: desiredAspectRatio } },
+            audio: false
+        };
+
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            video.srcObject = stream;
-            updatePhotoStatus();
+            // First, try to get the camera with the ideal aspect ratio
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
-            console.error("카메라 접근 오류:", err);
-            alert("카메라에 접근할 수 없습니다. 권한을 확인해주세요.");
+            console.warn(`Failed to get camera with ideal aspect ratio (${desiredAspectRatio}). Retrying with default.`, err);
+            try {
+                // If it fails, fall back to the default camera without aspect ratio constraints
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            } catch (finalErr) {
+                console.error("Camera access error:", finalErr);
+                alert("카메라에 접근할 수 없습니다. 권한을 확인해주세요.");
+                return; // Stop if camera is not accessible at all
+            }
         }
+        
+        video.srcObject = stream;
+        updatePhotoStatus();
     }
 
     function updatePhotoStatus() {
@@ -86,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    captureBtn.addEventListener('click', () => {
+    function handleCapture() {
         if (!templateInfo) return;
 
         const context = canvas.getContext('2d');
@@ -96,18 +146,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         canvas.toBlob(blob => {
             capturedPhotos.push(blob);
-            
             const thumb = document.createElement('img');
             thumb.src = URL.createObjectURL(blob);
             thumb.classList.add('thumbnail');
             thumbnailsContainer.appendChild(thumb);
-
             updatePhotoStatus();
         }, 'image/jpeg');
-    });
+    }
 
     // --- 3. IMAGE COMPOSITION ---
-    composeBtn.addEventListener('click', async () => {
+    async function handleComposition() {
         if (!templateInfo || capturedPhotos.length !== templateInfo.hole_count) {
             alert('사진의 개수가 템플릿과 맞지 않습니다.');
             return;
@@ -125,42 +173,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         try {
-            const response = await fetch('/compose_image', {
-                method: 'POST',
-                body: formData
-            });
-
+            const response = await fetch('/compose_image', { method: 'POST', body: formData });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'Image composition failed');
             }
-
             const result = await response.json();
             displayFinalResult(result.result_path);
-
         } catch (error) {
             console.error('Error:', error);
             alert(`합성 중 오류가 발생했습니다: ${error.message}`);
-            appStatus.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
             composeBtn.disabled = false;
         }
-    });
+    }
 
     function displayFinalResult(imagePath) {
         appTitle.textContent = '완성!';
         appStatus.innerHTML = `이미지가 성공적으로 생성되었습니다. <a href="${imagePath}" download>다운로드</a>`;
-        
-        // Clear the photo booth content
-        const photoBooth = document.getElementById('photo-booth');
-        photoBooth.innerHTML = '';
-
+        document.getElementById('photo-booth').innerHTML = '';
         const resultImage = document.createElement('img');
         resultImage.src = imagePath;
         resultImage.style.maxWidth = '100%';
-        resultImage.style.borderRadius = '5px';
-        photoBooth.appendChild(resultImage);
-
-        // Hide action buttons
+        document.getElementById('photo-booth').appendChild(resultImage);
         document.getElementById('action-buttons').style.display = 'none';
     }
+
+    // --- START THE APP ---
+    initApp();
 });
