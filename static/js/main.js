@@ -66,6 +66,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyPhotoFilters();
             }
         });
+
+        // Accordion Logic
+        document.getElementById('review-right-col').addEventListener('click', (e) => {
+            if (e.target.classList.contains('accordion-header')) {
+                e.target.classList.toggle('active');
+                const content = e.target.nextElementSibling;
+                content.classList.toggle('active');
+                if (content.style.maxHeight) {
+                    content.style.maxHeight = null;
+                } else {
+                    content.style.maxHeight = content.scrollHeight + "px";
+                }
+            }
+        });
         finalizeBtn.addEventListener('click', handleComposition);
         window.addEventListener('mousemove', handleStickerMove);
         window.addEventListener('mouseup', handleStickerMouseUp);
@@ -77,31 +91,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
                 const p = document.getElementById('review-preview');
                 const previewRect = p.getBoundingClientRect();
-                const templateImg = p.querySelector('.preview-template-img');
-                const scale = templateImg.naturalWidth / p.offsetWidth;
+                const { scale, offsetX, offsetY, renderedWidth } = getPreviewScaling();
+                const templateNaturalWidth = renderedWidth / scale;
+
+                if (scale === 1) return; // Preview not ready
 
                 const stickerImg = new Image();
                 stickerImg.onload = () => {
-                    const maxDim = 150;
-                    let w, h;
-                    if (stickerImg.naturalWidth > stickerImg.naturalHeight) {
-                        w = maxDim;
-                        h = (stickerImg.naturalHeight / stickerImg.naturalWidth) * maxDim;
-                    } else {
-                        h = maxDim;
-                        w = (stickerImg.naturalWidth / stickerImg.naturalHeight) * maxDim;
-                    }
+                    // Define initial sticker size relative to the template (e.g., 20% of width)
+                    const desiredNaturalWidth = templateNaturalWidth * 0.3;
+                    const stickerNaturalW = desiredNaturalWidth;
+                    const stickerNaturalH = stickerImg.naturalHeight * (desiredNaturalWidth / stickerImg.naturalWidth);
 
-                    const x = (e.clientX - previewRect.left - (w / 2)) * scale;
-                    const y = (e.clientY - previewRect.top - (h / 2)) * scale;
+                    // Convert natural size to screen size for centering calculation
+                    const stickerScreenW = stickerNaturalW * scale;
+                    const stickerScreenH = stickerNaturalH * scale;
+
+                    // Convert screen mouse coordinates to image-natural coordinates
+                    const mouseX = e.clientX - previewRect.left;
+                    const mouseY = e.clientY - previewRect.top;
+                    
+                    const imageX = (mouseX - offsetX - (stickerScreenW / 2)) / scale;
+                    const imageY = (mouseY - offsetY - (stickerScreenH / 2)) / scale;
 
                     placedStickers.push({
                         id: Date.now(),
                         path: stickerData.sticker_path,
-                        x: Math.round(x),
-                        y: Math.round(y),
-                        width: Math.round(w),
-                        height: Math.round(h),
+                        x: Math.round(imageX),
+                        y: Math.round(imageY),
+                        width: Math.round(stickerNaturalW),
+                        height: Math.round(stickerNaturalH),
                         rotation: 0
                     });
                     renderPlacedStickers();
@@ -325,19 +344,54 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
     function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); }
+    function getPreviewScaling() {
+        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
+        if (!t || !t.naturalWidth) return { scale: 1, offsetX: 0, offsetY: 0, renderedWidth: 0, renderedHeight: 0 };
+
+        const containerWidth = p.offsetWidth;
+        const containerHeight = p.offsetHeight;
+        const imageNaturalWidth = t.naturalWidth;
+        const imageNaturalHeight = t.naturalHeight;
+
+        const containerRatio = containerWidth / containerHeight;
+        const imageRatio = imageNaturalWidth / imageNaturalHeight;
+
+        let renderedWidth, renderedHeight, offsetX, offsetY;
+
+        if (imageRatio > containerRatio) {
+            renderedWidth = containerWidth;
+            renderedHeight = containerWidth / imageRatio;
+            offsetX = 0;
+            offsetY = (containerHeight - renderedHeight) / 2;
+        } else {
+            renderedHeight = containerHeight;
+            renderedWidth = containerHeight * imageRatio;
+            offsetX = (containerWidth - renderedWidth) / 2;
+            offsetY = 0;
+        }
+
+        return {
+            scale: renderedWidth / imageNaturalWidth,
+            offsetX,
+            offsetY,
+            renderedWidth,
+            renderedHeight
+        };
+    }
+
     function renderPhotoAssignments() { 
-        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); 
-        if (!t || !t.naturalWidth) return; 
-        const s = p.offsetWidth / t.naturalWidth; 
+        const { scale, offsetX, offsetY } = getPreviewScaling();
+        if (scale === 1) return; // Preview not ready
+
         document.querySelectorAll('.preview-photo-wrapper').forEach(w => w.remove()); // Remove old wrappers
         photoAssignments.forEach((b, hIdx) => { 
             const h = templateInfo.holes[hIdx];
             const wrapper = document.createElement('div');
             wrapper.className = 'preview-photo-wrapper';
-            wrapper.style.left = `${h.x*s}px`; 
-            wrapper.style.top = `${h.y*s}px`; 
-            wrapper.style.width = `${h.w*s}px`; 
-            wrapper.style.height = `${h.h*s}px`;
+            wrapper.style.left = `${offsetX + h.x * scale}px`; 
+            wrapper.style.top = `${offsetY + h.y * scale}px`; 
+            wrapper.style.width = `${h.w * scale}px`; 
+            wrapper.style.height = `${h.h * scale}px`;
 
             const i = document.createElement('img'); 
             i.src = URL.createObjectURL(b); 
@@ -357,15 +411,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (err) {} 
             }); 
             wrapper.appendChild(i);
-            p.appendChild(wrapper); 
+            document.getElementById('review-preview').appendChild(wrapper); 
         }); 
         applyPhotoFilters(); 
     }
     function renderPlacedStickers() {
         document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
-        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
-        if (!t || !t.naturalWidth) return;
-        const s = p.offsetWidth / t.naturalWidth;
+        const { scale, offsetX, offsetY } = getPreviewScaling();
+        if (scale === 1) return; // Preview not ready
+        const previewContainer = document.getElementById('review-preview');
+
         placedStickers.forEach(d => {
             const w = document.createElement('div');
             w.className = 'placed-sticker-wrapper';
@@ -373,10 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 w.classList.add('active');
             }
             w.style.position = 'absolute';
-            w.style.left = `${d.x*s}px`;
-            w.style.top = `${d.y*s}px`;
-            w.style.width = `${d.width*s}px`;
-            w.style.height = `${d.height*s}px`;
+            w.style.left = `${offsetX + d.x * scale}px`;
+            w.style.top = `${offsetY + d.y * scale}px`;
+            w.style.width = `${d.width * scale}px`;
+            w.style.height = `${d.height * scale}px`;
             w.style.transform = `rotate(${d.rotation}deg)`;
             const i = document.createElement('img');
             i.src = d.path;
@@ -429,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 w.appendChild(rotationHandle);
             }
 
-            p.appendChild(w);
+            previewContainer.appendChild(w);
         });
     }
     function handleStickerMouseDown(e, data, el) {
@@ -455,18 +510,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleStickerMove(e) {
         if (!activeSticker.action) return;
         e.preventDefault();
-        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
-        if (!t || !t.naturalWidth) return;
-        const s = t.naturalWidth / p.offsetWidth;
-        const dX = (e.clientX - dragStart.x) * s;
-        const dY = (e.clientY - dragStart.y) * s;
+        
+        const { scale } = getPreviewScaling();
+        if (scale === 1) return;
+
+        // Convert mouse movement from screen pixels to natural image pixels
+        const dX_natural = (e.clientX - dragStart.x) / scale;
+        const dY_natural = (e.clientY - dragStart.y) / scale;
 
         const sticker = activeSticker.data;
         const initialRatio = dragStart.initialW / dragStart.initialH;
+        const minSizeNatural = 20 / scale; // 20px minimum size in natural units
 
         if (activeSticker.action === 'move') {
-            sticker.x = Math.round(dragStart.initialX + dX);
-            sticker.y = Math.round(dragStart.initialY + dY);
+            sticker.x = Math.round(dragStart.initialX + dX_natural);
+            sticker.y = Math.round(dragStart.initialY + dY_natural);
         } else if (activeSticker.action === 'rotate') {
             const angle = Math.atan2(e.clientY - dragStart.centerY, e.clientX - dragStart.centerX) * (180 / Math.PI);
             const startAngle = Math.atan2(dragStart.y - dragStart.centerY, dragStart.x - dragStart.centerX) * (180 / Math.PI);
@@ -474,18 +532,18 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (activeSticker.action.startsWith('resize-')) {
             const handle = activeSticker.action.split('-')[1];
             if (handle.includes('e')) {
-                sticker.width = Math.round(Math.max(20, dragStart.initialW + dX));
+                sticker.width = Math.max(minSizeNatural, dragStart.initialW + dX_natural);
             }
             if (handle.includes('s')) {
-                sticker.height = Math.round(Math.max(20, dragStart.initialH + dY));
+                sticker.height = Math.max(minSizeNatural, dragStart.initialH + dY_natural);
             }
             if (handle.includes('w')) {
-                sticker.width = Math.round(Math.max(20, dragStart.initialW - dX));
-                sticker.x = dragStart.initialX + dX;
+                sticker.width = Math.max(minSizeNatural, dragStart.initialW - dX_natural);
+                sticker.x = dragStart.initialX + dX_natural;
             }
             if (handle.includes('n')) {
-                sticker.height = Math.round(Math.max(20, dragStart.initialH - dY));
-                sticker.y = dragStart.initialY + dY;
+                sticker.height = Math.max(minSizeNatural, dragStart.initialH - dY_natural);
+                sticker.y = dragStart.initialY + dY_natural;
             }
 
             // Maintain aspect ratio for corner handles

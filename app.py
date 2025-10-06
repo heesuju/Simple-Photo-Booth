@@ -225,6 +225,17 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
         final_image_bgra = cv2.cvtColor(composite_img, cv2.COLOR_BGR2BGRA)
 
         for sticker_data in placed_stickers:
+            # --- Server-side validation for sticker dimensions ---
+            try:
+                width = int(sticker_data.get('width'))
+                height = int(sticker_data.get('height'))
+                if width <= 0 or height <= 0:
+                    print(f"Skipping sticker with invalid dimensions: {sticker_data}")
+                    continue
+            except (ValueError, TypeError):
+                print(f"Skipping sticker with non-numeric dimensions: {sticker_data}")
+                continue
+
             sticker_path = os.path.join(os.getcwd(), sticker_data['path'].lstrip('/'))
             if not os.path.exists(sticker_path):
                 continue # Skip if sticker image not found
@@ -233,7 +244,7 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
             if sticker_img.shape[2] == 3:
                 sticker_img = cv2.cvtColor(sticker_img, cv2.COLOR_BGR2BGRA)
             
-            sticker_img_resized = cv2.resize(sticker_img, (sticker_data['width'], sticker_data['height']))
+            sticker_img_resized = cv2.resize(sticker_img, (width, height))
             sticker_rotated = rotate_image(sticker_img_resized, sticker_data.get('rotation', 0))
             
             s_h, s_w, _ = sticker_rotated.shape

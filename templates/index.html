@@ -66,45 +66,55 @@
         <!-- 3. Review and Edit Screen -->
         <div id="review-screen" style="display: none;">
             <h2>사진 검토 및 수정</h2>
-            <p>왼쪽 목록에서 사진을 선택한 후, 오른쪽에서 바꿀 위치를 클릭하세요.</p>
+            <p>오른쪽 목록에서 사진을 드래그하여 왼쪽의 원하는 위치에 놓으세요.</p>
             <div class="review-container">
-                <div id="review-left-col">
-                    <h3>촬영된 사진</h3>
-                    <div id="review-thumbnails" class="gallery-container"></div>
-                    <hr>
-                    <h3>스티커</h3>
-                    <div id="sticker-gallery" class="gallery-container"></div>
-                    <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
-                    <hr>
-                    <h3>필터</h3>
-                    <div id="filter-controls">
-                        <div class="filter-slider">
-                            <label for="brightness">밝기</label>
-                            <input type="range" id="brightness" data-filter="brightness" min="0" max="200" value="100">
+                <div id="review-preview" class="preview-container"></div>
+                <div id="review-right-col">
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">촬영된 사진</h3>
+                        <div class="accordion-content">
+                            <div id="review-thumbnails" class="gallery-container"></div>
                         </div>
-                        <div class="filter-slider">
-                            <label for="contrast">대비</label>
-                            <input type="range" id="contrast" data-filter="contrast" min="0" max="200" value="100">
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">스티커</h3>
+                        <div class="accordion-content">
+                            <div id="sticker-gallery" class="gallery-container"></div>
+                            <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
                         </div>
-                        <div class="filter-slider">
-                            <label for="saturation">채도</label>
-                            <input type="range" id="saturation" data-filter="saturate" min="0" max="200" value="100">
-                        </div>
-                        <div class="filter-slider">
-                            <label for="warmth">따뜻함</label>
-                            <input type="range" id="warmth" data-filter="warmth" min="0" max="200" value="100">
-                        </div>
-                        <div class="filter-slider">
-                            <label for="sharpness">선명도</label>
-                            <input type="range" id="sharpness" data-filter="sharpness" min="0" max="100" value="0">
-                        </div>
-                        <div class="filter-slider">
-                            <label for="blur">블러</label>
-                            <input type="range" id="blur" data-filter="blur" min="0" max="20" value="0">
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">필터</h3>
+                        <div class="accordion-content">
+                            <div id="filter-controls">
+                                <div class="filter-slider">
+                                    <label for="brightness">밝기</label>
+                                    <input type="range" id="brightness" data-filter="brightness" min="0" max="200" value="100">
+                                </div>
+                                <div class="filter-slider">
+                                    <label for="contrast">대비</label>
+                                    <input type="range" id="contrast" data-filter="contrast" min="0" max="200" value="100">
+                                </div>
+                                <div class="filter-slider">
+                                    <label for="saturation">채도</label>
+                                    <input type="range" id="saturation" data-filter="saturate" min="0" max="200" value="100">
+                                </div>
+                                <div class="filter-slider">
+                                    <label for="warmth">따뜻함</label>
+                                    <input type="range" id="warmth" data-filter="warmth" min="0" max="200" value="100">
+                                </div>
+                                <div class="filter-slider">
+                                    <label for="sharpness">선명도</label>
+                                    <input type="range" id="sharpness" data-filter="sharpness" min="0" max="100" value="0">
+                                </div>
+                                <div class="filter-slider">
+                                    <label for="blur">블러</label>
+                                    <input type="range" id="blur" data-filter="blur" min="0" max="20" value="0">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div id="review-preview" class="preview-container"></div>
             </div>
             <button id="finalize-btn">최종 완료</button>
         </div>

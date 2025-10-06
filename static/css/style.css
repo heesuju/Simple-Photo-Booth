@@ -130,26 +130,85 @@ button:hover {
     height: 70vh; /* Set a height for the container */
 }
 
-#review-left-col {
+#review-right-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-height: 70vh; /* Match container height */
+    overflow-y: auto;
 }
 
-#review-thumbnails, #sticker-gallery {
-    flex-grow: 1;
-    align-content: flex-start; /* Align items to top */
+#review-preview {
+    flex: 3;
+    position: relative; /* For positioning photos on top */
+    background-color: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+    display: flex; /* Center the template image */
+    align-items: center;
+    justify-content: center;
 }
 
-#review-thumbnails .thumbnail {
-    width: 100px;
-    height: auto;
+#review-preview .preview-template-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Fit image within the container */
+}
+
+.preview-photo-wrapper {
+    position: absolute;
+}
+
+.accordion-header {
+    background-color: #f7f7f7;
+    padding: 10px 15px;
+    margin: 0;
     cursor: pointer;
-    border: 3px solid transparent;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
 }
 
-#review-thumbnails .thumbnail.selected {
+.accordion-header::after {
+    content: '+';
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #888;
+}
+
+.accordion-header.active::after {
+    content: '−';
+}
+
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    padding: 0 10px;
+}
+
+.accordion-content.active {
+    padding: 10px;
+}
+
+
+
+#review-preview .preview-photo-img {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: 2px dashed #fff;
+    transition: border-color 0.2s;
+}
+
+#review-preview .preview-photo-img:hover {
     border-color: #007bff;
 }
 
@@ -166,38 +225,9 @@ button:hover {
 }
 
 .sticker-item img {
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain;
-}
-
-#review-preview {
-    flex: 3;
-    position: relative; /* For positioning photos on top */
-    background-color: #e9ecef;
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-#review-preview .preview-template-img {
-    width: 100%;
-    height: auto;
-}
-
-.preview-photo-wrapper {
-    position: absolute;
-}
-
-#review-preview .preview-photo-img {
     width: 100%;
     height: 100%;
-    cursor: pointer;
-    border: 2px dashed #fff;
-    transition: border-color 0.2s;
-}
-
-#review-preview .preview-photo-img:hover {
-    border-color: #007bff;
+    object-fit: contain;
 }
 
 #app-content {
