@@ -255,3 +255,20 @@ button:hover {
 .resize-handle.s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
 .resize-handle.w { top: 50%; left: -5px; transform: translateY(-50%); cursor: ew-resize; }
 .resize-handle.e { top: 50%; right: -5px; transform: translateY(-50%); cursor: ew-resize; }
+
+.remove-sticker-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 20px;
+    height: 20px;
+    background-color: red;
+    color: white;
+    border-radius: 50%;
+    border: 1px solid white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-weight: bold;
+}

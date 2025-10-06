@@ -144,6 +144,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     w.appendChild(handleEl);
                 });
+
+                const removeBtn = document.createElement('div');
+                removeBtn.className = 'remove-sticker-btn';
+                removeBtn.textContent = 'X';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = placedStickers.findIndex(s => s.id === d.id);
+                    if (index > -1) {
+                        placedStickers.splice(index, 1);
+                    }
+                    activeSticker = { element: null, data: null, action: null };
+                    renderPlacedStickers();
+                });
+                w.appendChild(removeBtn);
             }
 
             p.appendChild(w);
