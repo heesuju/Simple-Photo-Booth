@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <svg style="position:absolute; height: 0; width: 0;">
+        <defs>
+            <filter id="sharpen-filter">
+                <feConvolveMatrix id="sharpen-matrix" order="3 3" kernelMatrix="0 0 0 0 1 0 0 0 0" />
+            </filter>
+            <filter id="warmth-filter">
+                <feColorMatrix id="warmth-matrix" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" />
+            </filter>
+        </defs>
+    </svg>
     <div class="container">
         
         <!-- 1. Main Menu / Template Gallery -->
@@ -79,6 +89,18 @@
                         <div class="filter-slider">
                             <label for="saturation">채도</label>
                             <input type="range" id="saturation" data-filter="saturate" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="warmth">따뜻함</label>
+                            <input type="range" id="warmth" data-filter="warmth" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="sharpness">선명도</label>
+                            <input type="range" id="sharpness" data-filter="sharpness" min="0" max="100" value="0">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="blur">블러</label>
+                            <input type="range" id="blur" data-filter="blur" min="0" max="20" value="0">
                         </div>
                     </div>
                 </div>

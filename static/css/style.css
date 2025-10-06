@@ -184,8 +184,13 @@ button:hover {
     height: auto;
 }
 
-#review-preview .preview-photo-img {
+.preview-photo-wrapper {
     position: absolute;
+}
+
+#review-preview .preview-photo-img {
+    width: 100%;
+    height: 100%;
     cursor: pointer;
     border: 2px dashed #fff;
     transition: border-color 0.2s;

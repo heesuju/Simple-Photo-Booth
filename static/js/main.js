@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedTimer = 0; // 0 for manual, otherwise seconds
     let isCapturing = false;
     let captureMode = 'camera';
-    let filters = { brightness: 100, contrast: 100, saturate: 100 };
+    let filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0 };
 
     // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoUploadBtn = document.getElementById('photo-upload-btn');
     const uploadThumbnailsContainer = document.getElementById('upload-thumbnails-container');
     const filterControls = document.getElementById('filter-controls');
+    const sharpenMatrix = document.getElementById('sharpen-matrix');
+    const warmthMatrix = document.getElementById('warmth-matrix');
 
     // === INITIALIZATION ===
     function initApp() {
@@ -60,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         photoUploadInput.addEventListener('change', handlePhotoUpload);
         filterControls.addEventListener('input', (e) => {
             if (e.target.type === 'range') {
-                filters[e.target.dataset.filter] = e.target.value;
+                filters[e.target.dataset.filter] = parseInt(e.target.value, 10);
                 applyPhotoFilters();
             }
         });
@@ -233,9 +235,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyPhotoFilters() {
-        const filterString = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
+        // Apply base filters to the image itself
+        const baseFilterString = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) blur(${filters.blur}px)`;
         document.querySelectorAll('.preview-photo-img').forEach(img => {
-            img.style.filter = filterString;
+            img.style.filter = baseFilterString;
+        });
+
+        let wrapperFilterString = '';
+
+        // --- Real-time Sharpening via SVG Filter ---
+        if (filters.sharpness > 0) {
+            const amount = filters.sharpness / 100.0;
+            const kernel = [
+                0, -amount, 0,
+                -amount, 1 + 4 * amount, -amount,
+                0, -amount, 0
+            ].join(' ');
+            sharpenMatrix.setAttribute('kernelMatrix', kernel);
+            wrapperFilterString += ` url(#sharpen-filter)`;
+        } else {
+            sharpenMatrix.setAttribute('kernelMatrix', '0 0 0 0 1 0 0 0 0');
+        }
+
+        // --- Real-time Warmth via SVG Filter ---
+        if (filters.warmth !== 100) {
+            // This offset value is scaled to match the backend's linear channel adjustment
+            const amount = (filters.warmth - 100) / 510.0;
+            const matrix = `1 0 0 0 ${amount} 0 1 0 0 0 0 0 1 0 ${-amount} 0 0 0 1 0`;
+            warmthMatrix.setAttribute('values', matrix);
+            wrapperFilterString += ` url(#warmth-filter)`;
+        } else {
+            warmthMatrix.setAttribute('values', '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0');
+        }
+
+        // Apply wrapper filters
+        document.querySelectorAll('.preview-photo-wrapper').forEach(wrapper => {
+            wrapper.style.filter = wrapperFilterString.trim();
         });
     }
 
@@ -276,9 +311,13 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewScreen.style.display = 'block'; 
         photoAssignments = [...capturedPhotos]; 
         placedStickers = []; 
-        filters = { brightness: 100, contrast: 100, saturate: 100 };
+        filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0 };
         document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
-            slider.value = 100;
+            if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur') {
+                slider.value = 0;
+            } else {
+                slider.value = 100;
+            }
         });
         renderReviewThumbnails(); 
         renderPreview(); 
@@ -286,16 +325,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
     function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); }
-    function renderPhotoAssignments() { const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); if (!t || !t.naturalWidth) return; const s = p.offsetWidth / t.naturalWidth; document.querySelectorAll('.preview-photo-img').forEach(i => i.remove()); photoAssignments.forEach((b, hIdx) => { const h = templateInfo.holes[hIdx], i = document.createElement('img'); i.src = URL.createObjectURL(b); i.className = 'preview-photo-img'; i.style.left = `${h.x*s}px`; i.style.top = `${h.y*s}px`; i.style.width = `${h.w*s}px`; i.style.height = `${h.h*s}px`; i.draggable = true; i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); i.addEventListener('click', () => handleHoleSelection(i, hIdx)); i.addEventListener('dragover', (e) => e.preventDefault()); i.addEventListener('drop', (e) => { 
-        e.preventDefault(); 
-        try { 
-            const dIdx = parseInt(e.dataTransfer.getData('text/plain'), 10); 
-            if (!isNaN(dIdx)) { 
-                e.stopPropagation(); 
-                handleSwap(hIdx, dIdx); 
-            } 
-        } catch (err) {} 
-    }); p.appendChild(i); }); applyPhotoFilters(); }
+    function renderPhotoAssignments() { 
+        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); 
+        if (!t || !t.naturalWidth) return; 
+        const s = p.offsetWidth / t.naturalWidth; 
+        document.querySelectorAll('.preview-photo-wrapper').forEach(w => w.remove()); // Remove old wrappers
+        photoAssignments.forEach((b, hIdx) => { 
+            const h = templateInfo.holes[hIdx];
+            const wrapper = document.createElement('div');
+            wrapper.className = 'preview-photo-wrapper';
+            wrapper.style.left = `${h.x*s}px`; 
+            wrapper.style.top = `${h.y*s}px`; 
+            wrapper.style.width = `${h.w*s}px`; 
+            wrapper.style.height = `${h.h*s}px`;
+
+            const i = document.createElement('img'); 
+            i.src = URL.createObjectURL(b); 
+            i.className = 'preview-photo-img'; 
+            i.draggable = true; 
+            i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); 
+            i.addEventListener('click', () => handleHoleSelection(i, hIdx)); 
+            i.addEventListener('dragover', (e) => e.preventDefault()); 
+            i.addEventListener('drop', (e) => { 
+                e.preventDefault(); 
+                try { 
+                    const dIdx = parseInt(e.dataTransfer.getData('text/plain'), 10); 
+                    if (!isNaN(dIdx)) { 
+                        e.stopPropagation(); 
+                        handleSwap(hIdx, dIdx); 
+                    } 
+                } catch (err) {} 
+            }); 
+            wrapper.appendChild(i);
+            p.appendChild(wrapper); 
+        }); 
+        applyPhotoFilters(); 
+    }
     function renderPlacedStickers() {
         document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
         const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
