@@ -158,6 +158,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderPlacedStickers();
                 });
                 w.appendChild(removeBtn);
+
+                const rotationHandle = document.createElement('div');
+                rotationHandle.className = 'rotation-handle';
+                rotationHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    activeSticker.action = 'rotate';
+                    const stickerRect = w.getBoundingClientRect();
+                    const centerX = stickerRect.left + stickerRect.width / 2;
+                    const centerY = stickerRect.top + stickerRect.height / 2;
+                    dragStart = { x: e.clientX, y: e.clientY, centerX, centerY, initialRotation: d.rotation };
+                });
+                w.appendChild(rotationHandle);
             }
 
             p.appendChild(w);
@@ -198,6 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeSticker.action === 'move') {
             sticker.x = Math.round(dragStart.initialX + dX);
             sticker.y = Math.round(dragStart.initialY + dY);
+        } else if (activeSticker.action === 'rotate') {
+            const angle = Math.atan2(e.clientY - dragStart.centerY, e.clientX - dragStart.centerX) * (180 / Math.PI);
+            const startAngle = Math.atan2(dragStart.y - dragStart.centerY, dragStart.x - dragStart.centerX) * (180 / Math.PI);
+            sticker.rotation = Math.round(dragStart.initialRotation + angle - startAngle);
         } else if (activeSticker.action.startsWith('resize-')) {
             const handle = activeSticker.action.split('-')[1];
             if (handle.includes('e')) {

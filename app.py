@@ -36,6 +36,18 @@ def get_ip_address():
     return IP
 
 # --- Lifespan Management (Startup/Shutdown) ---
+def rotate_image(image, angle):
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    cos = np.abs(M[0, 0])
+    sin = np.abs(M[0, 1])
+    new_w = int((h * sin) + (w * cos))
+    new_h = int((h * cos) + (w * sin))
+    M[0, 2] += (new_w / 2) - center[0]
+    M[1, 2] += (new_h / 2) - center[1]
+    return cv2.warpAffine(image, M, (new_w, new_h))
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_manager = DatabaseManager(DATABASE)
@@ -129,17 +141,19 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
                 sticker_img = cv2.cvtColor(sticker_img, cv2.COLOR_BGR2BGRA)
             
             sticker_img_resized = cv2.resize(sticker_img, (sticker_data['width'], sticker_data['height']))
+            sticker_rotated = rotate_image(sticker_img_resized, sticker_data.get('rotation', 0))
             
-            s_h, s_w, _ = sticker_img_resized.shape
-            pos_x, pos_y = sticker_data['x'], sticker_data['y']
+            s_h, s_w, _ = sticker_rotated.shape
+            pos_x = sticker_data['x'] - (s_w - sticker_data['width']) // 2
+            pos_y = sticker_data['y'] - (s_h - sticker_data['height']) // 2
             img_h, img_w, _ = final_image_bgra.shape
 
             # --- Clipping Logic ---
             # Calculate the intersection of the sticker and the main image
-            x1 = max(pos_x, 0)
-            y1 = max(pos_y, 0)
-            x2 = min(pos_x + s_w, img_w)
-            y2 = min(pos_y + s_h, img_h)
+            x1 = int(max(pos_x, 0))
+            y1 = int(max(pos_y, 0))
+            x2 = int(min(pos_x + s_w, img_w))
+            y2 = int(min(pos_y + s_h, img_h))
 
             # Calculate the width and height of the overlapping area
             w = x2 - x1
@@ -152,7 +166,7 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
             # Get the corresponding region from the sticker
             sticker_x1 = 0 if pos_x > 0 else -pos_x
             sticker_y1 = 0 if pos_y > 0 else -pos_y
-            clipped_sticker = sticker_img_resized[sticker_y1:sticker_y1+h, sticker_x1:sticker_x1+w]
+            clipped_sticker = sticker_rotated[int(sticker_y1):int(sticker_y1+h), int(sticker_x1):int(sticker_x1+w)]
 
             # Get the region of interest from the main image
             roi = final_image_bgra[y1:y2, x1:x2]
