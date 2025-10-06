@@ -10,30 +10,46 @@
     <div class="container">
         <h1>웹 포토부스</h1>
         
+        <!-- 1. Main Menu / Template Gallery -->
         <div id="main-menu">
             <h2>템플릿 선택</h2>
-            <div id="template-gallery" class="gallery-container">
-                <!-- Templates will be loaded here by JavaScript -->
-            </div>
+            <div id="template-gallery" class="gallery-container"></div>
             <input type="file" id="template-upload-input" accept="image/png" style="display: none;">
             <button id="add-template-btn">+ 새 템플릿 추가</button>
         </div>
 
+        <!-- 2. Photo Taking Screen -->
         <div id="app-content" style="display: none;">
             <h2 id="app-title"></h2>
             <p id="app-status"></p>
-            
             <div id="photo-booth">
                 <video id="camera-stream" autoplay playsinline></video>
                 <canvas id="capture-canvas" style="display: none;"></canvas>
                 <div id="thumbnails-container"></div>
             </div>
-
             <div id="action-buttons">
                 <button id="capture-btn">촬영</button>
-                <button id="compose-btn" style="display: none;">사진 합성하기</button>
             </div>
         </div>
+
+        <!-- 3. Review and Edit Screen -->
+        <div id="review-screen" style="display: none;">
+            <h2>사진 검토 및 수정</h2>
+            <p>왼쪽 목록에서 사진을 선택한 후, 오른쪽에서 바꿀 위치를 클릭하세요.</p>
+            <div class="review-container">
+                <div id="review-thumbnails" class="gallery-container"></div>
+                <div id="review-preview" class="preview-container"></div>
+            </div>
+            <button id="finalize-btn">최종 완료</button>
+        </div>
+
+        <!-- 4. Final Result Screen -->
+        <div id="result-screen" style="display: none;">
+            <h2 id="result-title"></h2>
+            <p id="result-status"></p>
+            <div id="result-display"></div>
+        </div>
+
     </div>
     <script src="/static/js/main.js"></script>
 </body>

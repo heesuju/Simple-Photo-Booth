@@ -2,227 +2,161 @@ document.addEventListener('DOMContentLoaded', () => {
     // === STATE VARIABLES ===
     let templateInfo = null;
     let capturedPhotos = [];
+    let photoAssignments = [];
+    let selectedHole = { element: null, index: -1 }; // Changed from selectedThumb
     let stream = null;
 
-    // === DOM ELEMENTS ===
+    // === DOM ELEMENTS (unchanged) ===
     const mainMenu = document.getElementById('main-menu');
     const appContent = document.getElementById('app-content');
-    const galleryContainer = document.getElementById('template-gallery');
+    const reviewScreen = document.getElementById('review-screen');
+    const resultScreen = document.getElementById('result-screen');
     const addTemplateBtn = document.getElementById('add-template-btn');
     const templateUploadInput = document.getElementById('template-upload-input');
-    
-    const appTitle = document.getElementById('app-title');
-    const appStatus = document.getElementById('app-status');
-    const video = document.getElementById('camera-stream');
-    const canvas = document.getElementById('capture-canvas');
-    const thumbnailsContainer = document.getElementById('thumbnails-container');
-    
     const captureBtn = document.getElementById('capture-btn');
-    const composeBtn = document.getElementById('compose-btn');
+    const finalizeBtn = document.getElementById('finalize-btn');
 
     // === INITIALIZATION ===
     function initApp() {
         addTemplateBtn.addEventListener('click', () => templateUploadInput.click());
         templateUploadInput.addEventListener('change', handleTemplateUpload);
         captureBtn.addEventListener('click', handleCapture);
-        composeBtn.addEventListener('click', handleComposition);
+        finalizeBtn.addEventListener('click', handleComposition);
         loadTemplateGallery();
     }
 
-    // --- 1. TEMPLATE GALLERY & UPLOAD ---
-    async function loadTemplateGallery() {
-        try {
-            const response = await fetch('/templates');
-            const templates = await response.json();
-            
-            galleryContainer.innerHTML = ''; // Clear existing gallery
+    // --- 1. TEMPLATE GALLERY & UPLOAD (unchanged) ---
+    async function loadTemplateGallery() { /* ... */ }
+    async function handleTemplateUpload(event) { /* ... */ }
 
-            if (templates.length === 0) {
-                galleryContainer.textContent = '저장된 템플릿이 없습니다. 새 템플릿을 추가해보세요.';
-            }
+    // --- 2. PHOTO TAKING (unchanged) ---
+    async function startPhotoSession() { /* ... */ }
+    function updatePhotoStatus() { /* ... */ }
+    function handleCapture() { /* ... */ }
 
-            templates.forEach(template => {
-                const item = document.createElement('div');
-                item.className = 'template-item';
-                
-                const img = document.createElement('img');
-                img.src = template.template_path;
-                img.alt = `Template ${template.id}`;
-                
-                item.appendChild(img);
-                item.addEventListener('click', () => {
-                    templateInfo = template;
-                    console.log('Selected template:', templateInfo);
-                    startPhotoSession();
-                });
-                galleryContainer.appendChild(item);
-            });
-        } catch (error) {
-            console.error('Failed to load templates:', error);
-            galleryContainer.textContent = '템플릿을 불러오는 데 실패했습니다.';
-        }
+    // --- 3. REVIEW & EDIT (HEAVILY REFACTORED) ---
+    function showReviewScreen() {
+        appContent.style.display = 'none';
+        resultScreen.style.display = 'none';
+        reviewScreen.style.display = 'block';
+
+        photoAssignments = [...capturedPhotos];
+        renderReviewThumbnails();
+        renderPreview();
     }
 
-    async function handleTemplateUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const response = await fetch('/upload_template', { method: 'POST', body: formData });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'File upload failed');
-            }
-            alert('새 템플릿이 성공적으로 추가되었습니다.');
-            loadTemplateGallery(); // Refresh the gallery
-        } catch (error) {
-            console.error('Error:', error);
-            alert(`오류가 발생했습니다: ${error.message}`);
-        }
-        // Reset file input to allow uploading the same file again
-        event.target.value = null;
-    }
-
-    // --- 2. PHOTO TAKING ---
-    async function startPhotoSession() {
-        mainMenu.style.display = 'none';
-        appContent.style.display = 'block';
-        appTitle.textContent = '사진 촬영';
-
-        // --- Aspect Ratio Constraint ---
-        const firstHole = templateInfo.holes[0];
-        const desiredAspectRatio = firstHole.w / firstHole.h;
-
-        const constraints = {
-            video: { aspectRatio: { ideal: desiredAspectRatio } },
-            audio: false
-        };
-
-        try {
-            // First, try to get the camera with the ideal aspect ratio
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-            console.warn(`Failed to get camera with ideal aspect ratio (${desiredAspectRatio}). Retrying with default.`, err);
-            try {
-                // If it fails, fall back to the default camera without aspect ratio constraints
-                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            } catch (finalErr) {
-                console.error("Camera access error:", finalErr);
-                alert("카메라에 접근할 수 없습니다. 권한을 확인해주세요.");
-                return; // Stop if camera is not accessible at all
-            }
-        }
-        
-        video.srcObject = stream;
-        updatePhotoStatus();
-    }
-
-    function updatePhotoStatus() {
-        const needed = templateInfo.hole_count;
-        const taken = capturedPhotos.length;
-        appStatus.textContent = `${taken} / ${needed}장 촬영됨`;
-
-        if (taken >= needed) {
-            captureBtn.style.display = 'none';
-            composeBtn.style.display = 'block';
-            video.style.display = 'none';
-            if(stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            appStatus.textContent = '모든 사진을 촬영했습니다. 아래 버튼을 눌러 사진을 합성하세요.';
-        }
-    }
-
-    function handleCapture() {
-        if (!templateInfo) return;
-
-        const context = canvas.getContext('2d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob(blob => {
-            capturedPhotos.push(blob);
+    function renderReviewThumbnails() {
+        const reviewThumbnails = document.getElementById('review-thumbnails');
+        reviewThumbnails.innerHTML = '';
+        capturedPhotos.forEach((photoBlob, index) => {
             const thumb = document.createElement('img');
-            thumb.src = URL.createObjectURL(blob);
-            thumb.classList.add('thumbnail');
-            thumbnailsContainer.appendChild(thumb);
-            updatePhotoStatus();
-        }, 'image/jpeg');
-    }
+            thumb.src = URL.createObjectURL(photoBlob);
+            thumb.className = 'thumbnail';
+            thumb.draggable = true; // Make thumbnails draggable
 
-    // --- 3. IMAGE COMPOSITION ---
-    async function handleComposition() {
-        if (!templateInfo || capturedPhotos.length !== templateInfo.hole_count) {
-            alert('사진의 개수가 템플릿과 맞지 않습니다.');
-            return;
-        }
+            // DRAG event: store the index of the dragged photo
+            thumb.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', index);
+            });
 
-        appStatus.textContent = '사진을 합성하는 중입니다... 잠시만 기다려주세요.';
-        composeBtn.disabled = true;
+            // CLICK event: if a hole is selected, perform swap
+            thumb.addEventListener('click', () => {
+                handlePhotoSelection(index);
+            });
 
-        const formData = new FormData();
-        formData.append('template_path', templateInfo.template_path);
-        formData.append('holes', JSON.stringify(templateInfo.holes));
-
-        capturedPhotos.forEach((blob, index) => {
-            formData.append('photos', blob, `photo_${index}.jpg`);
+            reviewThumbnails.appendChild(thumb);
         });
-
-        try {
-            const response = await fetch('/compose_image', { method: 'POST', body: formData });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Image composition failed');
-            }
-            const result = await response.json();
-            displayFinalResult(result);
-        } catch (error) {
-            console.error('Error:', error);
-            alert(`합성 중 오류가 발생했습니다: ${error.message}`);
-            composeBtn.disabled = false;
-        }
     }
 
-    function displayFinalResult(result) {
-        const { result_path, qr_code_path } = result;
+    function renderPreview() {
+        const previewContainer = document.getElementById('review-preview');
+        previewContainer.innerHTML = '';
 
-        appTitle.textContent = '완성!';
-        appStatus.innerHTML = `이미지가 성공적으로 생성되었습니다. <a href="${result_path}" download>PC에 다운로드</a>`;
+        const templateImg = document.createElement('img');
+        templateImg.src = templateInfo.template_path;
+        templateImg.className = 'preview-template-img';
         
-        const photoBooth = document.getElementById('photo-booth');
-        photoBooth.innerHTML = ''; // Clear previous content
+        templateImg.onload = () => {
+            const containerWidth = previewContainer.offsetWidth;
+            const scale = containerWidth / templateImg.naturalWidth;
 
-        const resultImage = document.createElement('img');
-        resultImage.src = result_path;
-        resultImage.style.maxWidth = '100%';
-        resultImage.style.borderRadius = '5px';
-        photoBooth.appendChild(resultImage);
+            photoAssignments.forEach((photoBlob, holeIndex) => {
+                const hole = templateInfo.holes[holeIndex];
+                const photo = document.createElement('img');
+                photo.src = URL.createObjectURL(photoBlob);
+                photo.className = 'preview-photo-img';
+                photo.style.left = `${hole.x * scale}px`;
+                photo.style.top = `${hole.y * scale}px`;
+                photo.style.width = `${hole.w * scale}px`;
+                photo.style.height = `${hole.h * scale}px`;
+                
+                // Make preview photos draggable as well
+                photo.draggable = true;
+                photo.addEventListener('dragstart', (e) => {
+                    const originalIndex = capturedPhotos.findIndex(p => p === photoBlob);
+                    e.dataTransfer.setData('text/plain', originalIndex);
+                });
 
-        // Create and display QR code
-        if (qr_code_path) {
-            const qrContainer = document.createElement('div');
-            qrContainer.style.marginTop = '20px';
-            
-            const qrLabel = document.createElement('p');
-            qrLabel.textContent = '모바일에서 다운로드하세요:';
-            qrContainer.appendChild(qrLabel);
+                photo.addEventListener('click', () => handleHoleSelection(photo, holeIndex));
+                photo.addEventListener('dragover', (e) => e.preventDefault());
+                photo.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const draggedPhotoIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                    handleSwap(holeIndex, draggedPhotoIndex);
+                });
 
-            const qrImage = document.createElement('img');
-            qrImage.src = qr_code_path;
-            qrImage.style.width = '150px';
-            qrImage.style.height = '150px';
-            qrContainer.appendChild(qrImage);
-
-            photoBooth.appendChild(qrContainer);
-        }
-
-        document.getElementById('action-buttons').style.display = 'none';
+                previewContainer.appendChild(photo);
+            });
+        };
+        previewContainer.appendChild(templateImg);
     }
+
+    function handleHoleSelection(element, holeIndex) {
+        if (selectedHole.element) {
+            selectedHole.element.classList.remove('selected');
+        }
+        selectedHole = { element, index: holeIndex };
+        element.classList.add('selected');
+    }
+
+    function handlePhotoSelection(photoIndex) {
+        if (selectedHole.index === -1) return; // Do nothing if no hole is selected
+        handleSwap(selectedHole.index, photoIndex);
+    }
+
+    function handleSwap(holeIndex, photoIndex) {
+        // Swap the photos in the assignment array
+        const photoToMove = capturedPhotos[photoIndex];
+        const photoToReplace = photoAssignments[holeIndex];
+
+        // Find the original position of the photo that is being replaced
+        const originalPositionOfReplaced = photoAssignments.findIndex(p => p === photoToMove);
+
+        if (originalPositionOfReplaced !== -1) {
+            photoAssignments[originalPositionOfReplaced] = photoToReplace;
+        }
+        photoAssignments[holeIndex] = photoToMove;
+
+        // Reset selection and re-render
+        if (selectedHole.element) {
+            selectedHole.element.classList.remove('selected');
+        }
+        selectedHole = { element: null, index: -1 };
+        renderPreview();
+    }
+
+    // --- 4. FINAL COMPOSITION (logic is the same, uses photoAssignments) ---
+    async function handleComposition() { /* ... */ }
+    function displayFinalResult(result) { /* ... */ }
 
     // --- START THE APP ---
     initApp();
+
+    async function loadTemplateGallery() { try { const response = await fetch('/templates'); const templates = await response.json(); const galleryContainer = document.getElementById('template-gallery'); galleryContainer.innerHTML = ''; if (templates.length === 0) galleryContainer.textContent = '저장된 템플릿이 없습니다.'; templates.forEach(template => { const item = document.createElement('div'); item.className = 'template-item'; const img = document.createElement('img'); img.src = template.template_path; item.appendChild(img); item.addEventListener('click', () => { templateInfo = template; startPhotoSession(); }); galleryContainer.appendChild(item); }); } catch (error) { console.error('Failed to load templates:', error); } }
+    async function handleTemplateUpload(event) { const file = event.target.files[0]; if (!file) return; const formData = new FormData(); formData.append('file', file); try { const response = await fetch('/upload_template', { method: 'POST', body: formData }); if (!response.ok) throw new Error((await response.json()).detail); alert('새 템플릿이 성공적으로 추가되었습니다.'); loadTemplateGallery(); } catch (error) { console.error('Error:', error); } event.target.value = null; }
+    async function startPhotoSession() { mainMenu.style.display = 'none'; reviewScreen.style.display = 'none'; resultScreen.style.display = 'none'; appContent.style.display = 'block'; document.getElementById('app-title').textContent = '사진 촬영'; const firstHole = templateInfo.holes[0]; const desiredAspectRatio = firstHole.w / firstHole.h; const constraints = { video: { aspectRatio: { ideal: desiredAspectRatio } }, audio: false }; try { stream = await navigator.mediaDevices.getUserMedia(constraints); } catch (err) { try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (finalErr) { console.error("Camera access error:", finalErr); return; } } document.getElementById('camera-stream').srcObject = stream; updatePhotoStatus(); }
+    function updatePhotoStatus() { const needed = templateInfo.hole_count; const taken = capturedPhotos.length; document.getElementById('app-status').textContent = `${taken} / ${needed}장 촬영됨`; if (taken >= needed) { if(stream) stream.getTracks().forEach(track => track.stop()); showReviewScreen(); } }
+    function handleCapture() { const video = document.getElementById('camera-stream'); const canvas = document.getElementById('capture-canvas'); const context = canvas.getContext('2d'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; context.drawImage(video, 0, 0, canvas.width, canvas.height); canvas.toBlob(blob => { capturedPhotos.push(blob); const thumb = document.createElement('img'); thumb.src = URL.createObjectURL(blob); thumb.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(thumb); updatePhotoStatus(); }, 'image/jpeg'); }
+    async function handleComposition() { const statusP = document.querySelector('#review-screen > p'); statusP.textContent = '사진을 합성하는 중입니다... 잠시만 기다려주세요.'; finalizeBtn.disabled = true; const formData = new FormData(); formData.append('template_path', templateInfo.template_path); formData.append('holes', JSON.stringify(templateInfo.holes)); photoAssignments.forEach((blob, index) => { formData.append('photos', blob, `photo_${index}.jpg`); }); try { const response = await fetch('/compose_image', { method: 'POST', body: formData }); if (!response.ok) throw new Error((await response.json()).detail); const result = await response.json(); displayFinalResult(result); } catch (error) { console.error('Error:', error); statusP.textContent = `합성 중 오류가 발생했습니다: ${error.message}`;} }
+    function displayFinalResult(result) { reviewScreen.style.display = 'none'; resultScreen.style.display = 'block'; const { result_path, qr_code_path } = result; document.getElementById('result-title').textContent = '완성!'; document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.'; const resultDisplay = document.getElementById('result-display'); resultDisplay.innerHTML = ''; const resultImage = document.createElement('img'); resultImage.src = result_path; resultImage.style.maxWidth = '100%'; resultDisplay.appendChild(resultImage); const downloadContainer = document.createElement('div'); downloadContainer.style.marginTop = '20px'; const pcDownloadLink = document.createElement('a'); pcDownloadLink.href = result_path; pcDownloadLink.download = 'photobooth_result.png'; const pcDownloadButton = document.createElement('button'); pcDownloadButton.textContent = 'PC에 다운로드'; pcDownloadLink.appendChild(pcDownloadButton); downloadContainer.appendChild(pcDownloadLink); if (qr_code_path) { const qrContainer = document.createElement('div'); qrContainer.style.marginTop = '10px'; qrContainer.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>'; const qrImage = document.createElement('img'); qrImage.src = qr_code_path; qrImage.style.width = '150px'; qrContainer.appendChild(qrImage); downloadContainer.appendChild(qrContainer); } resultDisplay.appendChild(downloadContainer); }
 });
