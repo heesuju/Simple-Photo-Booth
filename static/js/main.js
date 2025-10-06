@@ -1,303 +1,239 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // === STATE VARIABLES ===
-    let templateInfo = null; // The template for the active session
-    let selectedTemplate = { element: null, data: null }; // The template currently highlighted in the gallery
-    let capturedPhotos = [];
-    let photoAssignments = [];
+    let templateInfo = null, selectedTemplate = { element: null, data: null };
+    let capturedPhotos = [], photoAssignments = [];
     let selectedHole = { element: null, index: -1 };
+    let placedStickers = [];
     let stream = null;
+    let activeSticker = { element: null, data: null, action: null };
+    let dragStart = { x: 0, y: 0, initialX: 0, initialY: 0 };
 
     // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
     const appContent = document.getElementById('app-content');
     const reviewScreen = document.getElementById('review-screen');
     const resultScreen = document.getElementById('result-screen');
-    const addTemplateBtn = document.getElementById('add-template-btn');
     const templateUploadInput = document.getElementById('template-upload-input');
+    const stickerUploadInput = document.getElementById('sticker-upload-input');
     const continueBtn = document.getElementById('continue-btn');
-    const captureBtn = document.getElementById('capture-btn');
     const finalizeBtn = document.getElementById('finalize-btn');
 
     // === INITIALIZATION ===
     function initApp() {
-        // addTemplateBtn is now dynamic, so its listener is set in loadTemplateGallery
-        templateUploadInput.addEventListener('change', handleTemplateUpload);
-        continueBtn.addEventListener('click', () => {
-            if (selectedTemplate.data) {
-                templateInfo = selectedTemplate.data;
-                startPhotoSession();
-            }
-        });
-        captureBtn.addEventListener('click', handleCapture);
+        templateUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_template', loadTemplateGallery));
+        stickerUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_sticker', loadStickerGallery));
+        continueBtn.addEventListener('click', () => { if (selectedTemplate.data) { templateInfo = selectedTemplate.data; startPhotoSession(); } });
+        document.getElementById('capture-btn').addEventListener('click', handleCapture);
         finalizeBtn.addEventListener('click', handleComposition);
+        window.addEventListener('mousemove', handleStickerMove);
+        window.addEventListener('mouseup', handleStickerMouseUp);
+        window.addEventListener('resize', debouncedRender); // Add this line
         loadTemplateGallery();
     }
 
-    // --- 1. TEMPLATE GALLERY & UPLOAD ---
-    async function loadTemplateGallery() {
-        try {
-            const response = await fetch('/templates');
-            const templates = await response.json();
-            const galleryContainer = document.getElementById('template-gallery');
-            galleryContainer.innerHTML = '';
-            if (templates.length === 0) {
-                // If no templates, just show the add button
-            }
-            
-            templates.forEach(template => {
-                const item = document.createElement('div');
-                item.className = 'template-item';
-                const img = document.createElement('img');
-                img.src = template.template_path;
-                item.appendChild(img);
-                
-                item.addEventListener('click', () => handleTemplateSelection(item, template));
-                
-                galleryContainer.appendChild(item);
-            });
-
-            // Dynamically create and add the "Add New" button
-            const addItem = document.createElement('div');
-            addItem.className = 'add-template-item';
-            addItem.textContent = '+';
-            addItem.addEventListener('click', () => templateUploadInput.click());
-            galleryContainer.appendChild(addItem);
-
-        } catch (error) {
-            console.error('Failed to load templates:', error);
-        }
+    // --- DEBOUNCE HELPER ---
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
     }
 
-    function handleTemplateSelection(element, data) {
-        // Deselect previous
-        if (selectedTemplate.element) {
-            selectedTemplate.element.classList.remove('selected');
+    // --- RESIZE HANDLER ---
+    const debouncedRender = debounce(() => {
+        if (reviewScreen.style.display === 'block') {
+            renderPhotoAssignments();
+            renderPlacedStickers();
         }
+    }, 100);
 
-        // Select new
-        selectedTemplate = { element, data };
-        element.classList.add('selected');
-
-        // Show continue button
-        continueBtn.style.display = 'block';
-    }
-
-    async function handleTemplateUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const formData = new FormData();
-        formData.append('file', file);
-        try {
-            const response = await fetch('/upload_template', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error((await response.json()).detail);
-            alert('새 템플릿이 성공적으로 추가되었습니다.');
-            loadTemplateGallery();
-        } catch (error) {
-            console.error('Error:', error);
-        }
-        event.target.value = null;
-    }
+    // --- 1. GALLERIES & UPLOADS ---
+    async function loadTemplateGallery() { try { const r = await fetch('/templates'); const d = await r.json(); const c = document.getElementById('template-gallery'); c.innerHTML = ''; d.forEach(t => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = t.template_path; i.appendChild(m); i.addEventListener('click', () => handleTemplateSelection(i, t)); c.appendChild(i); }); const a = document.createElement('div'); a.className = 'add-template-item'; a.textContent = '+'; a.addEventListener('click', () => templateUploadInput.click()); c.appendChild(a); } catch (e) { console.error(e); } }
+    function handleTemplateSelection(el, data) { if (selectedTemplate.element) { selectedTemplate.element.classList.remove('selected'); } selectedTemplate = { element: el, data: data }; el.classList.add('selected'); continueBtn.style.display = 'block'; }
+    async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); const a = document.createElement('div'); a.className = 'add-template-item'; a.textContent = '+'; a.addEventListener('click', () => stickerUploadInput.click()); c.appendChild(a); } catch (e) { console.error(e); } }
+    async function handleFileUpload(event, endpoint, callback) { const f = event.target.files[0]; if (!f) return; const d = new FormData(); d.append('file', f); try { const r = await fetch(endpoint, { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); callback(); } catch (e) { console.error(e); } event.target.value = null; }
 
     // --- 2. PHOTO TAKING ---
-    async function startPhotoSession() {
-        mainMenu.style.display = 'none';
-        reviewScreen.style.display = 'none';
-        resultScreen.style.display = 'none';
-        appContent.style.display = 'block';
-        document.getElementById('app-title').textContent = '사진 촬영';
-        const firstHole = templateInfo.holes[0];
-        const desiredAspectRatio = firstHole.w / firstHole.h;
-        const constraints = { video: { aspectRatio: { ideal: desiredAspectRatio } }, audio: false };
-        try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            } catch (finalErr) {
-                console.error("Camera access error:", finalErr);
-                return;
-            }
-        }
-        document.getElementById('camera-stream').srcObject = stream;
-        updatePhotoStatus();
-    }
-
-    function updatePhotoStatus() {
-        const needed = templateInfo.hole_count;
-        const taken = capturedPhotos.length;
-        document.getElementById('app-status').textContent = `${taken} / ${needed}장 촬영됨`;
-        if (taken >= needed) {
-            if(stream) stream.getTracks().forEach(track => track.stop());
-            showReviewScreen();
-        }
-    }
-
-    function handleCapture() {
-        const video = document.getElementById('camera-stream');
-        const canvas = document.getElementById('capture-canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => {
-            capturedPhotos.push(blob);
-            const thumb = document.createElement('img');
-            thumb.src = URL.createObjectURL(blob);
-            thumb.classList.add('thumbnail');
-            document.getElementById('thumbnails-container').appendChild(thumb);
-            updatePhotoStatus();
-        }, 'image/jpeg');
-    }
+    async function startPhotoSession() { mainMenu.style.display = 'none'; appContent.style.display = 'block'; document.getElementById('app-title').textContent = '사진 촬영'; const h = templateInfo.holes[0]; const r = h.w / h.h; try { stream = await navigator.mediaDevices.getUserMedia({ video: { aspectRatio: { ideal: r } } }); } catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ video: true }); } catch (e2) { return; } } document.getElementById('camera-stream').srcObject = stream; updatePhotoStatus(); }
+    function updatePhotoStatus() { const n = templateInfo.hole_count, t = capturedPhotos.length; document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`; if (t >= n) { if (stream) stream.getTracks().forEach(tr => tr.stop()); showReviewScreen(); } }
+    function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
 
     // --- 3. REVIEW & EDIT ---
-    function showReviewScreen() {
-        appContent.style.display = 'none';
-        resultScreen.style.display = 'none';
-        reviewScreen.style.display = 'block';
-        photoAssignments = [...capturedPhotos];
-        renderReviewThumbnails();
-        renderPreview();
-    }
-
-    function renderReviewThumbnails() {
-        const reviewThumbnails = document.getElementById('review-thumbnails');
-        reviewThumbnails.innerHTML = '';
-        capturedPhotos.forEach((photoBlob, index) => {
-            const thumb = document.createElement('img');
-            thumb.src = URL.createObjectURL(photoBlob);
-            thumb.className = 'thumbnail';
-            thumb.draggable = true;
-            thumb.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', index);
-            });
-            thumb.addEventListener('click', () => {
-                handlePhotoSelection(index);
-            });
-            reviewThumbnails.appendChild(thumb);
-        });
-    }
-
-    function renderPreview() {
-        const previewContainer = document.getElementById('review-preview');
-        previewContainer.innerHTML = '';
-        const templateImg = document.createElement('img');
-        templateImg.src = templateInfo.template_path;
-        templateImg.className = 'preview-template-img';
-        templateImg.onload = () => {
-            const containerWidth = previewContainer.offsetWidth;
-            const scale = containerWidth / templateImg.naturalWidth;
-            photoAssignments.forEach((photoBlob, holeIndex) => {
-                const hole = templateInfo.holes[holeIndex];
-                const photo = document.createElement('img');
-                photo.src = URL.createObjectURL(photoBlob);
-                photo.className = 'preview-photo-img';
-                photo.style.left = `${hole.x * scale}px`;
-                photo.style.top = `${hole.y * scale}px`;
-                photo.style.width = `${hole.w * scale}px`;
-                photo.style.height = `${hole.h * scale}px`;
-                photo.draggable = true;
-                photo.addEventListener('dragstart', (e) => {
-                    const originalIndex = capturedPhotos.findIndex(p => p === photoBlob);
-                    e.dataTransfer.setData('text/plain', originalIndex);
-                });
-                photo.addEventListener('click', () => handleHoleSelection(photo, holeIndex));
-                photo.addEventListener('dragover', (e) => e.preventDefault());
-                photo.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    const draggedPhotoIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-                    handleSwap(holeIndex, draggedPhotoIndex);
-                });
-                previewContainer.appendChild(photo);
-            });
-        };
-        previewContainer.appendChild(templateImg);
-    }
-
-    function handleHoleSelection(element, holeIndex) {
-        if (selectedHole.element) {
-            selectedHole.element.classList.remove('selected');
-        }
-        selectedHole = { element, index: holeIndex };
-        element.classList.add('selected');
-    }
-
-    function handlePhotoSelection(photoIndex) {
-        if (selectedHole.index === -1) return;
-        handleSwap(selectedHole.index, photoIndex);
-    }
-
-    function handleSwap(holeIndex, photoIndex) {
-        const photoToMove = capturedPhotos[photoIndex];
-        const photoToReplace = photoAssignments[holeIndex];
-        const originalPositionOfReplaced = photoAssignments.findIndex(p => p === photoToMove);
-        if (originalPositionOfReplaced !== -1) {
-            photoAssignments[originalPositionOfReplaced] = photoToReplace;
-        }
-        photoAssignments[holeIndex] = photoToMove;
-        if (selectedHole.element) {
-            selectedHole.element.classList.remove('selected');
-        }
-        selectedHole = { element: null, index: -1 };
-        renderPreview();
-    }
-
-    // --- 4. FINAL COMPOSITION ---
-    async function handleComposition() {
-        const statusP = document.querySelector('#review-screen > p');
-        statusP.textContent = '사진을 합성하는 중입니다... 잠시만 기다려주세요.';
-        finalizeBtn.disabled = true;
-        const formData = new FormData();
-        formData.append('template_path', templateInfo.template_path);
-        formData.append('holes', JSON.stringify(templateInfo.holes));
-        photoAssignments.forEach((blob, index) => {
-            formData.append('photos', blob, `photo_${index}.jpg`);
-        });
+    function showReviewScreen() { appContent.style.display = 'none'; reviewScreen.style.display = 'block'; photoAssignments = [...capturedPhotos]; placedStickers = []; renderReviewThumbnails(); renderPreview(); loadStickerGallery(); }
+    function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
+    function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); p.addEventListener('dragover', (e) => e.preventDefault()); p.addEventListener('drop', (e) => {
+        e.preventDefault();
         try {
-            const response = await fetch('/compose_image', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error((await response.json()).detail);
-            const result = await response.json();
-            displayFinalResult(result);
-        } catch (error) {
-            console.error('Error:', error);
-            statusP.textContent = `합성 중 오류가 발생했습니다: ${error.message}`;
-            finalizeBtn.disabled = false;
+            const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
+            const previewRect = p.getBoundingClientRect();
+            const templateImg = p.querySelector('.preview-template-img');
+            const scale = templateImg.naturalWidth / p.offsetWidth;
+
+            const stickerImg = new Image();
+            stickerImg.onload = () => {
+                const maxDim = 150;
+                let w, h;
+                if (stickerImg.naturalWidth > stickerImg.naturalHeight) {
+                    w = maxDim;
+                    h = (stickerImg.naturalHeight / stickerImg.naturalWidth) * maxDim;
+                } else {
+                    h = maxDim;
+                    w = (stickerImg.naturalWidth / stickerImg.naturalHeight) * maxDim;
+                }
+
+                const x = (e.clientX - previewRect.left - (w / 2)) * scale;
+                const y = (e.clientY - previewRect.top - (h / 2)) * scale;
+
+                placedStickers.push({
+                    id: Date.now(),
+                    path: stickerData.sticker_path,
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    width: Math.round(w),
+                    height: Math.round(h),
+                    rotation: 0
+                });
+                renderPlacedStickers();
+            };
+            stickerImg.src = stickerData.sticker_path;
+        } catch (err) {
+            console.error("Failed to handle sticker drop:", err);
         }
+    }); }
+    function renderPhotoAssignments() { const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); if (!t || !t.naturalWidth) return; const s = p.offsetWidth / t.naturalWidth; document.querySelectorAll('.preview-photo-img').forEach(i => i.remove()); photoAssignments.forEach((b, hIdx) => { const h = templateInfo.holes[hIdx], i = document.createElement('img'); i.src = URL.createObjectURL(b); i.className = 'preview-photo-img'; i.style.left = `${h.x*s}px`; i.style.top = `${h.y*s}px`; i.style.width = `${h.w*s}px`; i.style.height = `${h.h*s}px`; i.draggable = true; i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); i.addEventListener('click', () => handleHoleSelection(i, hIdx)); i.addEventListener('dragover', (e) => e.preventDefault()); i.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); try { const dIdx = parseInt(e.dataTransfer.getData('text/plain'), 10); if (!isNaN(dIdx)) handleSwap(hIdx, dIdx); } catch (err) {} }); p.appendChild(i); }); }
+    function renderPlacedStickers() {
+        document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
+        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
+        if (!t || !t.naturalWidth) return;
+        const s = p.offsetWidth / t.naturalWidth;
+        placedStickers.forEach(d => {
+            const w = document.createElement('div');
+            w.className = 'placed-sticker-wrapper';
+            if (activeSticker.data && activeSticker.data.id === d.id) {
+                w.classList.add('active');
+            }
+            w.style.position = 'absolute';
+            w.style.left = `${d.x*s}px`;
+            w.style.top = `${d.y*s}px`;
+            w.style.width = `${d.width*s}px`;
+            w.style.height = `${d.height*s}px`;
+            w.style.transform = `rotate(${d.rotation}deg)`;
+            const i = document.createElement('img');
+            i.src = d.path;
+            i.style.width = '100%';
+            i.style.height = '100%';
+            w.addEventListener('mousedown', (e) => handleStickerMouseDown(e, d, w), false);
+            w.appendChild(i);
+
+            if (activeSticker.data && activeSticker.data.id === d.id) {
+                const selectionBox = document.createElement('div');
+                selectionBox.className = 'selection-box';
+                w.appendChild(selectionBox);
+
+                const handles = ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'];
+                handles.forEach(handle => {
+                    const handleEl = document.createElement('div');
+                    handleEl.className = `resize-handle ${handle}`;
+                    handleEl.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        activeSticker.action = `resize-${handle}`;
+                        dragStart = { x: e.clientX, y: e.clientY, initialX: d.x, initialY: d.y, initialW: d.width, initialH: d.height };
+                    });
+                    w.appendChild(handleEl);
+                });
+            }
+
+            p.appendChild(w);
+        });
+    }
+    function handleStickerMouseDown(e, data, el) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!activeSticker.data || activeSticker.data.id !== data.id) {
+            activeSticker = { element: el, data: data, action: 'move' };
+            renderPlacedStickers();
+        } else {
+            activeSticker.action = 'move';
+        }
+        dragStart = { x: e.clientX, y: e.clientY, initialX: data.x, initialY: data.y };
     }
 
-    function displayFinalResult(result) {
-        reviewScreen.style.display = 'none';
-        resultScreen.style.display = 'block';
-        const { result_path, qr_code_path } = result;
-        document.getElementById('result-title').textContent = '완성!';
-        document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.';
-        const resultDisplay = document.getElementById('result-display');
-        resultDisplay.innerHTML = '';
-        const resultImage = document.createElement('img');
-        resultImage.src = result_path;
-        resultImage.style.maxWidth = '100%';
-        resultDisplay.appendChild(resultImage);
-        const downloadContainer = document.createElement('div');
-        downloadContainer.style.marginTop = '20px';
-        const pcDownloadLink = document.createElement('a');
-        pcDownloadLink.href = result_path;
-        pcDownloadLink.download = 'photobooth_result.png';
-        const pcDownloadButton = document.createElement('button');
-        pcDownloadButton.textContent = 'PC에 다운로드';
-        pcDownloadLink.appendChild(pcDownloadButton);
-        downloadContainer.appendChild(pcDownloadLink);
-        if (qr_code_path) {
-            const qrContainer = document.createElement('div');
-            qrContainer.style.marginTop = '10px';
-            qrContainer.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>';
-            const qrImage = document.createElement('img');
-            qrImage.src = qr_code_path;
-            qrImage.style.width = '150px';
-            qrContainer.appendChild(qrImage);
-            downloadContainer.appendChild(qrContainer);
+    document.getElementById('review-preview').addEventListener('click', (e) => {
+        if (e.target.id === 'review-preview') {
+            if (activeSticker.data) {
+                activeSticker = { element: null, data: null, action: null };
+                renderPlacedStickers();
+            }
         }
-        resultDisplay.appendChild(downloadContainer);
+    });
+    function handleStickerMove(e) {
+        if (!activeSticker.action) return;
+        e.preventDefault();
+        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
+        if (!t || !t.naturalWidth) return;
+        const s = t.naturalWidth / p.offsetWidth;
+        const dX = (e.clientX - dragStart.x) * s;
+        const dY = (e.clientY - dragStart.y) * s;
+
+        const sticker = activeSticker.data;
+        const initialRatio = dragStart.initialW / dragStart.initialH;
+
+        if (activeSticker.action === 'move') {
+            sticker.x = Math.round(dragStart.initialX + dX);
+            sticker.y = Math.round(dragStart.initialY + dY);
+        } else if (activeSticker.action.startsWith('resize-')) {
+            const handle = activeSticker.action.split('-')[1];
+            if (handle.includes('e')) {
+                sticker.width = Math.round(Math.max(20, dragStart.initialW + dX));
+            }
+            if (handle.includes('s')) {
+                sticker.height = Math.round(Math.max(20, dragStart.initialH + dY));
+            }
+            if (handle.includes('w')) {
+                sticker.width = Math.round(Math.max(20, dragStart.initialW - dX));
+                sticker.x = dragStart.initialX + dX;
+            }
+            if (handle.includes('n')) {
+                sticker.height = Math.round(Math.max(20, dragStart.initialH - dY));
+                sticker.y = dragStart.initialY + dY;
+            }
+
+            // Maintain aspect ratio for corner handles
+            if (handle.length === 2) {
+                if (Math.abs(sticker.width / sticker.height - initialRatio) > 0.01) {
+                    if (handle.includes('e') || handle.includes('w')) {
+                        sticker.height = Math.round(sticker.width / initialRatio);
+                    } else {
+                        sticker.width = Math.round(sticker.height * initialRatio);
+                    }
+                }
+                 if (handle.includes('n')) {
+                    sticker.y = dragStart.initialY + (dragStart.initialH - sticker.height);
+                }
+                if (handle.includes('w')) {
+                    sticker.x = dragStart.initialX + (dragStart.initialW - sticker.width);
+                }
+            }
+        }
+
+        renderPlacedStickers();
     }
+
+    function handleStickerMouseUp() {
+        if (activeSticker.action) {
+            activeSticker.action = null;
+        }
+    }
+    function handleHoleSelection(el, hIdx) { if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: el, index: hIdx }; el.classList.add('selected'); }
+    function handlePhotoSelection(pIdx) { if (selectedHole.index === -1) return; handleSwap(selectedHole.index, pIdx); }
+    function handleSwap(hIdx, pIdx) { const ptm = capturedPhotos[pIdx], ptr = photoAssignments[hIdx], opor = photoAssignments.findIndex(p => p === ptm); if (opor !== -1) photoAssignments[opor] = ptr; photoAssignments[hIdx] = ptm; if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: null, index: -1 }; renderPreview(); }
+    
+    // --- 4. FINAL COMPOSITION ---
+    async function handleComposition() { finalizeBtn.disabled = true; const d = new FormData(); d.append('template_path', templateInfo.template_path); d.append('holes', JSON.stringify(templateInfo.holes)); d.append('stickers', JSON.stringify(placedStickers)); photoAssignments.forEach((b, i) => { d.append('photos', b, `photo_${i}.jpg`); }); try { const r = await fetch('/compose_image', { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); const j = await r.json(); displayFinalResult(j); } catch (e) { console.error(e); finalizeBtn.disabled = false; } }
+    function displayFinalResult(result) { reviewScreen.style.display = 'none'; resultScreen.style.display = 'block'; const { result_path, qr_code_path } = result; document.getElementById('result-title').textContent = '완성!'; document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.'; const d = document.getElementById('result-display'); d.innerHTML = ''; const i = document.createElement('img'); i.src = result_path; i.style.maxWidth = '100%'; d.appendChild(i); const c = document.createElement('div'); c.style.marginTop = '20px'; const a = document.createElement('a'); a.href = result_path; a.download = 'photobooth_result.png'; const b = document.createElement('button'); b.textContent = 'PC에 다운로드'; a.appendChild(b); c.appendChild(a); if (qr_code_path) { const q = document.createElement('div'); q.style.marginTop = '10px'; q.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>'; const qi = document.createElement('img'); qi.src = qr_code_path; qi.style.width = '150px'; q.appendChild(qi); c.appendChild(q); } d.appendChild(c); }
 
     // --- START THE APP ---
     initApp();

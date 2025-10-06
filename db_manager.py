@@ -22,6 +22,12 @@ class DatabaseManager:
                     holes TEXT NOT NULL
                 )
             ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS stickers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sticker_path TEXT NOT NULL
+                )
+            ''')
             conn.commit()
 
     def get_all_templates(self):
@@ -46,5 +52,24 @@ class DatabaseManager:
             cursor.execute(
                 "INSERT INTO templates (template_path, hole_count, holes) VALUES (?, ?, ?)",
                 (template_path, hole_count, holes_json)
+            )
+            conn.commit()
+    
+    def get_all_stickers(self):
+        """Fetches all stickers from the database."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM stickers ORDER BY id DESC")
+            stickers = [dict(row) for row in cursor.fetchall()]
+        return stickers
+
+    def add_sticker(self, sticker_path):
+        """Adds a new sticker record to the database."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO stickers (sticker_path) VALUES (?)",
+                (sticker_path,)
             )
             conn.commit()

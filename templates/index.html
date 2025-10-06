@@ -38,7 +38,14 @@
             <h2>사진 검토 및 수정</h2>
             <p>왼쪽 목록에서 사진을 선택한 후, 오른쪽에서 바꿀 위치를 클릭하세요.</p>
             <div class="review-container">
-                <div id="review-thumbnails" class="gallery-container"></div>
+                <div id="review-left-col">
+                    <h3>촬영된 사진</h3>
+                    <div id="review-thumbnails" class="gallery-container"></div>
+                    <hr>
+                    <h3>스티커</h3>
+                    <div id="sticker-gallery" class="gallery-container"></div>
+                    <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
+                </div>
                 <div id="review-preview" class="preview-container"></div>
             </div>
             <button id="finalize-btn">최종 완료</button>
