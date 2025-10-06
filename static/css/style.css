@@ -302,6 +302,23 @@ button:hover {
     border-color: #007bff;
 }
 
+#filter-controls {
+    margin-top: 1rem;
+}
+
+.filter-slider {
+    margin-bottom: 0.5rem;
+}
+
+.filter-slider label {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.filter-slider input[type="range"] {
+    width: 100%;
+}
+
 #upload-area {
     width: 100%;
     padding: 2rem;

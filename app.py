@@ -134,10 +134,47 @@ async def upload_sticker(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading sticker: {e}")
 
+def apply_filters(image, filters):
+    brightness = int(filters.get('brightness', 100))
+    contrast = int(filters.get('contrast', 100))
+    saturate = int(filters.get('saturate', 100))
+
+    # Convert to float32 for calculations
+    img_float = image.astype(np.float32)
+
+    # Apply Brightness (as a multiplier, like CSS)
+    brightness_factor = brightness / 100.0
+    img_float = img_float * brightness_factor
+
+    # Apply Contrast (adjusting difference from mid-gray)
+    contrast_factor = contrast / 100.0
+    if contrast_factor != 1.0:
+        mean = np.array([128, 128, 128], dtype=np.float32)
+        img_float = mean + contrast_factor * (img_float - mean)
+
+    # Clip after brightness and contrast
+    img_float = np.clip(img_float, 0, 255)
+
+    # Convert back to uint8 for saturation processing
+    image = img_float.astype(np.uint8)
+
+    # Apply Saturation
+    if saturate != 100:
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV).astype(np.float32)
+        h, s, v = cv2.split(hsv)
+        saturation_factor = saturate / 100.0
+        s = s * saturation_factor
+        s = np.clip(s, 0, 255)
+        final_hsv = cv2.merge([h, s, v])
+        image = cv2.cvtColor(final_hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+    return image
+
 @app.post("/compose_image")
-async def compose_image(request: Request, template_path: str = Form(...), holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...)):
+async def compose_image(request: Request, template_path: str = Form(...), holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...)):
     try:
         hole_data = json.loads(holes)
+        filter_data = json.loads(filters)
         base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
@@ -147,7 +184,8 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
             photo_content = await photo_file.read()
             nparr = np.frombuffer(photo_content, np.uint8)
             photo_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            resized_photo = cv2.resize(photo_img, (hole['w'], hole['h']))
+            filtered_photo = apply_filters(photo_img, filter_data)
+            resized_photo = cv2.resize(filtered_photo, (hole['w'], hole['h']))
             canvas[hole['y']:hole['y']+hole['h'], hole['x']:hole['x']+hole['w']] = resized_photo
         template_bgr = template_img[:, :, 0:3]
         alpha_channel = template_img[:, :, 3] / 255.0

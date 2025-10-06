@@ -65,6 +65,22 @@
                     <h3>스티커</h3>
                     <div id="sticker-gallery" class="gallery-container"></div>
                     <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
+                    <hr>
+                    <h3>필터</h3>
+                    <div id="filter-controls">
+                        <div class="filter-slider">
+                            <label for="brightness">밝기</label>
+                            <input type="range" id="brightness" data-filter="brightness" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="contrast">대비</label>
+                            <input type="range" id="contrast" data-filter="contrast" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="saturation">채도</label>
+                            <input type="range" id="saturation" data-filter="saturate" min="0" max="200" value="100">
+                        </div>
+                    </div>
                 </div>
                 <div id="review-preview" class="preview-container"></div>
             </div>

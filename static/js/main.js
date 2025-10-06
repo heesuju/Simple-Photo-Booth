@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedTimer = 0; // 0 for manual, otherwise seconds
     let isCapturing = false;
     let captureMode = 'camera';
+    let filters = { brightness: 100, contrast: 100, saturate: 100 };
 
     // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoUploadInput = document.getElementById('photo-upload-input');
     const photoUploadBtn = document.getElementById('photo-upload-btn');
     const uploadThumbnailsContainer = document.getElementById('upload-thumbnails-container');
+    const filterControls = document.getElementById('filter-controls');
 
     // === INITIALIZATION ===
     function initApp() {
@@ -56,6 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         photoUploadBtn.addEventListener('click', () => photoUploadInput.click());
         photoUploadInput.addEventListener('change', handlePhotoUpload);
+        filterControls.addEventListener('input', (e) => {
+            if (e.target.type === 'range') {
+                filters[e.target.dataset.filter] = e.target.value;
+                applyPhotoFilters();
+            }
+        });
         finalizeBtn.addEventListener('click', handleComposition);
         window.addEventListener('mousemove', handleStickerMove);
         window.addEventListener('mouseup', handleStickerMouseUp);
@@ -224,6 +232,13 @@ document.addEventListener('DOMContentLoaded', () => {
         photoUploadInput.value = null; // Reset file input
     }
 
+    function applyPhotoFilters() {
+        const filterString = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
+        document.querySelectorAll('.preview-photo-img').forEach(img => {
+            img.style.filter = filterString;
+        });
+    }
+
     async function startPhotoSession() { 
         mainMenu.style.display = 'none'; 
         appContent.style.display = 'block'; 
@@ -256,7 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
 
     // --- 3. REVIEW & EDIT ---
-    function showReviewScreen() { appContent.style.display = 'none'; reviewScreen.style.display = 'block'; photoAssignments = [...capturedPhotos]; placedStickers = []; renderReviewThumbnails(); renderPreview(); loadStickerGallery(); }
+    function showReviewScreen() { 
+        appContent.style.display = 'none'; 
+        reviewScreen.style.display = 'block'; 
+        photoAssignments = [...capturedPhotos]; 
+        placedStickers = []; 
+        filters = { brightness: 100, contrast: 100, saturate: 100 };
+        document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
+            slider.value = 100;
+        });
+        renderReviewThumbnails(); 
+        renderPreview(); 
+        loadStickerGallery(); 
+    }
     function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
     function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); }
     function renderPhotoAssignments() { const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); if (!t || !t.naturalWidth) return; const s = p.offsetWidth / t.naturalWidth; document.querySelectorAll('.preview-photo-img').forEach(i => i.remove()); photoAssignments.forEach((b, hIdx) => { const h = templateInfo.holes[hIdx], i = document.createElement('img'); i.src = URL.createObjectURL(b); i.className = 'preview-photo-img'; i.style.left = `${h.x*s}px`; i.style.top = `${h.y*s}px`; i.style.width = `${h.w*s}px`; i.style.height = `${h.h*s}px`; i.draggable = true; i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); i.addEventListener('click', () => handleHoleSelection(i, hIdx)); i.addEventListener('dragover', (e) => e.preventDefault()); i.addEventListener('drop', (e) => { 
@@ -268,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleSwap(hIdx, dIdx); 
             } 
         } catch (err) {} 
-    }); p.appendChild(i); }); }
+    }); p.appendChild(i); }); applyPhotoFilters(); }
     function renderPlacedStickers() {
         document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
         const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
@@ -427,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSwap(hIdx, pIdx) { const ptm = capturedPhotos[pIdx], ptr = photoAssignments[hIdx], opor = photoAssignments.findIndex(p => p === ptm); if (opor !== -1) photoAssignments[opor] = ptr; photoAssignments[hIdx] = ptm; if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: null, index: -1 }; renderPreview(); }
     
     // --- 4. FINAL COMPOSITION ---
-    async function handleComposition() { finalizeBtn.disabled = true; const d = new FormData(); d.append('template_path', templateInfo.template_path); d.append('holes', JSON.stringify(templateInfo.holes)); d.append('stickers', JSON.stringify(placedStickers)); photoAssignments.forEach((b, i) => { d.append('photos', b, `photo_${i}.jpg`); }); try { const r = await fetch('/compose_image', { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); const j = await r.json(); displayFinalResult(j); } catch (e) { console.error(e); finalizeBtn.disabled = false; } }
+    async function handleComposition() { finalizeBtn.disabled = true; const d = new FormData(); d.append('template_path', templateInfo.template_path); d.append('holes', JSON.stringify(templateInfo.holes)); d.append('stickers', JSON.stringify(placedStickers)); d.append('filters', JSON.stringify(filters)); photoAssignments.forEach((b, i) => { d.append('photos', b, `photo_${i}.jpg`); }); try { const r = await fetch('/compose_image', { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); const j = await r.json(); displayFinalResult(j); } catch (e) { console.error(e); finalizeBtn.disabled = false; } }
     function displayFinalResult(result) { reviewScreen.style.display = 'none'; resultScreen.style.display = 'block'; const { result_path, qr_code_path } = result; document.getElementById('result-title').textContent = '완성!'; document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.'; const d = document.getElementById('result-display'); d.innerHTML = ''; const i = document.createElement('img'); i.src = result_path; i.style.maxWidth = '100%'; d.appendChild(i); const c = document.createElement('div'); c.style.marginTop = '20px'; const a = document.createElement('a'); a.href = result_path; a.download = 'photobooth_result.png'; const b = document.createElement('button'); b.textContent = 'PC에 다운로드'; a.appendChild(b); c.appendChild(a); if (qr_code_path) { const q = document.createElement('div'); q.style.marginTop = '10px'; q.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>'; const qi = document.createElement('img'); qi.src = qr_code_path; qi.style.width = '150px'; q.appendChild(qi); c.appendChild(q); } d.appendChild(c); }
 
     // --- START THE APP ---
