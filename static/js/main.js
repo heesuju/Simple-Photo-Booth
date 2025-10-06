@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultScreen = document.getElementById('result-screen');
     const templateUploadInput = document.getElementById('template-upload-input');
     const stickerUploadInput = document.getElementById('sticker-upload-input');
+    const addTemplateFloatBtn = document.getElementById('add-template-float-btn');
     const continueBtn = document.getElementById('continue-btn');
     const finalizeBtn = document.getElementById('finalize-btn');
 
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function initApp() {
         templateUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_template', loadTemplateGallery));
         stickerUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_sticker', loadStickerGallery));
+        addTemplateFloatBtn.addEventListener('click', () => templateUploadInput.click());
         continueBtn.addEventListener('click', () => { if (selectedTemplate.data) { templateInfo = selectedTemplate.data; startPhotoSession(); } });
         document.getElementById('capture-btn').addEventListener('click', handleCapture);
         finalizeBtn.addEventListener('click', handleComposition);
@@ -51,9 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 
     // --- 1. GALLERIES & UPLOADS ---
-    async function loadTemplateGallery() { try { const r = await fetch('/templates'); const d = await r.json(); const c = document.getElementById('template-gallery'); c.innerHTML = ''; d.forEach(t => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = t.template_path; i.appendChild(m); i.addEventListener('click', () => handleTemplateSelection(i, t)); c.appendChild(i); }); const a = document.createElement('div'); a.className = 'add-template-item'; a.textContent = '+'; a.addEventListener('click', () => templateUploadInput.click()); c.appendChild(a); } catch (e) { console.error(e); } }
+    async function loadTemplateGallery() { try { const r = await fetch('/templates'); const d = await r.json(); const c = document.getElementById('template-gallery'); c.innerHTML = ''; d.forEach(t => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = t.template_path; i.appendChild(m); i.addEventListener('click', () => handleTemplateSelection(i, t)); c.appendChild(i); }); } catch (e) { console.error(e); } }
     function handleTemplateSelection(el, data) { if (selectedTemplate.element) { selectedTemplate.element.classList.remove('selected'); } selectedTemplate = { element: el, data: data }; el.classList.add('selected'); continueBtn.style.display = 'block'; }
-    async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); const a = document.createElement('div'); a.className = 'add-template-item'; a.textContent = '+'; a.addEventListener('click', () => stickerUploadInput.click()); c.appendChild(a); } catch (e) { console.error(e); } }
+    async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
     async function handleFileUpload(event, endpoint, callback) { const f = event.target.files[0]; if (!f) return; const d = new FormData(); d.append('file', f); try { const r = await fetch(endpoint, { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); callback(); } catch (e) { console.error(e); } event.target.value = null; }
 
     // --- 2. PHOTO TAKING ---
