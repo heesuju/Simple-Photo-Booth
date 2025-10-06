@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errorData.detail || 'Image composition failed');
             }
             const result = await response.json();
-            displayFinalResult(result.result_path);
+            displayFinalResult(result);
         } catch (error) {
             console.error('Error:', error);
             alert(`합성 중 오류가 발생했습니다: ${error.message}`);
@@ -187,14 +187,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayFinalResult(imagePath) {
+    function displayFinalResult(result) {
+        const { result_path, qr_code_path } = result;
+
         appTitle.textContent = '완성!';
-        appStatus.innerHTML = `이미지가 성공적으로 생성되었습니다. <a href="${imagePath}" download>다운로드</a>`;
-        document.getElementById('photo-booth').innerHTML = '';
+        appStatus.innerHTML = `이미지가 성공적으로 생성되었습니다. <a href="${result_path}" download>PC에 다운로드</a>`;
+        
+        const photoBooth = document.getElementById('photo-booth');
+        photoBooth.innerHTML = ''; // Clear previous content
+
         const resultImage = document.createElement('img');
-        resultImage.src = imagePath;
+        resultImage.src = result_path;
         resultImage.style.maxWidth = '100%';
-        document.getElementById('photo-booth').appendChild(resultImage);
+        resultImage.style.borderRadius = '5px';
+        photoBooth.appendChild(resultImage);
+
+        // Create and display QR code
+        if (qr_code_path) {
+            const qrContainer = document.createElement('div');
+            qrContainer.style.marginTop = '20px';
+            
+            const qrLabel = document.createElement('p');
+            qrLabel.textContent = '모바일에서 다운로드하세요:';
+            qrContainer.appendChild(qrLabel);
+
+            const qrImage = document.createElement('img');
+            qrImage.src = qr_code_path;
+            qrImage.style.width = '150px';
+            qrImage.style.height = '150px';
+            qrContainer.appendChild(qrImage);
+
+            photoBooth.appendChild(qrContainer);
+        }
+
         document.getElementById('action-buttons').style.display = 'none';
     }
 
