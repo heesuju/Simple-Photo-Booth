@@ -31,6 +31,47 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('mousemove', handleStickerMove);
         window.addEventListener('mouseup', handleStickerMouseUp);
         window.addEventListener('resize', debouncedRender); // Add this line
+        document.getElementById('review-preview').addEventListener('dragover', (e) => e.preventDefault());
+        document.getElementById('review-preview').addEventListener('drop', (e) => {
+            e.preventDefault();
+            try {
+                const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
+                const p = document.getElementById('review-preview');
+                const previewRect = p.getBoundingClientRect();
+                const templateImg = p.querySelector('.preview-template-img');
+                const scale = templateImg.naturalWidth / p.offsetWidth;
+
+                const stickerImg = new Image();
+                stickerImg.onload = () => {
+                    const maxDim = 150;
+                    let w, h;
+                    if (stickerImg.naturalWidth > stickerImg.naturalHeight) {
+                        w = maxDim;
+                        h = (stickerImg.naturalHeight / stickerImg.naturalWidth) * maxDim;
+                    } else {
+                        h = maxDim;
+                        w = (stickerImg.naturalWidth / stickerImg.naturalHeight) * maxDim;
+                    }
+
+                    const x = (e.clientX - previewRect.left - (w / 2)) * scale;
+                    const y = (e.clientY - previewRect.top - (h / 2)) * scale;
+
+                    placedStickers.push({
+                        id: Date.now(),
+                        path: stickerData.sticker_path,
+                        x: Math.round(x),
+                        y: Math.round(y),
+                        width: Math.round(w),
+                        height: Math.round(h),
+                        rotation: 0
+                    });
+                    renderPlacedStickers();
+                };
+                stickerImg.src = stickerData.sticker_path;
+            } catch (err) {
+                // This is not a sticker drop, so we can ignore the error
+            }
+        });
         loadTemplateGallery();
     }
 
@@ -66,46 +107,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 3. REVIEW & EDIT ---
     function showReviewScreen() { appContent.style.display = 'none'; reviewScreen.style.display = 'block'; photoAssignments = [...capturedPhotos]; placedStickers = []; renderReviewThumbnails(); renderPreview(); loadStickerGallery(); }
     function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
-    function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); p.addEventListener('dragover', (e) => e.preventDefault()); p.addEventListener('drop', (e) => {
-        e.preventDefault();
-        try {
-            const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
-            const previewRect = p.getBoundingClientRect();
-            const templateImg = p.querySelector('.preview-template-img');
-            const scale = templateImg.naturalWidth / p.offsetWidth;
-
-            const stickerImg = new Image();
-            stickerImg.onload = () => {
-                const maxDim = 150;
-                let w, h;
-                if (stickerImg.naturalWidth > stickerImg.naturalHeight) {
-                    w = maxDim;
-                    h = (stickerImg.naturalHeight / stickerImg.naturalWidth) * maxDim;
-                } else {
-                    h = maxDim;
-                    w = (stickerImg.naturalWidth / stickerImg.naturalHeight) * maxDim;
-                }
-
-                const x = (e.clientX - previewRect.left - (w / 2)) * scale;
-                const y = (e.clientY - previewRect.top - (h / 2)) * scale;
-
-                placedStickers.push({
-                    id: Date.now(),
-                    path: stickerData.sticker_path,
-                    x: Math.round(x),
-                    y: Math.round(y),
-                    width: Math.round(w),
-                    height: Math.round(h),
-                    rotation: 0
-                });
-                renderPlacedStickers();
-            };
-            stickerImg.src = stickerData.sticker_path;
-        } catch (err) {
-            console.error("Failed to handle sticker drop:", err);
-        }
-    }); }
-    function renderPhotoAssignments() { const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); if (!t || !t.naturalWidth) return; const s = p.offsetWidth / t.naturalWidth; document.querySelectorAll('.preview-photo-img').forEach(i => i.remove()); photoAssignments.forEach((b, hIdx) => { const h = templateInfo.holes[hIdx], i = document.createElement('img'); i.src = URL.createObjectURL(b); i.className = 'preview-photo-img'; i.style.left = `${h.x*s}px`; i.style.top = `${h.y*s}px`; i.style.width = `${h.w*s}px`; i.style.height = `${h.h*s}px`; i.draggable = true; i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); i.addEventListener('click', () => handleHoleSelection(i, hIdx)); i.addEventListener('dragover', (e) => e.preventDefault()); i.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); try { const dIdx = parseInt(e.dataTransfer.getData('text/plain'), 10); if (!isNaN(dIdx)) handleSwap(hIdx, dIdx); } catch (err) {} }); p.appendChild(i); }); }
+    function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); }
+    function renderPhotoAssignments() { const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img'); if (!t || !t.naturalWidth) return; const s = p.offsetWidth / t.naturalWidth; document.querySelectorAll('.preview-photo-img').forEach(i => i.remove()); photoAssignments.forEach((b, hIdx) => { const h = templateInfo.holes[hIdx], i = document.createElement('img'); i.src = URL.createObjectURL(b); i.className = 'preview-photo-img'; i.style.left = `${h.x*s}px`; i.style.top = `${h.y*s}px`; i.style.width = `${h.w*s}px`; i.style.height = `${h.h*s}px`; i.draggable = true; i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); i.addEventListener('click', () => handleHoleSelection(i, hIdx)); i.addEventListener('dragover', (e) => e.preventDefault()); i.addEventListener('drop', (e) => { 
+        e.preventDefault(); 
+        try { 
+            const dIdx = parseInt(e.dataTransfer.getData('text/plain'), 10); 
+            if (!isNaN(dIdx)) { 
+                e.stopPropagation(); 
+                handleSwap(hIdx, dIdx); 
+            } 
+        } catch (err) {} 
+    }); p.appendChild(i); }); }
     function renderPlacedStickers() {
         document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
         const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
