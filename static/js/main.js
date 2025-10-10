@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === INITIALIZATION ===
     function initApp() {
-        templateUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_template', loadTemplateGallery));
+        templateUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_template', loadLayoutGallery));
         stickerUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_sticker', loadStickerGallery));
         addTemplateFloatBtn.addEventListener('click', () => templateUploadInput.click());
         continueBtn.addEventListener('click', () => { if (selectedTemplate.data) { templateInfo = selectedTemplate.data; startPhotoSession(); } });
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // This is not a sticker drop, so we can ignore the error
             }
         });
-        loadTemplateGallery();
+        loadLayoutGallery();
     }
 
     // --- DEBOUNCE HELPER ---
@@ -152,8 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 
     // --- 1. GALLERIES & UPLOADS ---
-    async function loadTemplateGallery() { try { const r = await fetch('/templates'); const d = await r.json(); const c = document.getElementById('template-gallery'); c.innerHTML = ''; d.forEach(t => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = t.template_path; i.appendChild(m); i.addEventListener('click', () => handleTemplateSelection(i, t)); c.appendChild(i); }); } catch (e) { console.error(e); } }
-    function handleTemplateSelection(el, data) { if (selectedTemplate.element) { selectedTemplate.element.classList.remove('selected'); } selectedTemplate = { element: el, data: data }; el.classList.add('selected'); continueBtn.style.display = 'block'; }
+    async function loadLayoutGallery() { try { const r = await fetch('/layouts'); const d = await r.json(); const c = document.getElementById('layout-gallery'); c.innerHTML = ''; d.forEach(l => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = l.thumbnail_path; i.appendChild(m); const p = document.createElement('p'); p.innerHTML = `${l.cell_layout}<br>${l.aspect_ratio}`; i.appendChild(p); i.addEventListener('click', () => handleLayoutSelection(i, l)); c.appendChild(i); }); } catch (e) { console.error(e); } }
+    function handleLayoutSelection(el, data) { if (selectedTemplate.element) { selectedTemplate.element.classList.remove('selected'); } selectedTemplate = { element: el, data: data }; el.classList.add('selected'); continueBtn.style.display = 'block'; }
     async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
     async function handleFileUpload(event, endpoint, callback) { const f = event.target.files[0]; if (!f) return; const d = new FormData(); d.append('file', f); try { const r = await fetch(endpoint, { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); callback(); } catch (e) { console.error(e); } event.target.value = null; }
 
@@ -341,8 +341,29 @@ document.addEventListener('DOMContentLoaded', () => {
         renderReviewThumbnails(); 
         renderPreview(); 
         loadStickerGallery(); 
+        loadSimilarTemplates();
     }
     function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
+    async function loadSimilarTemplates() { 
+        const { aspect_ratio, cell_layout } = templateInfo; 
+        try { 
+            const r = await fetch(`/templates_by_layout?aspect_ratio=${aspect_ratio}&cell_layout=${cell_layout}`); 
+            const d = await r.json(); 
+            const c = document.getElementById('template-gallery-review'); 
+            c.innerHTML = ''; 
+            d.forEach(t => { 
+                const i = document.createElement('div'); 
+                i.className = 'template-item'; 
+                const m = document.createElement('img'); 
+                m.src = t.template_path; 
+                i.appendChild(m); 
+                i.addEventListener('click', () => handleTemplateChange(t)); 
+                c.appendChild(i); 
+            }); 
+        } catch (e) { 
+            console.error(e); 
+        } 
+    }
     function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); }
     function getPreviewScaling() {
         const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
@@ -575,6 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleHoleSelection(el, hIdx) { if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: el, index: hIdx }; el.classList.add('selected'); }
     function handlePhotoSelection(pIdx) { if (selectedHole.index === -1) return; handleSwap(selectedHole.index, pIdx); }
     function handleSwap(hIdx, pIdx) { const ptm = capturedPhotos[pIdx], ptr = photoAssignments[hIdx], opor = photoAssignments.findIndex(p => p === ptm); if (opor !== -1) photoAssignments[opor] = ptr; photoAssignments[hIdx] = ptm; if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: null, index: -1 }; renderPreview(); }
+    function handleTemplateChange(newTemplate) { templateInfo = newTemplate; renderPreview(); }
     
     // --- 4. FINAL COMPOSITION ---
     async function handleComposition() { finalizeBtn.disabled = true; const d = new FormData(); d.append('template_path', templateInfo.template_path); d.append('holes', JSON.stringify(templateInfo.holes)); d.append('stickers', JSON.stringify(placedStickers)); d.append('filters', JSON.stringify(filters)); photoAssignments.forEach((b, i) => { d.append('photos', b, `photo_${i}.jpg`); }); try { const r = await fetch('/compose_image', { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); const j = await r.json(); displayFinalResult(j); } catch (e) { console.error(e); finalizeBtn.disabled = false; } }

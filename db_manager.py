@@ -19,7 +19,9 @@ class DatabaseManager:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     template_path TEXT NOT NULL,
                     hole_count INTEGER NOT NULL,
-                    holes TEXT NOT NULL
+                    holes TEXT NOT NULL,
+                    aspect_ratio TEXT NOT NULL,
+                    cell_layout TEXT NOT NULL
                 )
             ''')
             cursor.execute('''
@@ -44,16 +46,52 @@ class DatabaseManager:
                 t['holes'] = json.loads(t['holes'])
         return templates
 
-    def add_template(self, template_path, hole_count, holes):
+    def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout):
         """Adds a new template record to the database."""
         holes_json = json.dumps(holes)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO templates (template_path, hole_count, holes) VALUES (?, ?, ?)",
-                (template_path, hole_count, holes_json)
+                "INSERT INTO templates (template_path, hole_count, holes, aspect_ratio, cell_layout) VALUES (?, ?, ?, ?, ?)",
+                (template_path, hole_count, holes_json, aspect_ratio, cell_layout)
             )
             conn.commit()
+
+    def get_layouts(self):
+        """Fetches distinct layouts (aspect_ratio and cell_layout) from the database."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT aspect_ratio, cell_layout FROM templates")
+            layouts = [dict(row) for row in cursor.fetchall()]
+        return layouts
+
+    def get_template_by_layout(self, aspect_ratio, cell_layout):
+        """Fetches a single template that matches the given layout."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM templates WHERE aspect_ratio = ? AND cell_layout = ? LIMIT 1", (aspect_ratio, cell_layout))
+            template = dict(cursor.fetchone())
+
+        # Decode the JSON string for holes
+        if template and template.get('holes'):
+            template['holes'] = json.loads(template['holes'])
+        return template
+
+    def get_templates_by_layout(self, aspect_ratio, cell_layout):
+        """Fetches all templates that match the given layout."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM templates WHERE aspect_ratio = ? AND cell_layout = ?", (aspect_ratio, cell_layout))
+            templates = [dict(row) for row in cursor.fetchall()]
+        
+        # Decode the JSON string for holes for each template
+        for t in templates:
+            if t.get('holes'):
+                t['holes'] = json.loads(t['holes'])
+        return templates
     
     def get_all_stickers(self):
         """Fetches all stickers from the database."""

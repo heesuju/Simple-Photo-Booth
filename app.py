@@ -16,6 +16,12 @@ from contextlib import asynccontextmanager
 
 from db_manager import DatabaseManager
 
+def gcd(a, b):
+    while b:
+        a, b = b, a % b
+    return a
+
+
 # --- App and DB Configuration ---
 PORT = 8000
 DATABASE = 'photobooth.db'
@@ -70,9 +76,77 @@ async def read_root():
         raise HTTPException(status_code=404, detail="index.html not found")
 
 # --- API Endpoints ---
-@app.get("/templates")
-async def get_templates(request: Request):
-    return JSONResponse(content=request.app.state.db_manager.get_all_templates())
+@app.get("/layouts")
+async def get_layouts(request: Request):
+    layouts = request.app.state.db_manager.get_layouts()
+    
+    # Create a directory for generated layout thumbnails if it doesn't exist
+    layout_thumbnail_dir = "static/layouts"
+    os.makedirs(layout_thumbnail_dir, exist_ok=True)
+
+    for layout in layouts:
+        thumbnail_path = generate_layout_thumbnail(layout['aspect_ratio'], layout['cell_layout'], layout_thumbnail_dir)
+        layout['thumbnail_path'] = thumbnail_path
+        
+        # Find a template that matches the layout to get the holes info
+        template = request.app.state.db_manager.get_template_by_layout(layout['aspect_ratio'], layout['cell_layout'])
+        if template:
+            layout['template_path'] = template['template_path']
+            layout['holes'] = template['holes']
+            layout['hole_count'] = template['hole_count']
+        else:
+            # Handle case where no matching template is found, though this should ideally not happen
+            layout['template_path'] = None
+            layout['holes'] = []
+            layout['hole_count'] = 0
+
+    return JSONResponse(content=layouts)
+
+def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
+    # Generate a unique filename for the thumbnail
+    filename = f"{aspect_ratio.replace(':', '_')}_{cell_layout}.png"
+    thumbnail_path = os.path.join(output_dir, filename)
+    
+    # Check if the thumbnail already exists
+    if os.path.exists(thumbnail_path):
+        return f"/{thumbnail_path}"
+
+    # Parse aspect ratio and cell layout
+    try:
+        ar_w, ar_h = map(int, aspect_ratio.split(':'))
+        cols, rows = map(int, cell_layout.split('x'))
+    except ValueError:
+        # Handle cases with invalid format
+        return None
+
+    # Define cell dimensions based on aspect ratio
+    cell_base_dim = 100  # Base dimension for the cell
+    cell_w = cell_base_dim
+    cell_h = int(cell_base_dim * ar_h / ar_w)
+
+    # Define image dimensions based on cell layout and dimensions
+    gap = 10 # Gap between cells
+    img_w = (cell_w * cols) + (gap * (cols + 1))
+    img_h = (cell_h * rows) + (gap * (rows + 1))
+
+    # Create a white canvas
+    canvas = np.full((img_h, img_w, 3), 255, np.uint8)
+
+    # Draw the grid
+    for r in range(rows):
+        for c in range(cols):
+            x = gap + c * (cell_w + gap)
+            y = gap + r * (cell_h + gap)
+            cv2.rectangle(canvas, (x, y), (x + cell_w, y + cell_h), (200, 200, 200), -1) # Gray cells
+
+    # Save the generated image
+    cv2.imwrite(thumbnail_path, canvas)
+    return f"/{thumbnail_path}"
+
+@app.get("/templates_by_layout")
+async def get_templates_by_layout(request: Request, aspect_ratio: str, cell_layout: str):
+    templates = request.app.state.db_manager.get_templates_by_layout(aspect_ratio, cell_layout)
+    return JSONResponse(content=templates)
 
 @app.post("/upload_template")
 async def upload_template(request: Request, file: UploadFile = File(...)):
@@ -97,13 +171,52 @@ async def upload_template(request: Request, file: UploadFile = File(...)):
         holes = []
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
+            if w < 5 or h < 5:
+                continue
             holes.append({"x": x, "y": y, "w": w, "h": h})
+        
+        if not holes:
+            raise ValueError("No holes found in the template.")
+
+        # --- Calculate Aspect Ratio and Cell Layout ---
+        # Sort holes by position (top-to-bottom, then left-to-right)
+        holes.sort(key=lambda h: (h['y'], h['x']))
+
+        # Find the largest hole to determine the aspect ratio
+        largest_hole = max(holes, key=lambda h: h['w'] * h['h'])
+        w = largest_hole['w']
+        h = largest_hole['h']
+        common_divisor = gcd(w, h)
+        aspect_ratio = f"{w // common_divisor}:{h // common_divisor}"
+
+        # Determine cell layout (e.g., 4x1, 2x2)
+        rows = {}
+        for hole in holes:
+            # Group holes by their y-coordinate (allowing for some tolerance)
+            found_row = False
+            for row_y in rows:
+                if abs(hole['y'] - row_y) < 20: # 20px tolerance
+                    rows[row_y].append(hole)
+                    found_row = True
+                    break
+            if not found_row:
+                rows[hole['y']] = [hole]
+        
+        num_rows = len(rows)
+        # Assuming a somewhat consistent number of columns per row for simple layouts
+        num_cols = round(len(holes) / num_rows) if num_rows > 0 else 0
+        cell_layout = f"{num_cols}x{num_rows}"
+
+
         db_manager = request.app.state.db_manager
-        db_manager.add_template(f"/{file_path}", len(holes), holes)
+        db_manager.add_template(f"/{file_path}", len(holes), holes, aspect_ratio, cell_layout)
+        
         return JSONResponse(content={
             "template_path": f"/{file_path}",
             "hole_count": len(holes),
-            "holes": holes
+            "holes": holes,
+            "aspect_ratio": aspect_ratio,
+            "cell_layout": cell_layout
         })
     except Exception as e:
         if os.path.exists(file_path):
