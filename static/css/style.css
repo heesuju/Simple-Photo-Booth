@@ -141,8 +141,19 @@ button:hover {
 }
 
 #review-preview {
-    flex: 3;
+    flex: 1;
     position: relative; /* For positioning photos on top */
+    background-color: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+    display: flex; /* Center the template image */
+    align-items: center;
+    justify-content: center;
+}
+
+#template-edit-preview {
+    position: relative;
+    flex: 3;
     background-color: #e9ecef;
     border-radius: 5px;
     overflow: hidden;
@@ -231,9 +242,19 @@ button:hover {
     object-fit: contain;
 }
 
+/* --- App Content --- */
+.app-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    gap: 20px;
+}
+
 #app-content {
-    width: 80%;
-    max-width: 900px;
+    display: flex; /* Changed from block to flex */
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
 }
 
 #photo-booth {
@@ -388,49 +409,69 @@ button:hover {
     box-sizing: border-box;
 }
 
+.editable-hole-wrapper.active {
+    border-color: #007bff;
+}
+
 .resize-handle {
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     background-color: #007bff;
-    border: 1px solid white;
+    border: 2px solid white;
+    z-index: 10;
 }
 
-.resize-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
-.resize-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
-.resize-handle.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
-.resize-handle.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
-.resize-handle.n { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-.resize-handle.s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-.resize-handle.w { top: 50%; left: -5px; transform: translateY(-50%); cursor: ew-resize; }
-.resize-handle.e { top: 50%; right: -5px; transform: translateY(-50%); cursor: ew-resize; }
-
-.remove-sticker-btn {
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    width: 20px;
-    height: 20px;
-    background-color: red;
-    color: white;
-    border-radius: 50%;
-    border: 1px solid white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    font-weight: bold;
-}
+.resize-handle.nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.resize-handle.ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.resize-handle.sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.resize-handle.se { bottom: -6px; right: -6px; cursor: nwse-resize; }
 
 .rotation-handle {
     position: absolute;
-    top: -25px;
+    top: -30px;
     left: 50%;
     transform: translateX(-50%);
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     background-color: #007bff;
-    border: 1px solid white;
+    border: 2px solid white;
     border-radius: 50%;
     cursor: grab;
+    z-index: 10;
+}
+
+#template-edit-screen .preview-container {
+    height: 70vh;
+}
+
+
+
+#template-edit-preview .preview-template-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.editable-hole-wrapper {
+    position: absolute;
+    border: 2px dashed #ccc;
+    box-sizing: border-box;
+    transform-origin: center center;
+}
+
+.editable-hole-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2rem;
+    color: #ccc;
+    background-color: rgba(200, 200, 200, 0.5);
+}
+
+
+.review-container.template-edit-container {
+    display: block;
 }

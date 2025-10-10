@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let placedStickers = [];
     let stream = null;
     let activeSticker = { element: null, data: null, action: null };
+    let editingTemplate = null;
+    let activeHole = { element: null, data: null, index: -1, action: null };
     let dragStart = { x: 0, y: 0, initialX: 0, initialY: 0 };
     let selectedTimer = 0; // 0 for manual, otherwise seconds
     let isCapturing = false;
@@ -80,9 +82,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+        document.getElementById('save-template-btn').addEventListener('click', handleSaveTemplate);
         finalizeBtn.addEventListener('click', handleComposition);
         window.addEventListener('mousemove', handleStickerMove);
         window.addEventListener('mouseup', handleStickerMouseUp);
+        window.addEventListener('mousemove', handleHoleMove);
+        window.addEventListener('mouseup', handleHoleMouseUp);
         window.addEventListener('resize', debouncedRender); // Add this line
         document.getElementById('review-preview').addEventListener('dragover', (e) => e.preventDefault());
         document.getElementById('review-preview').addEventListener('drop', (e) => {
@@ -149,13 +154,60 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPhotoAssignments();
             renderPlacedStickers();
         }
+        if (document.getElementById('template-edit-screen').style.display === 'block') {
+            renderTemplateEditPreview();
+        }
     }, 100);
 
     // --- 1. GALLERIES & UPLOADS ---
     async function loadLayoutGallery() { try { const r = await fetch('/layouts'); const d = await r.json(); const c = document.getElementById('layout-gallery'); c.innerHTML = ''; d.forEach(l => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = l.thumbnail_path; i.appendChild(m); const p = document.createElement('p'); p.innerHTML = `${l.cell_layout}<br>${l.aspect_ratio}`; i.appendChild(p); i.addEventListener('click', () => handleLayoutSelection(i, l)); c.appendChild(i); }); } catch (e) { console.error(e); } }
     function handleLayoutSelection(el, data) { if (selectedTemplate.element) { selectedTemplate.element.classList.remove('selected'); } selectedTemplate = { element: el, data: data }; el.classList.add('selected'); continueBtn.style.display = 'block'; }
     async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
-    async function handleFileUpload(event, endpoint, callback) { const f = event.target.files[0]; if (!f) return; const d = new FormData(); d.append('file', f); try { const r = await fetch(endpoint, { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); callback(); } catch (e) { console.error(e); } event.target.value = null; }
+    async function handleFileUpload(event, endpoint, callback) { 
+        const f = event.target.files[0]; 
+        if (!f) return; 
+        const d = new FormData(); 
+        d.append('file', f); 
+        try { 
+            const r = await fetch(endpoint, { method: 'POST', body: d }); 
+            if (!r.ok) throw new Error((await r.json()).detail); 
+            const data = await r.json();
+            if (endpoint === '/upload_template') {
+                showTemplateEditScreen(data);
+            } else {
+                callback(); 
+            }
+        } catch (e) { 
+            console.error(e); 
+        } 
+        event.target.value = null; 
+    }
+
+    function showTemplateEditScreen(templateData) {
+        mainMenu.style.display = 'none';
+        appContent.style.display = 'none';
+        reviewScreen.style.display = 'none';
+        resultScreen.style.display = 'none';
+        document.getElementById('template-edit-screen').style.display = 'block';
+
+        editingTemplate = templateData;
+        renderTemplateEditPreview();
+    }
+
+    function renderTemplateEditPreview() {
+        const p = document.getElementById('template-edit-preview');
+        p.innerHTML = '';
+        const t = document.createElement('img');
+        t.src = editingTemplate.template_path;
+        t.className = 'preview-template-img';
+        t.draggable = false;
+        t.onload = () => {
+            renderEditableHoles();
+        };
+        p.appendChild(t);
+    }
+
+
 
     function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
 
@@ -365,8 +417,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     }
     function renderPreview() { const p = document.getElementById('review-preview'); p.innerHTML = ''; const t = document.createElement('img'); t.src = templateInfo.template_path; t.className = 'preview-template-img'; t.onload = () => { renderPhotoAssignments(); renderPlacedStickers(); }; p.appendChild(t); }
-    function getPreviewScaling() {
-        const p = document.getElementById('review-preview'), t = p.querySelector('.preview-template-img');
+    function getPreviewScaling(previewId = 'review-preview') {
+        const p = document.getElementById(previewId), t = p.querySelector('.preview-template-img');
         if (!t || !t.naturalWidth) return { scale: 1, offsetX: 0, offsetY: 0, renderedWidth: 0, renderedHeight: 0 };
 
         const containerWidth = p.offsetWidth;
@@ -508,6 +560,70 @@ document.addEventListener('DOMContentLoaded', () => {
             previewContainer.appendChild(w);
         });
     }
+
+    function renderEditableHoles() {
+        document.querySelectorAll('.editable-hole-wrapper').forEach(w => w.remove());
+        const { scale, offsetX, offsetY } = getPreviewScaling('template-edit-preview');
+        if (scale === 1) return; // Preview not ready
+        const previewContainer = document.getElementById('template-edit-preview');
+
+        editingTemplate.holes.forEach((hole, index) => {
+            const transform = editingTemplate.transformations[index];
+            const w = document.createElement('div');
+            w.className = 'editable-hole-wrapper';
+            if (activeHole.index === index) {
+                w.classList.add('active');
+            }
+            w.style.position = 'absolute';
+            w.style.left = `${offsetX + hole.x * scale}px`;
+            w.style.top = `${offsetY + hole.y * scale}px`;
+            w.style.width = `${hole.w * scale}px`;
+            w.style.height = `${hole.h * scale}px`;
+            w.style.transform = `rotate(${transform.rotation}deg) scale(${transform.scale})`;
+            
+            const i = document.createElement('div');
+            i.className = 'editable-hole-inner';
+            i.textContent = `${index + 1}`;
+            w.addEventListener('mousedown', (e) => handleHoleMouseDown(e, hole, index, w), false);
+            w.appendChild(i);
+
+            if (activeHole.index === index) {
+                const selectionBox = document.createElement('div');
+                selectionBox.className = 'selection-box';
+                w.appendChild(selectionBox);
+
+                const handles = ['nw', 'ne', 'sw', 'se'];
+                handles.forEach(handle => {
+                    const handleEl = document.createElement('div');
+                    handleEl.className = `resize-handle ${handle}`;
+                    handleEl.style.transform = `scale(${1 / transform.scale})`; // Counteract parent scale
+                    handleEl.style.transformOrigin = 'center'; // Ensure scaling is centered
+                    handleEl.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        activeHole.action = `resize-${handle}`;
+                        dragStart = { x: e.clientX, y: e.clientY, initialScale: transform.scale };
+                    });
+                    w.appendChild(handleEl);
+                });
+
+                const rotationHandle = document.createElement('div');
+                rotationHandle.className = 'rotation-handle';
+                rotationHandle.style.transform = `scale(${1 / transform.scale})`; // Counteract parent scale
+                rotationHandle.style.transformOrigin = 'center'; // Ensure scaling is centered
+                rotationHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    activeHole.action = 'rotate';
+                    const holeRect = w.getBoundingClientRect();
+                    const centerX = holeRect.left + holeRect.width / 2;
+                    const centerY = holeRect.top + holeRect.height / 2;
+                    dragStart = { x: e.clientX, y: e.clientY, centerX, centerY, initialRotation: transform.rotation };
+                });
+                w.appendChild(rotationHandle);
+            }
+
+            previewContainer.appendChild(w);
+        });
+    }
     function handleStickerMouseDown(e, data, el) {
         e.preventDefault();
         e.stopPropagation();
@@ -593,14 +709,132 @@ document.addEventListener('DOMContentLoaded', () => {
             activeSticker.action = null;
         }
     }
+
+    function handleHoleMouseDown(e, data, index, el) {
+        e.preventDefault();
+        e.stopPropagation();
+        const transform = editingTemplate.transformations[index];
+        if (activeHole.index !== index) {
+            activeHole = { element: el, data: data, index: index, action: 'move' };
+            renderEditableHoles();
+        } else {
+            activeHole.action = 'move';
+        }
+        dragStart = { x: e.clientX, y: e.clientY, initialScale: transform.scale };
+    }
+
+    function handleHoleMove(e) {
+        if (!activeHole.action) return;
+        e.preventDefault();
+    
+        const transform = editingTemplate.transformations[activeHole.index];
+        const holeWrapper = activeHole.element;
+    
+        if (activeHole.action === 'rotate') {
+            const angle = Math.atan2(e.clientY - dragStart.centerY, e.clientX - dragStart.centerX) * (180 / Math.PI);
+            const startAngle = Math.atan2(dragStart.y - dragStart.centerY, dragStart.x - dragStart.centerX) * (180 / Math.PI);
+            transform.rotation = Math.round(dragStart.initialRotation + angle - startAngle);
+        } else if (activeHole.action.startsWith('resize-')) {
+            const holeRect = holeWrapper.getBoundingClientRect();
+            const centerX = holeRect.left + holeRect.width / 2;
+            const centerY = holeRect.top + holeRect.height / 2;
+    
+            const startDist = Math.sqrt(Math.pow(dragStart.x - centerX, 2) + Math.pow(dragStart.y - centerY, 2));
+            const currentDist = Math.sqrt(Math.pow(e.clientX - centerX, 2) + Math.pow(e.clientY - centerY, 2));
+    
+            if (startDist > 0) {
+                const scaleFactor = currentDist / startDist;
+                transform.scale = Math.max(0.1, dragStart.initialScale * scaleFactor);
+            }
+        }
+    
+        renderTemplateEditPreview();
+    }
+
+    function handleHoleMouseUp() {
+        if (activeHole.action) {
+            if (activeHole.action.startsWith('resize-')) {
+                dragStart.initialScale = editingTemplate.transformations[activeHole.index].scale;
+            }
+            activeHole.action = null;
+        }
+    }
+
+    async function handleSaveTemplate() {
+        try {
+            const r = await fetch('/save_template', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(editingTemplate)
+            });
+            if (!r.ok) throw new Error((await r.json()).detail);
+            document.getElementById('template-edit-screen').style.display = 'none';
+            mainMenu.style.display = 'block';
+            loadLayoutGallery();
+        } catch (e) {
+            console.error(e);
+        }
+    }
     function handleHoleSelection(el, hIdx) { if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: el, index: hIdx }; el.classList.add('selected'); }
     function handlePhotoSelection(pIdx) { if (selectedHole.index === -1) return; handleSwap(selectedHole.index, pIdx); }
     function handleSwap(hIdx, pIdx) { const ptm = capturedPhotos[pIdx], ptr = photoAssignments[hIdx], opor = photoAssignments.findIndex(p => p === ptm); if (opor !== -1) photoAssignments[opor] = ptr; photoAssignments[hIdx] = ptm; if (selectedHole.element) selectedHole.element.classList.remove('selected'); selectedHole = { element: null, index: -1 }; renderPreview(); }
     function handleTemplateChange(newTemplate) { templateInfo = newTemplate; renderPreview(); }
     
     // --- 4. FINAL COMPOSITION ---
-    async function handleComposition() { finalizeBtn.disabled = true; const d = new FormData(); d.append('template_path', templateInfo.template_path); d.append('holes', JSON.stringify(templateInfo.holes)); d.append('stickers', JSON.stringify(placedStickers)); d.append('filters', JSON.stringify(filters)); photoAssignments.forEach((b, i) => { d.append('photos', b, `photo_${i}.jpg`); }); try { const r = await fetch('/compose_image', { method: 'POST', body: d }); if (!r.ok) throw new Error((await r.json()).detail); const j = await r.json(); displayFinalResult(j); } catch (e) { console.error(e); finalizeBtn.disabled = false; } }
-    function displayFinalResult(result) { reviewScreen.style.display = 'none'; resultScreen.style.display = 'block'; const { result_path, qr_code_path } = result; document.getElementById('result-title').textContent = '완성!'; document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.'; const d = document.getElementById('result-display'); d.innerHTML = ''; const i = document.createElement('img'); i.src = result_path; i.style.maxWidth = '100%'; d.appendChild(i); const c = document.createElement('div'); c.style.marginTop = '20px'; const a = document.createElement('a'); a.href = result_path; a.download = 'photobooth_result.png'; const b = document.createElement('button'); b.textContent = 'PC에 다운로드'; a.appendChild(b); c.appendChild(a); if (qr_code_path) { const q = document.createElement('div'); q.style.marginTop = '10px'; q.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>'; const qi = document.createElement('img'); qi.src = qr_code_path; qi.style.width = '150px'; q.appendChild(qi); c.appendChild(q); } d.appendChild(c); }
+    async function handleComposition() { 
+        finalizeBtn.disabled = true; 
+        const d = new FormData(); 
+        d.append('template_path', templateInfo.template_path); 
+        d.append('holes', JSON.stringify(templateInfo.holes)); 
+        d.append('stickers', JSON.stringify(placedStickers)); 
+        d.append('filters', JSON.stringify(filters)); 
+        d.append('transformations', JSON.stringify(templateInfo.transformations)); 
+        photoAssignments.forEach((b, i) => { 
+            d.append('photos', b, `photo_${i}.jpg`); 
+        }); 
+        try { 
+            const r = await fetch('/compose_image', { method: 'POST', body: d }); 
+            if (!r.ok) 
+                throw new Error((await r.json()).detail); 
+            const j = await r.json(); 
+            displayFinalResult(j); 
+        } 
+        catch (e) { 
+            console.error(e); finalizeBtn.disabled = false; 
+        } 
+    }
+    function displayFinalResult(result) { 
+        reviewScreen.style.display = 'none'; 
+        resultScreen.style.display = 'block'; 
+        const { result_path, qr_code_path } = result; 
+        document.getElementById('result-title').textContent = '완성!'; 
+        document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.'; 
+        const d = document.getElementById('result-display'); 
+        d.innerHTML = ''; 
+        const i = document.createElement('img'); 
+        i.src = result_path; i.style.maxWidth = '100%'; 
+        d.appendChild(i); 
+        const c = document.createElement('div'); 
+        c.style.marginTop = '20px'; 
+        const a = document.createElement('a'); 
+        a.href = result_path; 
+        a.download = 'photobooth_result.png'; 
+        const b = document.createElement('button'); 
+        b.textContent = 'PC에 다운로드'; 
+        a.appendChild(b); c.appendChild(a); 
+        if (qr_code_path) { 
+            const q = document.createElement('div'); 
+            q.style.marginTop = '10px'; 
+            q.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>'; 
+            const qi = document.createElement('img'); 
+            qi.src = qr_code_path; qi.style.width = '150px'; 
+            q.appendChild(qi); 
+            c.appendChild(q); 
+        } 
+        d.appendChild(c); 
+    }
 
     // --- START THE APP ---
     initApp();

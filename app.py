@@ -207,21 +207,36 @@ async def upload_template(request: Request, file: UploadFile = File(...)):
         num_cols = round(len(holes) / num_rows) if num_rows > 0 else 0
         cell_layout = f"{num_cols}x{num_rows}"
 
+        # Initialize transformations with default values
+        transformations = [{'scale': 1, 'rotation': 0} for _ in holes]
 
-        db_manager = request.app.state.db_manager
-        db_manager.add_template(f"/{file_path}", len(holes), holes, aspect_ratio, cell_layout)
-        
         return JSONResponse(content={
             "template_path": f"/{file_path}",
             "hole_count": len(holes),
             "holes": holes,
             "aspect_ratio": aspect_ratio,
-            "cell_layout": cell_layout
+            "cell_layout": cell_layout,
+            "transformations": transformations
         })
     except Exception as e:
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
+
+@app.post("/save_template")
+async def save_template(request: Request):
+    data = await request.json()
+    template_path = data.get('template_path')
+    hole_count = data.get('hole_count')
+    holes = data.get('holes')
+    aspect_ratio = data.get('aspect_ratio')
+    cell_layout = data.get('cell_layout')
+    transformations = data.get('transformations')
+
+    db_manager = request.app.state.db_manager
+    db_manager.add_template(template_path, hole_count, holes, aspect_ratio, cell_layout, transformations)
+
+    return JSONResponse(content={"message": "Template saved successfully"})
 
 @app.get("/stickers")
 async def get_stickers(request: Request):
@@ -311,23 +326,64 @@ def apply_filters(image, filters):
     return image
 
 @app.post("/compose_image")
-async def compose_image(request: Request, template_path: str = Form(...), holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...)):
+@app.post("/compose_image")
+async def compose_image(request: Request, template_path: str = Form(...), holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...)):
     try:
         print(f"Received filters: {filters}")
         hole_data = json.loads(holes)
         filter_data = json.loads(filters)
+        transform_data = json.loads(transformations)
         base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
         canvas = np.full((height, width, 3), 255, np.uint8)
         for i, photo_file in enumerate(photos):
             hole = hole_data[i]
+            transform = transform_data[i]
             photo_content = await photo_file.read()
             nparr = np.frombuffer(photo_content, np.uint8)
             photo_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             filtered_photo = apply_filters(photo_img, filter_data)
-            resized_photo = cv2.resize(filtered_photo, (hole['w'], hole['h']))
-            canvas[hole['y']:hole['y']+hole['h'], hole['x']:hole['x']+hole['w']] = resized_photo
+
+            # Apply transformations
+            scale = transform.get('scale', 1)
+            rotation = -transform.get('rotation', 0)
+            new_w = int(hole['w'] * scale)
+            new_h = int(hole['h'] * scale)
+
+            resized_photo = cv2.resize(filtered_photo, (new_w, new_h))
+            rotated_photo = rotate_image(resized_photo, rotation)
+
+            # Calculate position for centered placement
+            r_h, r_w, _ = rotated_photo.shape
+            pos_x = hole['x'] + (hole['w'] - r_w) // 2
+            pos_y = hole['y'] + (hole['h'] - r_h) // 2
+
+            # Create a mask from the rotated photo's alpha channel if it exists, otherwise just use the photo
+            if rotated_photo.shape[2] == 4:
+                alpha_mask = rotated_photo[:, :, 3] / 255.0
+                alpha_mask_3c = np.dstack((alpha_mask, alpha_mask, alpha_mask))
+                
+                # Bounds checking
+                x1, y1 = max(pos_x, 0), max(pos_y, 0)
+                x2, y2 = min(pos_x + r_w, width), min(pos_y + r_h, height)
+                
+                w, h = x2 - x1, y2 - y1
+                if w > 0 and h > 0:
+                    canvas_roi = canvas[y1:y2, x1:x2]
+                    photo_roi = rotated_photo[y1-pos_y:y1-pos_y+h, x1-pos_x:x1-pos_x+w, :3]
+                    alpha_roi = alpha_mask_3c[y1-pos_y:y1-pos_y+h, x1-pos_x:x1-pos_x+w]
+
+                    canvas[y1:y2, x1:x2] = canvas_roi * (1 - alpha_roi) + photo_roi * alpha_roi
+            else:
+                # Bounds checking for BGR images
+                x1, y1 = max(pos_x, 0), max(pos_y, 0)
+                x2, y2 = min(pos_x + r_w, width), min(pos_y + r_h, height)
+
+                w, h = x2 - x1, y2 - y1
+                if w > 0 and h > 0:
+                    canvas[y1:y2, x1:x2] = rotated_photo[y1-pos_y:y1-pos_y+h, x1-pos_x:x1-pos_x+w]
+
         template_bgr = template_img[:, :, 0:3]
         alpha_channel = template_img[:, :, 3] / 255.0
         alpha_mask = np.dstack((alpha_channel, alpha_channel, alpha_channel))

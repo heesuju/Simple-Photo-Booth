@@ -21,7 +21,8 @@ class DatabaseManager:
                     hole_count INTEGER NOT NULL,
                     holes TEXT NOT NULL,
                     aspect_ratio TEXT NOT NULL,
-                    cell_layout TEXT NOT NULL
+                    cell_layout TEXT NOT NULL,
+                    transformations TEXT
                 )
             ''')
             cursor.execute('''
@@ -30,6 +31,13 @@ class DatabaseManager:
                     sticker_path TEXT NOT NULL
                 )
             ''')
+
+            # Check if the transformations column exists
+            cursor.execute("PRAGMA table_info(templates)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'transformations' not in columns:
+                cursor.execute("ALTER TABLE templates ADD COLUMN transformations TEXT")
+
             conn.commit()
 
     def get_all_templates(self):
@@ -37,23 +45,22 @@ class DatabaseManager:
         with self._get_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM templates ORDER BY id DESC")
-            templates = [dict(row) for row in cursor.fetchall()]
-        
-        # Decode the JSON string for holes for each template
         for t in templates:
             if t.get('holes'):
                 t['holes'] = json.loads(t['holes'])
+            if t.get('transformations'):
+                t['transformations'] = json.loads(t['transformations'])
         return templates
 
-    def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout):
+    def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations):
         """Adds a new template record to the database."""
         holes_json = json.dumps(holes)
+        transformations_json = json.dumps(transformations)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO templates (template_path, hole_count, holes, aspect_ratio, cell_layout) VALUES (?, ?, ?, ?, ?)",
-                (template_path, hole_count, holes_json, aspect_ratio, cell_layout)
+                "INSERT INTO templates (template_path, hole_count, holes, aspect_ratio, cell_layout, transformations) VALUES (?, ?, ?, ?, ?, ?)",
+                (template_path, hole_count, holes_json, aspect_ratio, cell_layout, transformations_json)
             )
             conn.commit()
 
@@ -77,6 +84,8 @@ class DatabaseManager:
         # Decode the JSON string for holes
         if template and template.get('holes'):
             template['holes'] = json.loads(template['holes'])
+        if template and template.get('transformations'):
+            template['transformations'] = json.loads(template['transformations'])
         return template
 
     def get_templates_by_layout(self, aspect_ratio, cell_layout):
@@ -87,10 +96,11 @@ class DatabaseManager:
             cursor.execute("SELECT * FROM templates WHERE aspect_ratio = ? AND cell_layout = ?", (aspect_ratio, cell_layout))
             templates = [dict(row) for row in cursor.fetchall()]
         
-        # Decode the JSON string for holes for each template
         for t in templates:
             if t.get('holes'):
                 t['holes'] = json.loads(t['holes'])
+            if t.get('transformations'):
+                t['transformations'] = json.loads(t['transformations'])
         return templates
     
     def get_all_stickers(self):
