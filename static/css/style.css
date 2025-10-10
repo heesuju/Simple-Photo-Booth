@@ -186,9 +186,9 @@ button:hover {
 #template-edit-preview {
     position: relative;
     flex: 3;
+    overflow: visible;
     background-color: #e9ecef;
     border-radius: 5px;
-    overflow: hidden;
     display: flex; /* Center the template image */
     align-items: center;
     justify-content: center;

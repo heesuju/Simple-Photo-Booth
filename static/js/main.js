@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     handleEl.addEventListener('mousedown', (e) => {
                         e.stopPropagation();
                         activeHole.action = `resize-${handle}`;
-                        dragStart = { x: e.clientX, y: e.clientY, initialScale: transform.scale };
+                        dragStart = { x: e.clientX, y: e.clientY, initialScale: transform.scale, initialW: hole.w, initialH: hole.h };
                     });
                     w.appendChild(handleEl);
                 });
@@ -758,17 +758,46 @@ document.addEventListener('DOMContentLoaded', () => {
             const startAngle = Math.atan2(dragStart.y - dragStart.centerY, dragStart.x - dragStart.centerX) * (180 / Math.PI);
             transform.rotation = Math.round(dragStart.initialRotation + angle - startAngle);
         } else if (activeHole.action.startsWith('resize-')) {
-            const holeRect = holeWrapper.getBoundingClientRect();
-            const centerX = holeRect.left + holeRect.width / 2;
-            const centerY = holeRect.top + holeRect.height / 2;
-    
-            const startDist = Math.sqrt(Math.pow(dragStart.x - centerX, 2) + Math.pow(dragStart.y - centerY, 2));
-            const currentDist = Math.sqrt(Math.pow(e.clientX - centerX, 2) + Math.pow(e.clientY - centerY, 2));
-    
-            if (startDist > 0) {
-                const scaleFactor = currentDist / startDist;
-                transform.scale = Math.max(0.1, dragStart.initialScale * scaleFactor);
+            const { scale: previewScale } = getPreviewScaling('template-edit-preview');
+            if (previewScale === 1) return;
+
+            // Convert mouse movement from screen pixels to natural image pixels
+            const dX_natural = (e.clientX - dragStart.x) / previewScale;
+            const dY_natural = (e.clientY - dragStart.y) / previewScale;
+
+            const transform = editingTemplate.transformations[activeHole.index];
+            const handle = activeHole.action.split('-')[1];
+            
+            let newW = dragStart.initialW;
+            let newH = dragStart.initialH;
+
+            if (handle.includes('e')) {
+                newW = dragStart.initialW + dX_natural;
             }
+            if (handle.includes('s')) {
+                newH = dragStart.initialH + dY_natural;
+            }
+            if (handle.includes('w')) {
+                newW = dragStart.initialW - dX_natural;
+            }
+            if (handle.includes('n')) {
+                newH = dragStart.initialH - dY_natural;
+            }
+
+            // For corner handles, maintain aspect ratio by using the larger dimensional change
+            const scaleX = newW / dragStart.initialW;
+            const scaleY = newH / dragStart.initialH;
+            let finalScaleFactor;
+
+            if (handle.length === 2) { // Corner (nw, ne, sw, se)
+                 finalScaleFactor = Math.abs(scaleX - 1) > Math.abs(scaleY - 1) ? scaleX : scaleY;
+            } else if (handle === 'n' || handle === 's') { // Vertical (n, s)
+                finalScaleFactor = scaleY;
+            } else { // Horizontal (w, e)
+                finalScaleFactor = scaleX;
+            }
+            
+            transform.scale = Math.max(0.1, dragStart.initialScale * finalScaleFactor);
         }
     
         renderTemplateEditPreview();
