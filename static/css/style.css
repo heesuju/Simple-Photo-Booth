@@ -38,6 +38,7 @@ button:hover {
 .gallery-container {
     display: flex;
     flex-wrap: wrap;
+    max-width: 600px;
     gap: 20px;
     justify-content: center;
     align-items: flex-start; /* Align items of different heights */
@@ -45,8 +46,40 @@ button:hover {
     border: 1px solid #eee;
     border-radius: 5px;
     background-color: #f9f9f9;
-    overflow-y: auto; /* Add scroll for many templates */
-    flex-grow: 1; /* Allow gallery to fill space */
+    overflow-y: auto;
+    flex-grow: 1;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.layout-item {
+    border: 0px solid #ddd;
+    border-radius: 0px;
+    cursor: pointer;
+    background-color: transparent;
+    text-align: center;
+    padding: 0px;
+}
+
+.layout-item img {
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    max-width: 200px;
+    max-height: 200px;
+    width: auto;
+    height: auto;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.layout-item:hover img {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.layout-item.selected img {
+    border-color: #007bff;
+    border-width: 3px;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
 }
 
 .template-item {
@@ -57,7 +90,14 @@ button:hover {
     transition: transform 0.2s, box-shadow 0.2s;
     background-color: white;
     text-align: center;
-    padding: 0.5rem;
+    padding: 0px;
+}
+
+.template-item img {
+    max-width: 100px;
+    max-height: 100px;
+    width: auto;
+    height: auto;
 }
 
 .template-item p {
@@ -113,14 +153,6 @@ button:hover {
 
 .floating-btn-add:hover {
     background-color: #218838;
-}
-
-.template-item img {
-    /* This is the core change: constrain the image itself */
-    max-width: 200px;
-    max-height: 200px;
-    width: auto;
-    height: auto;
 }
 
 /* --- Review Screen --- */
@@ -474,4 +506,27 @@ button:hover {
 
 .review-container.template-edit-container {
     display: block;
+}
+#result-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+
+#result-display {
+    flex-grow: 1;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+#result-display img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    height: auto;
+    width: auto;
 }

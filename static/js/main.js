@@ -160,8 +160,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 
     // --- 1. GALLERIES & UPLOADS ---
-    async function loadLayoutGallery() { try { const r = await fetch('/layouts'); const d = await r.json(); const c = document.getElementById('layout-gallery'); c.innerHTML = ''; d.forEach(l => { const i = document.createElement('div'); i.className = 'template-item'; const m = document.createElement('img'); m.src = l.thumbnail_path; i.appendChild(m); const p = document.createElement('p'); p.innerHTML = `${l.cell_layout}<br>${l.aspect_ratio}`; i.appendChild(p); i.addEventListener('click', () => handleLayoutSelection(i, l)); c.appendChild(i); }); } catch (e) { console.error(e); } }
-    function handleLayoutSelection(el, data) { if (selectedTemplate.element) { selectedTemplate.element.classList.remove('selected'); } selectedTemplate = { element: el, data: data }; el.classList.add('selected'); continueBtn.style.display = 'block'; }
+    async function loadLayoutGallery() { 
+        try { const r = await fetch('/layouts'); 
+            const d = await r.json(); 
+            const c = document.getElementById('layout-gallery'); 
+            c.innerHTML = ''; d.forEach(l => { 
+                const i = document.createElement('div'); i.className = 'layout-item'; 
+                const m = document.createElement('img'); 
+                m.src = l.thumbnail_path; 
+                i.appendChild(m); 
+                const p = document.createElement('p'); 
+                p.innerHTML = `${l.cell_layout}<br>${l.aspect_ratio}`; 
+                i.appendChild(p); 
+                i.addEventListener('click', () => handleLayoutSelection(i, l)); 
+                c.appendChild(i); 
+            }); 
+        } 
+        catch (e) { console.error(e); } 
+    }
+    function handleLayoutSelection(el, data) { 
+        if (selectedTemplate.element) { 
+            selectedTemplate.element.classList.remove('selected'); } 
+            selectedTemplate = { element: el, data: data }; 
+            el.classList.add('selected'); 
+            continueBtn.style.display = 'block'; 
+        }
     async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
     async function handleFileUpload(event, endpoint, callback) { 
         const f = event.target.files[0]; 

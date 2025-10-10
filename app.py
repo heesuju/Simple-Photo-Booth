@@ -94,11 +94,13 @@ async def get_layouts(request: Request):
             layout['template_path'] = template['template_path']
             layout['holes'] = template['holes']
             layout['hole_count'] = template['hole_count']
+            layout['transformations'] = template.get('transformations', [])
         else:
             # Handle case where no matching template is found, though this should ideally not happen
             layout['template_path'] = None
             layout['holes'] = []
             layout['hole_count'] = 0
+            layout['transformations'] = []
 
     return JSONResponse(content=layouts)
 

@@ -7,7 +7,7 @@ class DatabaseManager:
 
     def _get_connection(self):
         """Creates and returns a new database connection."""
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10)
         return conn
 
     def init_db(self):
@@ -79,7 +79,10 @@ class DatabaseManager:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM templates WHERE aspect_ratio = ? AND cell_layout = ? LIMIT 1", (aspect_ratio, cell_layout))
-            template = dict(cursor.fetchone())
+            template_row = cursor.fetchone()
+        if template_row is None:
+            return None
+        template = dict(template_row)
 
         # Decode the JSON string for holes
         if template and template.get('holes'):
