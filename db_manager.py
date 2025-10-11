@@ -40,18 +40,6 @@ class DatabaseManager:
 
             conn.commit()
 
-    def get_all_templates(self):
-        """Fetches all templates from the database."""
-        with self._get_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-        for t in templates:
-            if t.get('holes'):
-                t['holes'] = json.loads(t['holes'])
-            if t.get('transformations'):
-                t['transformations'] = json.loads(t['transformations'])
-        return templates
-
     def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations):
         """Adds a new template record to the database."""
         holes_json = json.dumps(holes)
