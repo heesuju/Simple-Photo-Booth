@@ -60,6 +60,17 @@ async def lifespan(app: FastAPI):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(STICKERS_DIR, exist_ok=True) # Create stickers dir
     os.makedirs(RESULTS_DIR, exist_ok=True)
+
+    # --- Sync Stickers with DB ---
+    db_manager = app.state.db_manager
+    existing_stickers = {s['sticker_path'] for s in db_manager.get_all_stickers()}
+    
+    for filename in os.listdir(STICKERS_DIR):
+        sticker_path = f"/{STICKERS_DIR}/{filename}"
+        if sticker_path not in existing_stickers:
+            db_manager.add_sticker(sticker_path)
+            print(f"Added new sticker to DB: {sticker_path}")
+
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -118,28 +129,75 @@ def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
         ar_w, ar_h = map(int, aspect_ratio.split(':'))
         cols, rows = map(int, cell_layout.split('x'))
     except ValueError:
-        # Handle cases with invalid format
         return None
 
     # Define cell dimensions based on aspect ratio
-    cell_base_dim = 100  # Base dimension for the cell
+    cell_base_dim = 100
     cell_w = cell_base_dim
     cell_h = int(cell_base_dim * ar_h / ar_w)
 
     # Define image dimensions based on cell layout and dimensions
-    gap = 10 # Gap between cells
+    gap = 10
     img_w = (cell_w * cols) + (gap * (cols + 1))
     img_h = (cell_h * rows) + (gap * (rows + 1))
 
     # Create a white canvas
-    canvas = np.full((img_h, img_w, 3), 255, np.uint8)
+    canvas = np.full((img_h, img_w, 3), (255, 255, 255), np.uint8)
 
-    # Draw the grid
+    # Define pastel colors
+    pastel_colors = [
+        (255, 204, 204),  # Light Pink
+        (204, 229, 255),  # Light Blue
+        (204, 255, 204),  # Light Green
+        (255, 229, 204),  # Light Orange
+        (229, 204, 255),  # Light Purple
+        (255, 255, 204)   # Light Yellow
+    ]
+
+    # Load placeholder images
+    placeholder_dir = "static/placeholder"
+    person_images = [
+        cv2.imread(os.path.join(placeholder_dir, "person1.png"), cv2.IMREAD_UNCHANGED),
+        cv2.imread(os.path.join(placeholder_dir, "person2.png"), cv2.IMREAD_UNCHANGED)
+    ]
+
+    # Draw the grid with person images
     for r in range(rows):
         for c in range(cols):
             x = gap + c * (cell_w + gap)
             y = gap + r * (cell_h + gap)
-            cv2.rectangle(canvas, (x, y), (x + cell_w, y + cell_h), (200, 200, 200), -1) # Gray cells
+            
+            # Create a cell with a pastel color background
+            cell_bg_color = pastel_colors[(r * cols + c) % len(pastel_colors)]
+            cell_bg = np.full((cell_h, cell_w, 3), cell_bg_color, np.uint8)
+
+            # Place the cell background onto the canvas
+            canvas[y:y + cell_h, x:x + cell_w] = cell_bg
+
+            # Cycle through person images
+            person_img = person_images[(r * cols + c) % len(person_images)]
+            
+            # Resize and crop person image to fit the cell
+            person_h, person_w, _ = person_img.shape
+            
+            # Maintain aspect ratio
+            scale = max(cell_w / person_w, cell_h / person_h)
+            new_w, new_h = int(person_w * scale), int(person_h * scale)
+            resized_person = cv2.resize(person_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            
+            # Crop the center of the resized image
+            crop_x = (new_w - cell_w) // 2
+            crop_y = (new_h - cell_h) // 2
+            
+            cropped_person = resized_person[crop_y:crop_y + cell_h, crop_x:crop_x + cell_w]
+            
+            # Overlay the person image onto the cell background
+            # Alpha blending
+            alpha_person = cropped_person[:, :, 3] / 255.0
+            alpha_canvas = 1.0 - alpha_person
+
+            for i in range(3):
+                canvas[y:y+cell_h, x:x+cell_w, i] = (alpha_person * cropped_person[:,:,i] + alpha_canvas * canvas[y:y+cell_h, x:x+cell_w, i])
 
     # Save the generated image
     cv2.imwrite(thumbnail_path, canvas)
