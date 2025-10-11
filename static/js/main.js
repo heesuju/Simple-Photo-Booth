@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('mousemove', handleHoleMove);
             window.addEventListener('mouseup', handleHoleMouseUp);
             window.addEventListener('resize', debouncedRender); // Add this line
-            document.getElementById('review-preview').addEventListener('dragover', (e) => e.preventDefault());
+
             loadLayoutGallery();
         }
     
@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     i.className = 'sticker-item'; 
                     const m = document.createElement('img'); 
                     m.src = s.sticker_path; 
+                    m.draggable = false;
                     i.addEventListener('click', () => addStickerToCenter(s));
                     i.appendChild(m); 
                     c.appendChild(i); 
@@ -449,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadStickerGallery(); 
         loadSimilarTemplates();
     }
-    function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = true; t.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', i)); t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
+    function renderReviewThumbnails() { const c = document.getElementById('review-thumbnails'); c.innerHTML = ''; capturedPhotos.forEach((b, i) => { const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.className = 'thumbnail'; t.draggable = false; t.addEventListener('click', () => handlePhotoSelection(i)); c.appendChild(t); }); }
     async function loadSimilarTemplates() { 
         const { aspect_ratio, cell_layout } = templateInfo; 
         try { 
@@ -523,20 +524,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const i = document.createElement('img'); 
             i.src = URL.createObjectURL(b); 
             i.className = 'preview-photo-img'; 
-            i.draggable = true; 
-            i.addEventListener('dragstart', (e) => { const oIdx = capturedPhotos.findIndex(p => p === b); e.dataTransfer.setData('text/plain', oIdx); }); 
+            i.draggable = false; 
             i.addEventListener('click', () => handleHoleSelection(i, hIdx)); 
-            i.addEventListener('dragover', (e) => e.preventDefault()); 
-            i.addEventListener('drop', (e) => { 
-                e.preventDefault(); 
-                try { 
-                    const dIdx = parseInt(e.dataTransfer.getData('text/plain'), 10); 
-                    if (!isNaN(dIdx)) { 
-                        e.stopPropagation(); 
-                        handleSwap(hIdx, dIdx); 
-                    } 
-                } catch (err) {} 
-            }); 
             wrapper.appendChild(i);
             document.getElementById('review-preview').appendChild(wrapper); 
         }); 
