@@ -34,274 +34,298 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoUploadBtn = document.getElementById('photo-upload-btn');
     const uploadThumbnailsContainer = document.getElementById('upload-thumbnails-container');
     const filterControls = document.getElementById('filter-controls');
-    const sharpenMatrix = document.getElementById('sharpen-matrix');
-    const warmthMatrix = document.getElementById('warmth-matrix');
-
-    // === INITIALIZATION ===
-    function initApp() {
-        templateUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_template', loadLayoutGallery));
-        stickerUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_sticker', loadStickerGallery));
-        addTemplateFloatBtn.addEventListener('click', () => templateUploadInput.click());
-        continueBtn.addEventListener('click', () => { if (selectedTemplate.data) { templateInfo = selectedTemplate.data; startPhotoSession(); } });
-        startCaptureBtn.addEventListener('click', startCaptureSequence);
-        document.getElementById('capture-btn').addEventListener('click', handleManualCapture);
-        timerControls.addEventListener('click', (e) => {
-            if (e.target.classList.contains('timer-btn')) {
-                document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                selectedTimer = parseInt(e.target.dataset.time, 10);
-            }
-        });
-        modeSelection.addEventListener('click', (e) => {
-            if (e.target.classList.contains('mode-btn')) {
-                const newMode = e.target.dataset.mode;
-                if (newMode !== captureMode) {
-                    switchCaptureMode(newMode);
+        const sharpenMatrix = document.getElementById('sharpen-matrix');
+    
+        // === INITIALIZATION ===
+        function initApp() {
+            templateUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_template', loadLayoutGallery));
+            stickerUploadInput.addEventListener('change', (e) => handleFileUpload(e, '/upload_sticker', loadStickerGallery));
+            addTemplateFloatBtn.addEventListener('click', () => templateUploadInput.click());
+            continueBtn.addEventListener('click', async () => {
+                if (selectedTemplate.data) {
+                    templateInfo = selectedTemplate.data;
+                    const h = templateInfo.holes[0];
+                    const r = h.w / h.h;
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: { aspectRatio: { ideal: r }, facingMode: 'user' } });
+                    } catch (e) {
+                        console.error('Initial getUserMedia with facingMode failed:', e);
+                        try {
+                            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                        } catch (e2) {
+                            console.error('Fallback getUserMedia with facingMode failed:', e2);
+                            try {
+                                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                            } catch (e3) {
+                                alert('Camera access failed: ' + e3.message);
+                                console.error('Final fallback getUserMedia failed:', e3);
+                                return;
+                            }
+                        }
+                    }
+                    startPhotoSession();
                 }
-            }
-        });
-        photoUploadBtn.addEventListener('click', () => photoUploadInput.click());
-        photoUploadInput.addEventListener('change', handlePhotoUpload);
-        filterControls.addEventListener('input', (e) => {
-            if (e.target.type === 'range') {
-                filters[e.target.dataset.filter] = parseInt(e.target.value, 10);
-                applyPhotoFilters();
-            }
-        });
-
-        // Accordion Logic
-        document.getElementById('review-right-col').addEventListener('click', (e) => {
-            if (e.target.classList.contains('accordion-header')) {
-                e.target.classList.toggle('active');
-                const content = e.target.nextElementSibling;
-                content.classList.toggle('active');
-                if (content.style.maxHeight) {
-                    content.style.maxHeight = null;
-                } else {
-                    content.style.maxHeight = content.scrollHeight + "px";
+            });
+            startCaptureBtn.addEventListener('click', startCaptureSequence);
+            document.getElementById('capture-btn').addEventListener('click', handleManualCapture);
+            timerControls.addEventListener('click', (e) => {
+                if (e.target.classList.contains('timer-btn')) {
+                    document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    selectedTimer = parseInt(e.target.dataset.time, 10);
                 }
-            }
-        });
-        document.getElementById('save-template-btn').addEventListener('click', handleSaveTemplate);
-        finalizeBtn.addEventListener('click', handleComposition);
-        window.addEventListener('mousemove', handleStickerMove);
-        window.addEventListener('mouseup', handleStickerMouseUp);
-        window.addEventListener('mousemove', handleHoleMove);
-        window.addEventListener('mouseup', handleHoleMouseUp);
-        window.addEventListener('resize', debouncedRender); // Add this line
-        document.getElementById('review-preview').addEventListener('dragover', (e) => e.preventDefault());
-        document.getElementById('review-preview').addEventListener('drop', (e) => {
-            e.preventDefault();
-            try {
-                const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
-                const p = document.getElementById('review-preview');
-                const previewRect = p.getBoundingClientRect();
-                const { scale, offsetX, offsetY, renderedWidth } = getPreviewScaling();
-                const templateNaturalWidth = renderedWidth / scale;
-
-                if (scale === 1) return; // Preview not ready
-
-                const stickerImg = new Image();
-                stickerImg.onload = () => {
-                    // Define initial sticker size relative to the template (e.g., 20% of width)
-                    const desiredNaturalWidth = templateNaturalWidth * 0.3;
-                    const stickerNaturalW = desiredNaturalWidth;
-                    const stickerNaturalH = stickerImg.naturalHeight * (desiredNaturalWidth / stickerImg.naturalWidth);
-
-                    // Convert natural size to screen size for centering calculation
-                    const stickerScreenW = stickerNaturalW * scale;
-                    const stickerScreenH = stickerNaturalH * scale;
-
-                    // Convert screen mouse coordinates to image-natural coordinates
-                    const mouseX = e.clientX - previewRect.left;
-                    const mouseY = e.clientY - previewRect.top;
-                    
-                    const imageX = (mouseX - offsetX - (stickerScreenW / 2)) / scale;
-                    const imageY = (mouseY - offsetY - (stickerScreenH / 2)) / scale;
-
-                    placedStickers.push({
-                        id: Date.now(),
-                        path: stickerData.sticker_path,
-                        x: Math.round(imageX),
-                        y: Math.round(imageY),
-                        width: Math.round(stickerNaturalW),
-                        height: Math.round(stickerNaturalH),
-                        rotation: 0
-                    });
-                    renderPlacedStickers();
-                };
-                stickerImg.src = stickerData.sticker_path;
-            } catch (err) {
-                // This is not a sticker drop, so we can ignore the error
-            }
-        });
-        loadLayoutGallery();
-    }
-
-    // --- DEBOUNCE HELPER ---
-    function debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-            const context = this;
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(context, args), wait);
-        };
-    }
-
-    // --- RESIZE HANDLER ---
-    const debouncedRender = debounce(() => {
-        if (reviewScreen.style.display === 'block') {
-            renderPhotoAssignments();
-            renderPlacedStickers();
+            });
+            modeSelection.addEventListener('click', (e) => {
+                if (e.target.classList.contains('mode-btn')) {
+                    const newMode = e.target.dataset.mode;
+                    if (newMode !== captureMode) {
+                        switchCaptureMode(newMode);
+                    }
+                }
+            });
+            photoUploadBtn.addEventListener('click', () => photoUploadInput.click());
+            photoUploadInput.addEventListener('change', handlePhotoUpload);
+            filterControls.addEventListener('input', (e) => {
+                if (e.target.type === 'range') {
+                    filters[e.target.dataset.filter] = parseInt(e.target.value, 10);
+                    applyPhotoFilters();
+                }
+            });
+    
+            // Accordion Logic
+            document.getElementById('review-right-col').addEventListener('click', (e) => {
+                if (e.target.classList.contains('accordion-header')) {
+                    e.target.classList.toggle('active');
+                    const content = e.target.nextElementSibling;
+                    content.classList.toggle('active');
+                    if (content.style.maxHeight) {
+                        content.style.maxHeight = null;
+                    }
+                    else {
+                        content.style.maxHeight = content.scrollHeight + "px";
+                    }
+                }
+            });
+            document.getElementById('save-template-btn').addEventListener('click', handleSaveTemplate);
+            finalizeBtn.addEventListener('click', handleComposition);
+            window.addEventListener('mousemove', handleStickerMove);
+            window.addEventListener('mouseup', handleStickerMouseUp);
+            window.addEventListener('mousemove', handleHoleMove);
+            window.addEventListener('mouseup', handleHoleMouseUp);
+            window.addEventListener('resize', debouncedRender); // Add this line
+            document.getElementById('review-preview').addEventListener('dragover', (e) => e.preventDefault());
+            document.getElementById('review-preview').addEventListener('drop', (e) => {
+                e.preventDefault();
+                try {
+                    const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
+                    const p = document.getElementById('review-preview');
+                    const previewRect = p.getBoundingClientRect();
+                    const { scale, offsetX, offsetY, renderedWidth } = getPreviewScaling();
+                    const templateNaturalWidth = renderedWidth / scale;
+    
+                    if (scale === 1) return; // Preview not ready
+    
+                    const stickerImg = new Image();
+                    stickerImg.onload = () => {
+                        // Define initial sticker size relative to the template (e.g., 20% of width)
+                        const desiredNaturalWidth = templateNaturalWidth * 0.3;
+                        const stickerNaturalW = desiredNaturalWidth;
+                        const stickerNaturalH = stickerImg.naturalHeight * (desiredNaturalWidth / stickerImg.naturalWidth);
+    
+                        // Convert natural size to screen size for centering calculation
+                        const stickerScreenW = stickerNaturalW * scale;
+                        const stickerScreenH = stickerNaturalH * scale;
+    
+                        // Convert screen mouse coordinates to image-natural coordinates
+                        const mouseX = e.clientX - previewRect.left;
+                        const mouseY = e.clientY - previewRect.top;
+                        
+                        const imageX = (mouseX - offsetX - (stickerScreenW / 2)) / scale;
+                        const imageY = (mouseY - offsetY - (stickerScreenH / 2)) / scale;
+    
+                        placedStickers.push({
+                            id: Date.now(),
+                            path: stickerData.sticker_path,
+                            x: Math.round(imageX),
+                            y: Math.round(imageY),
+                            width: Math.round(stickerNaturalW),
+                            height: Math.round(stickerNaturalH),
+                            rotation: 0
+                        });
+                        renderPlacedStickers();
+                    };
+                    stickerImg.src = stickerData.sticker_path;
+                } catch (err) {
+                    // This is not a sticker drop, so we can ignore the error
+                }
+            });
+            loadLayoutGallery();
         }
-        if (document.getElementById('template-edit-screen').style.display === 'block') {
+    
+        // --- DEBOUNCE HELPER ---
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+    
+        // --- RESIZE HANDLER ---
+        const debouncedRender = debounce(() => {
+            if (reviewScreen.style.display === 'block') {
+                renderPhotoAssignments();
+                renderPlacedStickers();
+            }
+            if (document.getElementById('template-edit-screen').style.display === 'block') {
+                renderTemplateEditPreview();
+            }
+        }, 100);
+    
+        // --- 1. GALLERIES & UPLOADS ---
+        async function loadLayoutGallery() { 
+            try { const r = await fetch('/layouts'); 
+                const d = await r.json(); 
+                const c = document.getElementById('layout-gallery'); 
+                c.innerHTML = ''; d.forEach(l => { 
+                    const i = document.createElement('div'); i.className = 'layout-item'; 
+                    const m = document.createElement('img'); 
+                    m.src = l.thumbnail_path; 
+                    i.appendChild(m); 
+                    const p = document.createElement('p'); 
+                    p.innerHTML = `${l.cell_layout}<br>${l.aspect_ratio}`; 
+                    i.appendChild(p); 
+                    i.addEventListener('click', () => handleLayoutSelection(i, l)); 
+                    c.appendChild(i); 
+                }); 
+            } 
+            catch (e) { console.error(e); } 
+        }
+        function handleLayoutSelection(el, data) { 
+            if (selectedTemplate.element) { 
+                selectedTemplate.element.classList.remove('selected'); } 
+                selectedTemplate = { element: el, data: data }; 
+                el.classList.add('selected'); 
+                continueBtn.style.display = 'block'; 
+            }
+        async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
+        async function handleFileUpload(event, endpoint, callback) { 
+            const f = event.target.files[0]; 
+            if (!f) return; 
+            const d = new FormData(); 
+            d.append('file', f); 
+            try { 
+                const r = await fetch(endpoint, { method: 'POST', body: d }); 
+                if (!r.ok) throw new Error((await r.json()).detail); 
+                const data = await r.json();
+                if (endpoint === '/upload_template') {
+                    showTemplateEditScreen(data);
+                } else {
+                    callback(); 
+                }
+            } catch (e) { 
+                console.error(e); 
+            } 
+            event.target.value = null; 
+        }
+    
+        function showTemplateEditScreen(templateData) {
+            mainMenu.style.display = 'none';
+            appContent.style.display = 'none';
+            reviewScreen.style.display = 'none';
+            resultScreen.style.display = 'none';
+            document.getElementById('template-edit-screen').style.display = 'block';
+    
+            editingTemplate = templateData;
             renderTemplateEditPreview();
         }
-    }, 100);
-
-    // --- 1. GALLERIES & UPLOADS ---
-    async function loadLayoutGallery() { 
-        try { const r = await fetch('/layouts'); 
-            const d = await r.json(); 
-            const c = document.getElementById('layout-gallery'); 
-            c.innerHTML = ''; d.forEach(l => { 
-                const i = document.createElement('div'); i.className = 'layout-item'; 
-                const m = document.createElement('img'); 
-                m.src = l.thumbnail_path; 
-                i.appendChild(m); 
-                const p = document.createElement('p'); 
-                p.innerHTML = `${l.cell_layout}<br>${l.aspect_ratio}`; 
-                i.appendChild(p); 
-                i.addEventListener('click', () => handleLayoutSelection(i, l)); 
-                c.appendChild(i); 
-            }); 
-        } 
-        catch (e) { console.error(e); } 
-    }
-    function handleLayoutSelection(el, data) { 
-        if (selectedTemplate.element) { 
-            selectedTemplate.element.classList.remove('selected'); } 
-            selectedTemplate = { element: el, data: data }; 
-            el.classList.add('selected'); 
-            continueBtn.style.display = 'block'; 
+    
+        function renderTemplateEditPreview() {
+            const p = document.getElementById('template-edit-preview');
+            p.innerHTML = '';
+            const t = document.createElement('img');
+            t.src = editingTemplate.template_path;
+            t.className = 'preview-template-img';
+            t.draggable = false;
+            t.onload = () => {
+                renderEditableHoles();
+            };
+            p.appendChild(t);
         }
-    async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
-    async function handleFileUpload(event, endpoint, callback) { 
-        const f = event.target.files[0]; 
-        if (!f) return; 
-        const d = new FormData(); 
-        d.append('file', f); 
-        try { 
-            const r = await fetch(endpoint, { method: 'POST', body: d }); 
-            if (!r.ok) throw new Error((await r.json()).detail); 
-            const data = await r.json();
-            if (endpoint === '/upload_template') {
-                showTemplateEditScreen(data);
-            } else {
-                callback(); 
-            }
-        } catch (e) { 
-            console.error(e); 
-        } 
-        event.target.value = null; 
-    }
-
-    function showTemplateEditScreen(templateData) {
-        mainMenu.style.display = 'none';
-        appContent.style.display = 'none';
-        reviewScreen.style.display = 'none';
-        resultScreen.style.display = 'none';
-        document.getElementById('template-edit-screen').style.display = 'block';
-
-        editingTemplate = templateData;
-        renderTemplateEditPreview();
-    }
-
-    function renderTemplateEditPreview() {
-        const p = document.getElementById('template-edit-preview');
-        p.innerHTML = '';
-        const t = document.createElement('img');
-        t.src = editingTemplate.template_path;
-        t.className = 'preview-template-img';
-        t.draggable = false;
-        t.onload = () => {
-            renderEditableHoles();
-        };
-        p.appendChild(t);
-    }
-
-
-
-    function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
-
-    // --- 2. PHOTO TAKING ---
-
-    function handleManualCapture() {
-        if (isCapturing) handleCapture();
-    }
-
-    function startCaptureSequence() {
-        if (captureMode === 'upload') {
-            if (capturedPhotos.length !== templateInfo.hole_count) {
-                alert(`사진을 ${templateInfo.hole_count}개 선택해야 합니다.`);
+    
+    
+    
+        function handleCapture() { const v = document.getElementById('camera-stream'), c = document.getElementById('capture-canvas'), x = c.getContext('2d'); c.width = v.videoWidth; c.height = v.videoHeight; x.drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => { capturedPhotos.push(b); const t = document.createElement('img'); t.src = URL.createObjectURL(b); t.classList.add('thumbnail'); document.getElementById('thumbnails-container').appendChild(t); updatePhotoStatus(); }, 'image/jpeg'); }
+    
+        // --- 2. PHOTO TAKING ---
+    
+        function handleManualCapture() {
+            if (isCapturing) handleCapture();
+        }
+    
+        function startCaptureSequence() {
+            if (captureMode === 'upload') {
+                if (capturedPhotos.length !== templateInfo.hole_count) {
+                    alert(`사진을 ${templateInfo.hole_count}개 선택해야 합니다.`);
+                    return;
+                }
+                showReviewScreen();
                 return;
             }
-            showReviewScreen();
-            return;
-        }
-
-        isCapturing = true;
-        modeSelection.style.display = 'none';
-        timerControls.style.display = 'none';
-        startCaptureBtn.style.display = 'none';
-
-        if (selectedTimer === 0) {
-            document.getElementById('capture-btn').style.display = 'block';
-        } else {
-            document.getElementById('capture-btn').style.display = 'none';
-            runTimerCapture();
-        }
-    }
-
-    function runTimerCapture() {
-        if (capturedPhotos.length >= templateInfo.hole_count) {
-            isCapturing = false;
-            return;
-        }
-
-        let countdown = selectedTimer;
-        countdownDisplay.style.display = 'block';
-        countdownDisplay.textContent = countdown;
-
-        const countdownInterval = setInterval(() => {
-            countdown--;
-            countdownDisplay.textContent = countdown;
-            if (countdown <= 0) {
-                clearInterval(countdownInterval);
-                countdownDisplay.style.display = 'none';
-                handleCapture();
-                setTimeout(runTimerCapture, 1000); // Wait 1 sec before next cycle
-            }
-        }, 1000);
-    }
-
-    function switchCaptureMode(newMode) {
-        captureMode = newMode;
-        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`.mode-btn[data-mode="${newMode}"]`).classList.add('active');
-
-        if (newMode === 'camera') {
-            document.getElementById('camera-stream').style.display = 'block';
-            uploadArea.style.display = 'none';
-            timerControls.style.display = 'flex';
-            startCaptureBtn.textContent = '시작';
-        } else {
-            document.getElementById('camera-stream').style.display = 'none';
-            uploadArea.style.display = 'block';
+    
+            isCapturing = true;
+            modeSelection.style.display = 'none';
             timerControls.style.display = 'none';
-            startCaptureBtn.textContent = '계속';
+            startCaptureBtn.style.display = 'none';
+    
+            if (selectedTimer === 0) {
+                document.getElementById('capture-btn').style.display = 'block';
+            } else {
+                document.getElementById('capture-btn').style.display = 'none';
+                runTimerCapture();
+            }
         }
-    }
+    
+        function runTimerCapture() {
+            if (capturedPhotos.length >= templateInfo.hole_count) {
+                isCapturing = false;
+                return;
+            }
+    
+            let countdown = selectedTimer;
+            countdownDisplay.style.display = 'block';
+            countdownDisplay.textContent = countdown;
+    
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                countdownDisplay.textContent = countdown;
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownDisplay.style.display = 'none';
+                    handleCapture();
+                    setTimeout(runTimerCapture, 1000); // Wait 1 sec before next cycle
+                }
+            }, 1000);
+        }
+    
+        function switchCaptureMode(newMode) {
+            captureMode = newMode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.mode-btn[data-mode="${newMode}"]`).classList.add('active');
+    
+            if (newMode === 'camera') {
+                document.getElementById('camera-stream').style.display = 'block';
+                uploadArea.style.display = 'none';
+                timerControls.style.display = 'flex';
+                startCaptureBtn.textContent = '시작';
+            } else {
+                document.getElementById('camera-stream').style.display = 'none';
+                uploadArea.style.display = 'block';
+                timerControls.style.display = 'none';
+                startCaptureBtn.textContent = '계속';
+            }
+        }
 
     function handlePhotoUpload(event) {
         const files = event.target.files;
@@ -368,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function startPhotoSession() { 
+    function startPhotoSession() { 
         mainMenu.style.display = 'none'; 
         appContent.style.display = 'block'; 
         document.getElementById('app-title').textContent = '사진 촬영'; 
@@ -382,18 +406,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('thumbnails-container').innerHTML = '';
         uploadThumbnailsContainer.innerHTML = '';
 
-        const h = templateInfo.holes[0]; 
-        const r = h.w / h.h; 
-        try { 
-            stream = await navigator.mediaDevices.getUserMedia({ video: { aspectRatio: { ideal: r } } }); 
-        } catch (e) { 
-            try { 
-                stream = await navigator.mediaDevices.getUserMedia({ video: true }); 
-            } catch (e2) { 
-                return; 
-            } 
-        } 
-        document.getElementById('camera-stream').srcObject = stream; 
+        const cameraStream = document.getElementById('camera-stream');
+        cameraStream.srcObject = stream;
+        cameraStream.play();
+
         updatePhotoStatus(); 
     }
     function updatePhotoStatus() { const n = templateInfo.hole_count, t = capturedPhotos.length; document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`; if (t >= n) { if (stream) stream.getTracks().forEach(tr => tr.stop()); showReviewScreen(); } }
