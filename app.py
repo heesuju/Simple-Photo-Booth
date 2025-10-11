@@ -329,6 +329,7 @@ def apply_filters(image, filters):
     warmth = int(filters.get('warmth', 100))
     sharpness = int(filters.get('sharpness', 0))
     blur = int(filters.get('blur', 0))
+    grain = int(filters.get('grain', 0))
 
     # --- Brightness & Contrast ---
     img_float = image.astype(np.float32)
@@ -382,6 +383,11 @@ def apply_filters(image, filters):
         # The CSS blur() pixel value corresponds to sigma. We pass it directly.
         # Setting kernel size to (0,0) makes OpenCV calculate it from sigma.
         image = cv2.GaussianBlur(image, (0, 0), blur)
+
+    # --- Grain ---
+    if grain > 0:
+        noise = np.random.normal(0, grain, image.shape).astype(np.int16)
+        image = np.clip(image.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
     return image
 

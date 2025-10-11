@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedTimer = 0; // 0 for manual, otherwise seconds
     let isCapturing = false;
     let captureMode = 'camera';
-    let filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0 };
+    let filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
 
     // === DOM ELEMENTS ===
     const mainMenu = document.getElementById('main-menu');
@@ -34,7 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoUploadBtn = document.getElementById('photo-upload-btn');
     const uploadThumbnailsContainer = document.getElementById('upload-thumbnails-container');
     const filterControls = document.getElementById('filter-controls');
-        const sharpenMatrix = document.getElementById('sharpen-matrix');
+    const sharpenMatrix = document.getElementById('sharpen-matrix');
+    const warmthMatrix = document.getElementById('warmth-matrix');
+    const grainTurbulence = document.querySelector('#grain-filter feTurbulence');
     
         // === INITIALIZATION ===
         function initApp() {
@@ -389,6 +391,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Apply wrapper filters
         document.querySelectorAll('.preview-photo-wrapper').forEach(wrapper => {
             wrapper.style.filter = wrapperFilterString.trim();
+            const grainAmount = filters.grain / 100;
+            if (grainAmount > 0) {
+                wrapper.style.setProperty('--grain-opacity', grainAmount);
+                wrapper.classList.add('grain-effect');
+            } else {
+                wrapper.classList.remove('grain-effect');
+            }
         });
     }
 
@@ -421,9 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewScreen.style.display = 'block'; 
         photoAssignments = [...capturedPhotos]; 
         placedStickers = []; 
-        filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0 };
+        filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
         document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
-            if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur') {
+            if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur' || slider.dataset.filter === 'grain') {
                 slider.value = 0;
             } else {
                 slider.value = 100;

@@ -15,6 +15,9 @@
             <filter id="warmth-filter">
                 <feColorMatrix id="warmth-matrix" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" />
             </filter>
+            <filter id="grain-filter">
+                <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+            </filter>
         </defs>
     </svg>
     <div class="container">
@@ -125,6 +128,10 @@
                                 <div class="filter-slider">
                                     <label for="blur">블러</label>
                                     <input type="range" id="blur" data-filter="blur" min="0" max="20" value="0">
+                                </div>
+                                <div class="filter-slider">
+                                    <label for="grain">그레인</label>
+                                    <input type="range" id="grain" data-filter="grain" min="0" max="100" value="0">
                                 </div>
                             </div>
                         </div>
