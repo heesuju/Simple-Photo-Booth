@@ -480,7 +480,7 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
                 sticker_img = cv2.cvtColor(sticker_img, cv2.COLOR_BGR2BGRA)
             
             sticker_img_resized = cv2.resize(sticker_img, (width, height))
-            sticker_rotated = rotate_image(sticker_img_resized, sticker_data.get('rotation', 0))
+            sticker_rotated = rotate_image(sticker_img_resized, -sticker_data.get('rotation', 0))
             
             s_h, s_w, _ = sticker_rotated.shape
             pos_x = sticker_data['x'] - (s_w - sticker_data['width']) // 2

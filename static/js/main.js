@@ -116,51 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('mouseup', handleHoleMouseUp);
             window.addEventListener('resize', debouncedRender); // Add this line
             document.getElementById('review-preview').addEventListener('dragover', (e) => e.preventDefault());
-            document.getElementById('review-preview').addEventListener('drop', (e) => {
-                e.preventDefault();
-                try {
-                    const stickerData = JSON.parse(e.dataTransfer.getData('application/json'));
-                    const p = document.getElementById('review-preview');
-                    const previewRect = p.getBoundingClientRect();
-                    const { scale, offsetX, offsetY, renderedWidth } = getPreviewScaling();
-                    const templateNaturalWidth = renderedWidth / scale;
-    
-                    if (scale === 1) return; // Preview not ready
-    
-                    const stickerImg = new Image();
-                    stickerImg.onload = () => {
-                        // Define initial sticker size relative to the template (e.g., 20% of width)
-                        const desiredNaturalWidth = templateNaturalWidth * 0.3;
-                        const stickerNaturalW = desiredNaturalWidth;
-                        const stickerNaturalH = stickerImg.naturalHeight * (desiredNaturalWidth / stickerImg.naturalWidth);
-    
-                        // Convert natural size to screen size for centering calculation
-                        const stickerScreenW = stickerNaturalW * scale;
-                        const stickerScreenH = stickerNaturalH * scale;
-    
-                        // Convert screen mouse coordinates to image-natural coordinates
-                        const mouseX = e.clientX - previewRect.left;
-                        const mouseY = e.clientY - previewRect.top;
-                        
-                        const imageX = (mouseX - offsetX - (stickerScreenW / 2)) / scale;
-                        const imageY = (mouseY - offsetY - (stickerScreenH / 2)) / scale;
-    
-                        placedStickers.push({
-                            id: Date.now(),
-                            path: stickerData.sticker_path,
-                            x: Math.round(imageX),
-                            y: Math.round(imageY),
-                            width: Math.round(stickerNaturalW),
-                            height: Math.round(stickerNaturalH),
-                            rotation: 0
-                        });
-                        renderPlacedStickers();
-                    };
-                    stickerImg.src = stickerData.sticker_path;
-                } catch (err) {
-                    // This is not a sticker drop, so we can ignore the error
-                }
-            });
             loadLayoutGallery();
         }
     
@@ -211,7 +166,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.classList.add('selected'); 
                 continueBtn.style.display = 'block'; 
             }
-        async function loadStickerGallery() { try { const r = await fetch('/stickers'); const d = await r.json(); const c = document.getElementById('sticker-gallery'); c.innerHTML = ''; d.forEach(s => { const i = document.createElement('div'); i.className = 'sticker-item'; const m = document.createElement('img'); m.src = s.sticker_path; m.draggable = true; m.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/json', JSON.stringify(s)); }); i.appendChild(m); c.appendChild(i); }); } catch (e) { console.error(e); } }
+        async function loadStickerGallery() { 
+            try { 
+                const r = await fetch('/stickers'); 
+                const d = await r.json(); 
+                const c = document.getElementById('sticker-gallery'); 
+                c.innerHTML = ''; 
+                d.forEach(s => { 
+                    const i = document.createElement('div'); 
+                    i.className = 'sticker-item'; 
+                    const m = document.createElement('img'); 
+                    m.src = s.sticker_path; 
+                    i.addEventListener('click', () => addStickerToCenter(s));
+                    i.appendChild(m); 
+                    c.appendChild(i); 
+                }); 
+            } catch (e) { 
+                console.error(e); 
+            } 
+        }
+
+        function addStickerToCenter(stickerData) {
+            const { scale, offsetX, offsetY, renderedWidth } = getPreviewScaling();
+            const templateNaturalWidth = renderedWidth / scale;
+            if (scale === 1) return; // Preview not ready
+
+            const stickerImg = new Image();
+            stickerImg.onload = () => {
+                const desiredNaturalWidth = templateNaturalWidth * 0.3;
+                const stickerNaturalW = desiredNaturalWidth;
+                const stickerNaturalH = stickerImg.naturalHeight * (desiredNaturalWidth / stickerImg.naturalWidth);
+
+                const template = document.querySelector('#review-preview .preview-template-img');
+                const imageNaturalWidth = template.naturalWidth;
+                const imageNaturalHeight = template.naturalHeight;
+
+                const imageX = (imageNaturalWidth - stickerNaturalW) / 2;
+                const imageY = (imageNaturalHeight - stickerNaturalH) / 2;
+
+                placedStickers.push({
+                    id: Date.now(),
+                    path: stickerData.sticker_path,
+                    x: Math.round(imageX),
+                    y: Math.round(imageY),
+                    width: Math.round(stickerNaturalW),
+                    height: Math.round(stickerNaturalH),
+                    rotation: 0
+                });
+                renderPlacedStickers();
+            };
+            stickerImg.src = stickerData.sticker_path;
+        }
+
         async function handleFileUpload(event, endpoint, callback) { 
             const f = event.target.files[0]; 
             if (!f) return; 
@@ -566,22 +572,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectionBox.className = 'selection-box';
                 w.appendChild(selectionBox);
 
-                const handles = ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'];
-                handles.forEach(handle => {
-                    const handleEl = document.createElement('div');
-                    handleEl.className = `resize-handle ${handle}`;
-                    handleEl.addEventListener('mousedown', (e) => {
-                        e.stopPropagation();
-                        activeSticker.action = `resize-${handle}`;
-                        dragStart = { x: e.clientX, y: e.clientY, initialX: d.x, initialY: d.y, initialW: d.width, initialH: d.height };
-                    });
-                    w.appendChild(handleEl);
-                });
+                // Combined Resize/Rotate Handle
+                const resizeRotateHandle = document.createElement('div');
+                resizeRotateHandle.className = 'sticker-handle resize-rotate';
+                resizeRotateHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    activeSticker.action = 'resize-rotate';
+                    
+                    const { scale, offsetX, offsetY } = getPreviewScaling();
+                    const previewRect = document.getElementById('review-preview').getBoundingClientRect();
+                    const centerX = previewRect.left + offsetX + (d.x + d.width / 2) * scale;
+                    const centerY = previewRect.top + offsetY + (d.y + d.height / 2) * scale;
 
-                const removeBtn = document.createElement('div');
-                removeBtn.className = 'remove-sticker-btn';
-                removeBtn.textContent = 'X';
-                removeBtn.addEventListener('click', (e) => {
+                    dragStart = { 
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        centerX, 
+                        centerY, 
+                        initialWidth: d.width,
+                        initialHeight: d.height,
+                        initialRotation: d.rotation,
+                        initialDistance: Math.hypot(e.clientX - centerX, e.clientY - centerY),
+                        initialAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
+                    };
+                });
+                w.appendChild(resizeRotateHandle);
+
+                // Close Handle
+                const closeHandle = document.createElement('div');
+                closeHandle.className = 'sticker-handle close';
+                closeHandle.textContent = 'X';
+                closeHandle.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const index = placedStickers.findIndex(s => s.id === d.id);
                     if (index > -1) {
@@ -590,19 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     activeSticker = { element: null, data: null, action: null };
                     renderPlacedStickers();
                 });
-                w.appendChild(removeBtn);
-
-                const rotationHandle = document.createElement('div');
-                rotationHandle.className = 'rotation-handle';
-                rotationHandle.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                    activeSticker.action = 'rotate';
-                    const stickerRect = w.getBoundingClientRect();
-                    const centerX = stickerRect.left + stickerRect.width / 2;
-                    const centerY = stickerRect.top + stickerRect.height / 2;
-                    dragStart = { x: e.clientX, y: e.clientY, centerX, centerY, initialRotation: d.rotation };
-                });
-                w.appendChild(rotationHandle);
+                w.appendChild(closeHandle);
             }
 
             previewContainer.appendChild(w);
@@ -710,44 +719,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeSticker.action === 'move') {
             sticker.x = Math.round(dragStart.initialX + dX_natural);
             sticker.y = Math.round(dragStart.initialY + dY_natural);
-        } else if (activeSticker.action === 'rotate') {
-            const angle = Math.atan2(e.clientY - dragStart.centerY, e.clientX - dragStart.centerX) * (180 / Math.PI);
-            const startAngle = Math.atan2(dragStart.y - dragStart.centerY, dragStart.x - dragStart.centerX) * (180 / Math.PI);
-            sticker.rotation = Math.round(dragStart.initialRotation + angle - startAngle);
-        } else if (activeSticker.action.startsWith('resize-')) {
-            const handle = activeSticker.action.split('-')[1];
-            if (handle.includes('e')) {
-                sticker.width = Math.max(minSizeNatural, dragStart.initialW + dX_natural);
-            }
-            if (handle.includes('s')) {
-                sticker.height = Math.max(minSizeNatural, dragStart.initialH + dY_natural);
-            }
-            if (handle.includes('w')) {
-                sticker.width = Math.max(minSizeNatural, dragStart.initialW - dX_natural);
-                sticker.x = dragStart.initialX + dX_natural;
-            }
-            if (handle.includes('n')) {
-                sticker.height = Math.max(minSizeNatural, dragStart.initialH - dY_natural);
-                sticker.y = dragStart.initialY + dY_natural;
-            }
+        } else if (activeSticker.action === 'resize-rotate') {
+            const sticker = activeSticker.data;
+            const { scale, offsetX, offsetY } = getPreviewScaling();
+            const minSizeNatural = 20 / scale;
 
-            // Maintain aspect ratio for corner handles
-            if (handle.length === 2) {
-                if (Math.abs(sticker.width / sticker.height - initialRatio) > 0.01) {
-                    if (handle.includes('e') || handle.includes('w')) {
-                        sticker.height = Math.round(sticker.width / initialRatio);
-                    } else {
-                        sticker.width = Math.round(sticker.height * initialRatio);
-                    }
-                }
-                 if (handle.includes('n')) {
-                    sticker.y = dragStart.initialY + (dragStart.initialH - sticker.height);
-                }
-                if (handle.includes('w')) {
-                    sticker.x = dragStart.initialX + (dragStart.initialW - sticker.width);
-                }
-            }
-        }
+            // Fixed center of rotation (from dragStart)
+            const centerX = dragStart.centerX;
+            const centerY = dragStart.centerY;
+
+            // Vector from center to mouse
+            const mouseVecX = e.clientX - centerX;
+            const mouseVecY = e.clientY - centerY;
+
+            // New rotation
+            const localAngleRad = Math.atan2(dragStart.initialHeight / 2, dragStart.initialWidth / 2);
+            const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
+            sticker.rotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
+
+            // New size
+            const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
+            const localDiag = Math.hypot(dragStart.initialWidth / 2, dragStart.initialHeight / 2);
+            const scaleFactor = newDiagScreen / (localDiag * scale);
+
+            sticker.width = Math.max(minSizeNatural, dragStart.initialWidth * scaleFactor);
+            sticker.height = Math.max(minSizeNatural, dragStart.initialHeight * scaleFactor);
+
+            // The center is fixed, so we need to adjust x and y based on the new width and height.
+            const previewRect = document.getElementById('review-preview').getBoundingClientRect();
+            const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
+            const new_center_natural_y = (centerY - (previewRect.top + offsetY)) / scale;
+
+            sticker.x = new_center_natural_x - sticker.width / 2;
+            sticker.y = new_center_natural_y - sticker.height / 2;
+        } 
 
         renderPlacedStickers();
     }

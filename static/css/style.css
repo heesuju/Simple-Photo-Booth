@@ -457,32 +457,34 @@ button:hover {
     border-color: #007bff;
 }
 
-.resize-handle {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    background-color: #007bff;
-    border: 2px solid white;
-    z-index: 10;
-}
 
-.resize-handle.nw { top: -6px; left: -6px; cursor: nwse-resize; }
-.resize-handle.ne { top: -6px; right: -6px; cursor: nesw-resize; }
-.resize-handle.sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
-.resize-handle.se { bottom: -6px; right: -6px; cursor: nwse-resize; }
-
-.rotation-handle {
+.sticker-handle {
     position: absolute;
-    top: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     background-color: #007bff;
     border: 2px solid white;
     border-radius: 50%;
+    z-index: 11;
+}
+
+.sticker-handle.resize-rotate {
+    bottom: -10px;
+    right: -10px;
     cursor: grab;
-    z-index: 10;
+}
+
+.sticker-handle.close {
+    top: -10px;
+    right: -10px;
+    background-color: #dc3545;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
 }
 
 #template-edit-screen .preview-container {
