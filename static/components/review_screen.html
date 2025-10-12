@@ -7,16 +7,11 @@
     </div>
 
     <div id="review-panel">
+        <div id="panel-handle"></div>
         <div id="review-panel-content">
-            <div class="panel-section" data-panel="photos">
-                <div id="review-thumbnails" class="gallery-container"></div>
-            </div>
             <div class="panel-section" data-panel="stickers">
                 <div id="sticker-gallery" class="gallery-container"></div>
                 <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
-            </div>
-            <div class="panel-section" data-panel="templates">
-                <div id="template-gallery-review" class="gallery-container"></div>
             </div>
             <div class="panel-section" data-panel="filters">
                 <div id="filter-controls">
@@ -51,11 +46,16 @@
                 </div>
             </div>
         </div>
-        <button id="close-panel-btn">닫기</button>
     </div>
 
-    <div class="review-container">
-        <div id="review-preview" class="preview-container"></div>
+    <div class="review-main-content">
+        <div class="review-container">
+            <div id="review-preview" class="preview-container"></div>
+        </div>
+        <div id="strip-container">
+            <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
+            <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates"></div>
+        </div>
     </div>
 
     <button id="finalize-btn">최종 완료</button>
