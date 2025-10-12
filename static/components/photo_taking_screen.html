@@ -19,10 +19,13 @@
             <div id="countdown-display" style="display: none; font-size: 5rem; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
         </div>
         <div id="timer-controls">
-            <button class="timer-btn" data-time="3">3초</button>
-            <button class="timer-btn" data-time="5">5초</button>
-            <button class="timer-btn" data-time="10">10초</button>
-            <button class="timer-btn active" data-time="0">수동</button>
+            <label for="timer-select">타이머</label>
+            <select id="timer-select">
+                <option value="0">수동</option>
+                <option value="3">3초</option>
+                <option value="5">5초</option>
+                <option value="10">10초</option>
+            </select>
         </div>
         <div id="action-buttons">
             <button id="start-capture-btn">시작</button>

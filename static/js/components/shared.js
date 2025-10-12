@@ -1,3 +1,4 @@
+// A simple debounce function to limit the rate at which a function can fire.
 window.debounce = function(func, wait) {
     let timeout;
     return function(...args) {
@@ -7,6 +8,7 @@ window.debounce = function(func, wait) {
     };
 }
 
+// Handles file uploads for both templates and stickers
 window.handleFileUpload = async function(event, endpoint, callback) { 
     const f = event.target.files[0]; 
     if (!f) return; 

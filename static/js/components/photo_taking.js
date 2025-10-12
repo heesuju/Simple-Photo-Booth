@@ -14,12 +14,9 @@ window.eventBus.on('app:init', (appState) => {
 
     startCaptureBtn.addEventListener('click', () => window.eventBus.dispatch('capture-sequence:start'));
     captureBtn.addEventListener('click', () => window.eventBus.dispatch('capture:manual'));
-    timerControls.addEventListener('click', (e) => {
-        if (e.target.classList.contains('timer-btn')) {
-            document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            appState.selectedTimer = parseInt(e.target.dataset.time, 10);
-        }
+    const timerSelect = document.getElementById('timer-select');
+    timerSelect.addEventListener('change', (e) => {
+        appState.selectedTimer = parseInt(e.target.value, 10);
     });
     modeSelection.addEventListener('click', (e) => {
         if (e.target.classList.contains('mode-btn')) {

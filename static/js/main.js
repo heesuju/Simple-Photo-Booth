@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // A simple event bus for inter-component communication
     window.eventBus = {
         on(event, callback) {
             document.addEventListener(event, (e) => callback(e.detail));
@@ -8,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
     };
 
+    // Loads the HTML for each component into the main index.html file
     async function loadHtmlComponents() {
         const components = [
             { id: 'main-menu', url: '/static/components/main_menu.html' },
@@ -28,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Dynamically loads all the component JavaScript files
     async function loadJsComponents() {
         const scripts = [
             '/static/js/components/shared.js',
@@ -53,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // The global application state
     const appState = {
         templateInfo: null,
         selectedTemplate: { element: null, data: null },
@@ -71,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filters: { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 },
     };
 
+    // Handles showing and hiding the different application screens
     window.eventBus.on('screen:show', (screenId) => {
         ['main-menu', 'app-content', 'review-screen', 'result-screen', 'template-edit-screen'].forEach(id => {
             document.getElementById(id).style.display = 'none';
@@ -78,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(screenId).style.display = 'block';
     });
 
+    // Initializes the application by loading all components and dispatching the app:init event
     async function initApp() {
         await loadHtmlComponents();
         await loadJsComponents();

@@ -1,30 +1,24 @@
-<h2>사진 검토 및 수정</h2>
-<p>오른쪽 목록에서 사진을 드래그하여 왼쪽의 원하는 위치에 놓으세요.</p>
-<div class="review-container">
-    <div id="review-preview" class="preview-container"></div>
-    <div id="review-right-col">
-        <div class="accordion-item">
-            <h3 class="accordion-header">촬영된 사진</h3>
-            <div class="accordion-content">
+<div id="review-screen-container">
+    <div id="review-toolbar">
+        <button class="toolbar-btn" data-panel="photos">사진</button>
+        <button class="toolbar-btn" data-panel="templates">템플릿</button>
+        <button class="toolbar-btn" data-panel="stickers">스티커</button>
+        <button class="toolbar-btn" data-panel="filters">필터</button>
+    </div>
+
+    <div id="review-panel">
+        <div id="review-panel-content">
+            <div class="panel-section" data-panel="photos">
                 <div id="review-thumbnails" class="gallery-container"></div>
             </div>
-        </div>
-        <div class="accordion-item">
-            <h3 class="accordion-header">스티커</h3>
-            <div class="accordion-content">
+            <div class="panel-section" data-panel="stickers">
                 <div id="sticker-gallery" class="gallery-container"></div>
                 <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
             </div>
-        </div>
-        <div class="accordion-item">
-            <h3 class="accordion-header">템플릿</h3>
-            <div class="accordion-content">
+            <div class="panel-section" data-panel="templates">
                 <div id="template-gallery-review" class="gallery-container"></div>
             </div>
-        </div>
-        <div class="accordion-item">
-            <h3 class="accordion-header">필터</h3>
-            <div class="accordion-content">
+            <div class="panel-section" data-panel="filters">
                 <div id="filter-controls">
                     <div class="filter-slider">
                         <label for="brightness">밝기</label>
@@ -57,6 +51,12 @@
                 </div>
             </div>
         </div>
+        <button id="close-panel-btn">닫기</button>
     </div>
+
+    <div class="review-container">
+        <div id="review-preview" class="preview-container"></div>
+    </div>
+
+    <button id="finalize-btn">최종 완료</button>
 </div>
-<button id="finalize-btn">최종 완료</button>

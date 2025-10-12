@@ -3,6 +3,10 @@ window.eventBus.on('app:init', (appState) => {
     const finalizeBtn = document.getElementById('finalize-btn');
     const filterControls = document.getElementById('filter-controls');
     const stickerUploadInput = document.getElementById('sticker-upload-input');
+    const reviewToolbar = document.getElementById('review-toolbar');
+    const reviewPanel = document.getElementById('review-panel');
+    const closePanelBtn = document.getElementById('close-panel-btn');
+    const panelContent = document.getElementById('review-panel-content');
 
     finalizeBtn.addEventListener('click', () => window.eventBus.dispatch('review:finalize'));
     filterControls.addEventListener('input', (e) => {
@@ -11,19 +15,40 @@ window.eventBus.on('app:init', (appState) => {
             applyPhotoFilters();
         }
     });
-    document.getElementById('review-right-col').addEventListener('click', (e) => {
-        if (e.target.classList.contains('accordion-header')) {
-            e.target.classList.toggle('active');
-            const content = e.target.nextElementSibling;
-            content.classList.toggle('active');
-            if (content.style.maxHeight) {
-                content.style.maxHeight = null;
-            }
-            else {
-                content.style.maxHeight = content.scrollHeight + "px";
+
+    reviewToolbar.addEventListener('click', (e) => {
+        if (e.target.classList.contains('toolbar-btn')) {
+            const panelType = e.target.dataset.panel;
+            const currentActiveBtn = reviewToolbar.querySelector('.active');
+            const targetPanel = panelContent.querySelector(`.panel-section[data-panel="${panelType}"]`);
+
+            if (currentActiveBtn === e.target && reviewPanel.classList.contains('show')) {
+                reviewPanel.classList.remove('show');
+                e.target.classList.remove('active');
+            } else {
+                if (currentActiveBtn) {
+                    currentActiveBtn.classList.remove('active');
+                }
+                panelContent.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+
+                e.target.classList.add('active');
+                if (targetPanel) {
+                    targetPanel.classList.add('active');
+                }
+                reviewPanel.classList.add('show');
             }
         }
     });
+
+    closePanelBtn.addEventListener('click', () => {
+        reviewPanel.classList.remove('show');
+        const currentActiveBtn = reviewToolbar.querySelector('.active');
+        if (currentActiveBtn) {
+            currentActiveBtn.classList.remove('active');
+        }
+        panelContent.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+    });
+
     stickerUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_sticker', loadStickerGallery));
     window.addEventListener('mousemove', handleStickerMove);
     window.addEventListener('mouseup', handleStickerMouseUp);
