@@ -206,19 +206,18 @@ window.eventBus.on('app:init', (appState) => {
 
     function renderPreview() { 
         const p = document.getElementById('review-preview'); 
-        p.innerHTML = ''; 
-        const t = document.createElement('img'); 
+        document.getElementById('review-photos-container').innerHTML = ''; 
+        const t = document.getElementById('review-template-overlay');
         t.src = appState.templateInfo.template_path; 
         t.className = 'preview-template-img'; 
         t.onload = () => { 
             renderPhotoAssignments(); 
             renderPlacedStickers(); 
         }; 
-        p.appendChild(t); 
     }
 
     function getPreviewScaling(previewId = 'review-preview') {
-        const p = document.getElementById(previewId), t = p.querySelector('.preview-template-img');
+        const p = document.getElementById(previewId), t = p.querySelector('#review-template-overlay');
         if (!t || !t.naturalWidth) return { scale: 1, offsetX: 0, offsetY: 0, renderedWidth: 0, renderedHeight: 0 };
 
         const containerWidth = p.offsetWidth;
@@ -270,9 +269,14 @@ window.eventBus.on('app:init', (appState) => {
             i.src = URL.createObjectURL(b); 
             i.className = 'preview-photo-img'; 
             i.draggable = false; 
-            i.addEventListener('click', () => handleHoleSelection(i, hIdx)); 
+            
+            const btn = document.createElement('button');
+            btn.className = 'preview-photo-button';
+            btn.addEventListener('click', () => handleHoleSelection(btn, hIdx));
+
             wrapper.appendChild(i);
-            document.getElementById('review-preview').appendChild(wrapper); 
+            wrapper.appendChild(btn);
+            document.getElementById('review-photos-container').appendChild(wrapper); 
         }); 
         applyPhotoFilters(); 
     }

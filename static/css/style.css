@@ -103,6 +103,7 @@ button:hover {
     border-radius: 5px;
     overflow: hidden;
     cursor: pointer;
+    height: fit-content;
     transition: transform 0.2s, box-shadow 0.2s;
     background-color: white;
     text-align: center;
@@ -215,9 +216,6 @@ button:hover {
     background-color: #e9ecef;
     border-radius: 5px;
     overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 100%;
     height: 100%;
 }
@@ -318,6 +316,24 @@ button:hover {
     object-fit: contain; /* Fit image within the container */
 }
 
+#review-photos-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#review-template-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none; /* Let clicks pass through to the buttons below */
+}
+
 .preview-photo-wrapper {
     position: absolute;
 }
@@ -325,13 +341,35 @@ button:hover {
 #review-preview .preview-photo-img {
     width: 100%;
     height: 100%;
-    cursor: pointer;
-    border: 2px dashed #fff;
-    transition: border-color 0.2s;
 }
 
-#review-preview .preview-photo-img:hover {
-    border-color: #007bff;
+.preview-photo-button {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    pointer-events: none; /* Disabled by default */
+    margin: 0;
+    padding: 0;
+}
+
+#review-toolbar:has(.toolbar-btn[data-panel="photos"].active) ~ .review-main-content .preview-photo-button {
+    pointer-events: auto; /* Enabled only when photos tab is active */
+}
+
+.preview-photo-button:hover {
+    background-color: rgba(0, 123, 255, 0.3);
+    border-color: transparent;
+}
+
+.preview-photo-button.selected {
+    background-color: rgba(0, 123, 255, 0.3);
+    border-color: transparent;
 }
 
 .sticker-item {
