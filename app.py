@@ -8,6 +8,7 @@ import json
 import qrcode
 import socket
 from typing import List
+import random
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -28,6 +29,8 @@ DATABASE = 'photobooth.db'
 UPLOAD_DIR = "static/uploads"
 STICKERS_DIR = "static/stickers" # New directory for stickers
 RESULTS_DIR = "static/results"
+GENERATED_TEMPLATES_DIR = "static/generated_templates"
+
 
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -39,6 +42,62 @@ def get_ip_address():
     finally:
         s.close()
     return IP
+
+def generate_default_templates(db_manager):
+    aspect_ratios = ["1:1", "2:3", "3:4", "4:5", "5:7"]
+    layouts = ["1x2", "1x3", "1x4", "2x2", "2x3", "2x4"]
+
+    for ar_str in aspect_ratios:
+        for layout_str in layouts:
+            # Check if a template with this combination already exists
+            if db_manager.get_template_by_layout(ar_str, layout_str):
+                print(f"Template for {ar_str} {layout_str} already exists. Skipping.")
+                continue
+
+            print(f"Generating template for {ar_str} {layout_str}...")
+
+            try:
+                ar_w, ar_h = map(int, ar_str.split(':'))
+                cols, rows = map(int, layout_str.split('x'))
+
+                base_photo_w = 480
+                base_photo_h = int(base_photo_w * ar_h / ar_w)
+                gap = 30
+                bottom_padding = 150
+
+                template_w = (base_photo_w * cols) + (gap * (cols + 1))
+                template_h = (base_photo_h * rows) + (gap * (rows + 1)) + bottom_padding
+
+                # Create a 4-channel image (BGRA) initialized to white
+                template = np.full((template_h, template_w, 4), (255, 255, 255, 255), np.uint8)
+
+                holes = []
+                for r in range(rows):
+                    for c in range(cols):
+                        x = gap + c * (base_photo_w + gap)
+                        y = gap + r * (base_photo_h + gap)
+                        # Set the hole area to be transparent
+                        template[y:y+base_photo_h, x:x+base_photo_w, 3] = 0
+                        holes.append({"x": x, "y": y, "w": base_photo_w, "h": base_photo_h})
+
+                # Save the generated template
+                filename = f"template_{ar_str.replace(':', '_')}_{layout_str}.png"
+                file_path = os.path.join(GENERATED_TEMPLATES_DIR, filename)
+                cv2.imwrite(file_path, template)
+
+                # Add to database
+                template_path_for_db = f"/{file_path}"
+                hole_count = len(holes)
+                transformations = [{'scale': 1, 'rotation': 0} for _ in holes]
+                db_manager.add_template(template_path_for_db, hole_count, holes, ar_str, layout_str, transformations)
+
+                # Generate the layout thumbnail
+                generate_layout_thumbnail(ar_str, layout_str, "static/layouts")
+
+                print(f"Successfully generated and saved template for {ar_str} {layout_str}.")
+
+            except Exception as e:
+                print(f"Error generating template for {ar_str} {layout_str}: {e}")
 
 # --- Lifespan Management (Startup/Shutdown) ---
 def rotate_image(image, angle):
@@ -60,9 +119,13 @@ async def lifespan(app: FastAPI):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(STICKERS_DIR, exist_ok=True) # Create stickers dir
     os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(GENERATED_TEMPLATES_DIR, exist_ok=True)
 
     # --- Sync Stickers with DB ---
     db_manager = app.state.db_manager
+    
+    generate_default_templates(db_manager)
+
     existing_stickers = {s['sticker_path'] for s in db_manager.get_all_stickers()}
     
     for filename in os.listdir(STICKERS_DIR):
@@ -162,13 +225,15 @@ def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
     ]
 
     # Draw the grid with person images
+    offset = random.randint(0, len(pastel_colors) - 1)
+
     for r in range(rows):
         for c in range(cols):
             x = gap + c * (cell_w + gap)
             y = gap + r * (cell_h + gap)
             
-            # Create a cell with a pastel color background
-            cell_bg_color = pastel_colors[(r * cols + c) % len(pastel_colors)]
+            # Create a cell with a pastel color background        
+            cell_bg_color = pastel_colors[(r * cols + c + offset) % len(pastel_colors)]
             cell_bg = np.full((cell_h, cell_w, 3), cell_bg_color, np.uint8)
 
             # Place the cell background onto the canvas

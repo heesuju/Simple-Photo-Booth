@@ -6,4 +6,5 @@ uploads/
 results/
 stickers/
 layouts/
+generated_templates/
 *.db
