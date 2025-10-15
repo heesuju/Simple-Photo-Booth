@@ -5,3 +5,4 @@ opencv-python-headless
 numpy
 aiofiles
 qrcode[pil]
+moviepy==1.0.3

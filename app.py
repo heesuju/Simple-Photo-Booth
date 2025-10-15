@@ -15,7 +15,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
+import moviepy.editor as mpe
+
 from db_manager import DatabaseManager
+
+VIDEOS_DIR = "static/videos"
 
 def gcd(a, b):
     while b:
@@ -120,6 +124,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(STICKERS_DIR, exist_ok=True) # Create stickers dir
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(GENERATED_TEMPLATES_DIR, exist_ok=True)
+    os.makedirs(VIDEOS_DIR, exist_ok=True)
 
     # --- Sync Stickers with DB ---
     db_manager = app.state.db_manager
@@ -600,6 +605,82 @@ async def compose_image(request: Request, template_path: str = Form(...), holes:
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compose image: {e}")
+
+@app.post("/upload_video_chunk")
+async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
+    try:
+        file_extension = os.path.splitext(video.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(VIDEOS_DIR, unique_filename)
+
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            content = await video.read()
+            await out_file.write(content)
+        
+        return JSONResponse(content={"video_path": f"/{file_path}"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload video chunk: {e}")
+
+@app.post("/compose_video")
+async def compose_video(request: Request, template_path: str = Form(...), holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), transformations: str = Form(...)):
+    try:
+        hole_data = json.loads(holes)
+        sticker_data = json.loads(stickers)
+        transform_data = json.loads(transformations)
+
+        clips = [mpe.VideoFileClip(os.path.join(os.getcwd(), path.lstrip('/'))) for path in video_paths]
+        min_duration = min(clip.duration for clip in clips)
+        clips = [clip.subclip(clip.duration - min_duration) for clip in clips]
+
+        # Determine the final video dimensions from the template
+        base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
+        template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
+        height, width, _ = template_img.shape
+
+        # Create a black background clip
+        background_clip = mpe.ColorClip(size=(width, height), color=(0,0,0), duration=min_duration)
+
+        video_clips = []
+        for i, clip in enumerate(clips):
+            hole = hole_data[i]
+            transform = transform_data[i]
+
+            # Apply transformations
+            scale = transform.get('scale', 1)
+            rotation = -transform.get('rotation', 0)
+
+            new_w = int(hole['w'] * scale)
+            new_h = int(hole['h'] * scale)
+
+            resized_clip = clip.resize((new_w, new_h)).rotate(rotation)
+            
+            pos_x = hole['x'] + (hole['w'] - resized_clip.w) // 2
+            pos_y = hole['y'] + (hole['h'] - resized_clip.h) // 2
+
+            print(f"Video {i}: size=({resized_clip.w}, {resized_clip.h}), position=({pos_x}, {pos_y})")
+
+            video_clips.append(resized_clip.set_position((pos_x, pos_y)).set_duration(min_duration))
+
+        # Convert template image to a clip
+        template_clip = mpe.ImageClip(base_template_path, transparent=True).set_duration(min_duration)
+
+        sticker_clips = []
+        for sticker in sticker_data:
+            sticker_path = os.path.join(os.getcwd(), sticker['path'].lstrip('/'))
+            sticker_img = mpe.ImageClip(sticker_path, transparent=True).set_duration(min_duration)
+            sticker_img = sticker_img.resize((sticker['width'], sticker['height'])).rotate(-sticker.get('rotation', 0))
+            sticker_clips.append(sticker_img.set_position((sticker['x'], sticker['y'])))
+
+        final_clip = mpe.CompositeVideoClip([background_clip] + video_clips + [template_clip] + sticker_clips, size=(width, height))
+        
+        result_filename = f"{uuid.uuid4()}.mp4"
+        result_path = os.path.join(RESULTS_DIR, result_filename)
+        
+        final_clip.write_videofile(result_path, codec="libx264", fps=24)
+
+        return JSONResponse(content={"result_path": f"/static/results/{result_filename}"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compose video: {e}")
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=PORT, reload=True)

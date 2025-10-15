@@ -62,7 +62,8 @@ window.eventBus.on('app:init', (appState) => {
         startCaptureBtn.style.display = 'block';
         captureBtn.style.display = 'none';
         appState.capturedPhotos = [];
-        appState.photoAssignments = [];
+        appState.capturedVideos = [];
+        appState.videoUploadPromises = [];
         thumbnailsContainer.innerHTML = '';
         uploadThumbnailsContainer.innerHTML = '';
 
@@ -115,6 +116,9 @@ window.eventBus.on('app:init', (appState) => {
         photoUploadInput.value = null; // Reset file input
     }
 
+    let mediaRecorder;
+    let recordedBlobs;
+
     window.eventBus.on('capture-sequence:start', () => {
         if (appState.captureMode === 'upload') {
             if (appState.capturedPhotos.length !== appState.templateInfo.hole_count) {
@@ -136,11 +140,16 @@ window.eventBus.on('app:init', (appState) => {
             captureBtn.style.display = 'none';
             runTimerCapture();
         }
+
+        startRecording();
     });
 
     function runTimerCapture() {
         if (appState.capturedPhotos.length >= appState.templateInfo.hole_count) {
             appState.isCapturing = false;
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
             return;
         }
 
@@ -169,11 +178,43 @@ window.eventBus.on('app:init', (appState) => {
         document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`; 
         if (t >= n) { 
             if (appState.stream) appState.stream.getTracks().forEach(tr => tr.stop()); 
-            window.eventBus.dispatch('photo-taking:complete');
+            Promise.all(appState.videoUploadPromises).then(() => {
+                window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: appState.capturedVideos });
+            });
         } 
     }
 
+    function startRecording() {
+        recordedBlobs = [];
+        const options = { mimeType: 'video/webm;codecs=vp9' };
+        try {
+            mediaRecorder = new MediaRecorder(appState.stream, options);
+        } catch (e) {
+            console.error('Exception while creating MediaRecorder:', e);
+            return;
+        }
+
+        mediaRecorder.onstop = (event) => {
+            const videoBlob = new Blob(recordedBlobs, { type: 'video/webm' });
+            const uploadPromise = uploadVideo(videoBlob);
+            appState.videoUploadPromises.push(uploadPromise);
+        };
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                recordedBlobs.push(event.data);
+            }
+        };
+
+        mediaRecorder.start();
+        console.log('Recording started');
+    }
+
     function handleCapture() { 
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+        }
+
         const v = document.getElementById('camera-stream'), 
               c = document.getElementById('capture-canvas'), 
               x = c.getContext('2d'); 
@@ -187,6 +228,31 @@ window.eventBus.on('app:init', (appState) => {
             t.classList.add('thumbnail'); 
             thumbnailsContainer.appendChild(t); 
             updatePhotoStatus(); 
+
+            if (appState.capturedPhotos.length < appState.templateInfo.hole_count) {
+                startRecording();
+            }
         }, 'image/jpeg'); 
+    }
+
+    async function uploadVideo(videoBlob) {
+        const formData = new FormData();
+        formData.append('video', videoBlob, 'video.webm');
+
+        try {
+            const response = await fetch('/upload_video_chunk', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            appState.capturedVideos.push(data.video_path);
+        } catch (e) {
+            console.error('Error uploading video:', e);
+        }
     }
 });
