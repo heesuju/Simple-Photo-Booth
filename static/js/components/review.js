@@ -132,21 +132,29 @@ window.eventBus.on('app:init', (appState) => {
         appState.capturedPhotos = data.photos;
         appState.capturedVideos = data.videos;
         window.eventBus.dispatch('screen:show', 'review-screen');
-        showReviewScreen();
+        showReviewScreen(false); // false = this is the first time, so reset edits
     });
 
-    function showReviewScreen() { 
-        appState.photoAssignments = [...appState.capturedPhotos]; 
-        appState.videoAssignments = [...appState.capturedVideos];
-        appState.placedStickers = []; 
-        appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
-        document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
-            if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur' || slider.dataset.filter === 'grain') {
-                slider.value = 0;
-            } else {
-                slider.value = 100;
-            }
-        });
+    window.eventBus.on('review:edit-existing', () => {
+        document.getElementById('finalize-btn').disabled = false;
+        window.eventBus.dispatch('screen:show', 'review-screen');
+        showReviewScreen(true); // true = keep existing edits
+    });
+
+    function showReviewScreen(isContinuingEditing = false) { 
+        if (!isContinuingEditing) {
+            appState.photoAssignments = [...appState.capturedPhotos]; 
+            appState.videoAssignments = [...appState.capturedVideos];
+            appState.placedStickers = []; 
+            appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
+            document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
+                if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur' || slider.dataset.filter === 'grain') {
+                    slider.value = 0;
+                } else {
+                    slider.value = 100;
+                }
+            });
+        }
         renderReviewThumbnails(); 
         renderPreview(); 
         loadStickerGallery(); 

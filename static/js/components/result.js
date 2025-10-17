@@ -115,6 +115,16 @@ window.eventBus.on('app:init', (appState) => {
                 }
             };
             c.appendChild(originalBtn);
+
+            // Add Continue Editing button
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '수정 계속하기';
+            editBtn.style.marginLeft = '10px';
+            editBtn.style.backgroundColor = '#28a745'; // Green
+            editBtn.onclick = () => {
+                window.eventBus.dispatch('review:edit-existing');
+            };
+            c.appendChild(editBtn);
     
             if (videoResult && videoResult.result_path) {
                 const videoLink = document.createElement('a');
