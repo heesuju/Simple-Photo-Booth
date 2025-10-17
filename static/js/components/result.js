@@ -72,6 +72,49 @@ window.eventBus.on('app:init', (appState) => {
             b.textContent = 'PC에 다운로드'; 
             a.appendChild(b); 
             c.appendChild(a); 
+
+            // Add Download Original button
+            const originalBtn = document.createElement('button');
+            originalBtn.textContent = '원본 다운로드';
+            originalBtn.style.marginLeft = '10px';
+            originalBtn.onclick = async () => {
+                try {
+                    originalBtn.disabled = true;
+                    originalBtn.textContent = '압축 중...';
+
+                    const formData = new FormData();
+                    appState.photoAssignments.forEach((photoBlob, i) => {
+                        formData.append('photos', photoBlob, `photo_${i}.jpg`);
+                    });
+
+                    const response = await fetch('/zip_originals', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to create zip file.');
+                    }
+
+                    const zipBlob = await response.blob();
+                    const url = window.URL.createObjectURL(zipBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', 'original_photos.zip');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+
+                } catch (err) {
+                    console.error('Failed to download originals:', err);
+                    alert('원본 사진을 다운로드하는 데 실패했습니다.');
+                } finally {
+                    originalBtn.disabled = false;
+                    originalBtn.textContent = '원본 다운로드';
+                }
+            };
+            c.appendChild(originalBtn);
     
             if (videoResult && videoResult.result_path) {
                 const videoLink = document.createElement('a');

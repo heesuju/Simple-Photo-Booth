@@ -14,6 +14,9 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from zipfile import ZipFile
+from io import BytesIO
+from starlette.responses import StreamingResponse
 
 import moviepy.editor as mpe
 
@@ -404,6 +407,23 @@ async def add_color(request: Request):
     db_manager.add_color(hex_code)
     
     return JSONResponse(content={"message": "Color added successfully"})
+
+@app.post("/zip_originals")
+async def zip_originals(photos: List[UploadFile] = File(...)):
+    zip_buffer = BytesIO()
+    with ZipFile(zip_buffer, 'a') as zf:
+        for i, photo_file in enumerate(photos):
+            content = await photo_file.read()
+            # Use a generic but unique name for each file in the zip
+            zf.writestr(f"photo_{i+1}.jpg", content)
+    
+    zip_buffer.seek(0)
+    
+    headers = {
+        'Content-Disposition': 'attachment; filename="original_photos.zip"'
+    }
+    
+    return StreamingResponse(zip_buffer, media_type="application/x-zip-compressed", headers=headers)
 
 @app.get("/stickers")
 async def get_stickers(request: Request):
