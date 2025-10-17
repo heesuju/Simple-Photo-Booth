@@ -194,29 +194,125 @@ window.eventBus.on('app:init', (appState) => {
             const c = document.getElementById('template-gallery-review'); 
             c.innerHTML = ''; 
             d.forEach(t => { 
+                const itemContainer = document.createElement('div');
+                itemContainer.className = 'template-item-container';
+
                 const i = document.createElement('div'); 
                 i.className = 'template-item'; 
                 const m = document.createElement('img'); 
                 m.src = t.template_path; 
                 i.appendChild(m); 
-                i.addEventListener('click', () => handleTemplateChange(t)); 
-                c.appendChild(i); 
+                i.addEventListener('click', () => handleTemplateChange(t));
+
+                itemContainer.appendChild(i);
+
+                if (t.is_default) {
+                    const colorButton = document.createElement('button');
+                    colorButton.className = 'color-palette-btn';
+                    colorButton.textContent = '🎨';
+                    colorButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showColorPalettePanel(t);
+                    });
+                    itemContainer.appendChild(colorButton);
+                }
+
+                c.appendChild(itemContainer); 
             }); 
         } catch (e) { 
             console.error(e); 
         } 
     }
 
+    function showColorPalettePanel(template) {
+        const templatePanel = document.getElementById('template-gallery-review');
+        const colorPanel = document.getElementById('color-palette-panel');
+
+        templatePanel.classList.remove('show');
+        colorPanel.innerHTML = ''; // Clear previous content
+
+        // Create Back Button
+        const backButton = document.createElement('button');
+        backButton.className = 'palette-back-btn';
+        backButton.textContent = '<';
+        backButton.addEventListener('click', () => {
+            colorPanel.classList.remove('show');
+            templatePanel.classList.add('show');
+        });
+        colorPanel.appendChild(backButton);
+
+        // Create Color Swatches
+        const colors = ['#FFFFFF', '#000000', '#FFDDC1', '#FFABAB', '#FFC3A0', '#B5EAD7', '#C7CEEA'];
+        colors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'palette-swatch';
+            swatch.style.backgroundColor = color;
+            swatch.addEventListener('click', () => {
+                recolorTemplateAndApply(template, color);
+                colorPanel.classList.remove('show');
+                templatePanel.classList.add('show');
+            });
+            colorPanel.appendChild(swatch);
+        });
+
+        colorPanel.classList.add('show');
+    }
+
     function renderPreview() { 
         const p = document.getElementById('review-preview'); 
         document.getElementById('review-photos-container').innerHTML = ''; 
         const t = document.getElementById('review-template-overlay');
-        t.src = appState.templateInfo.template_path; 
+        // Use the colored path if it exists, otherwise use the original path
+        t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path; 
         t.className = 'preview-template-img'; 
         t.onload = () => { 
             renderPhotoAssignments(); 
             renderPlacedStickers(); 
         }; 
+    }
+
+    function handleTemplateChange(newTemplate) { 
+        // When changing the base template, clear any previously colored version
+        delete newTemplate.colored_template_path;
+        appState.templateInfo = newTemplate; 
+        renderPreview(); 
+    }
+
+    function recolorTemplateAndApply(template, color) {
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // Required for canvas with cross-origin images
+        img.src = template.template_path;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+
+            // Draw the original template image
+            ctx.drawImage(img, 0, 0);
+
+            // If the color is white, we don't need to do anything else
+            if (color.toLowerCase() !== '#ffffff') {
+                 // Use 'source-in' to only draw on non-transparent parts of the existing image
+                ctx.globalCompositeOperation = 'source-in';
+
+                // Fill with the selected color
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            const dataURL = canvas.toDataURL('image/png');
+            
+            // Create a new template info object to avoid mutating the original
+            const coloredTemplate = { ...template };
+            coloredTemplate.colored_template_path = dataURL;
+
+            appState.templateInfo = coloredTemplate;
+            renderPreview();
+        };
+        img.onerror = () => {
+            console.error("Failed to load image for recoloring.");
+        };
     }
 
     function getPreviewScaling(previewId = 'review-preview') {

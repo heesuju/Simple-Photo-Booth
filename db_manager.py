@@ -22,7 +22,8 @@ class DatabaseManager:
                     holes TEXT NOT NULL,
                     aspect_ratio TEXT NOT NULL,
                     cell_layout TEXT NOT NULL,
-                    transformations TEXT
+                    transformations TEXT,
+                    is_default BOOLEAN DEFAULT 0
                 )
             ''')
             cursor.execute('''
@@ -32,23 +33,25 @@ class DatabaseManager:
                 )
             ''')
 
-            # Check if the transformations column exists
+            # Check if columns exist and add them if they don't
             cursor.execute("PRAGMA table_info(templates)")
             columns = [column[1] for column in cursor.fetchall()]
             if 'transformations' not in columns:
                 cursor.execute("ALTER TABLE templates ADD COLUMN transformations TEXT")
+            if 'is_default' not in columns:
+                cursor.execute("ALTER TABLE templates ADD COLUMN is_default BOOLEAN DEFAULT 0")
 
             conn.commit()
 
-    def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations):
+    def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False):
         """Adds a new template record to the database."""
         holes_json = json.dumps(holes)
         transformations_json = json.dumps(transformations)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO templates (template_path, hole_count, holes, aspect_ratio, cell_layout, transformations) VALUES (?, ?, ?, ?, ?, ?)",
-                (template_path, hole_count, holes_json, aspect_ratio, cell_layout, transformations_json)
+                "INSERT INTO templates (template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (template_path, hole_count, holes_json, aspect_ratio, cell_layout, transformations_json, is_default)
             )
             conn.commit()
 

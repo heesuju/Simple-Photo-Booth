@@ -133,6 +133,48 @@ button:hover {
     box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
 }
 
+.template-item-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.color-palette-btn {
+    padding: 0.25rem;
+    margin: 0;
+    width: 40px;
+    height: 25px;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+#color-palette-panel {
+    align-items: center;
+    gap: 20px;
+}
+
+.palette-back-btn {
+    background-color: #6c757d;
+    padding: 0.5rem 1rem;
+    font-size: 1.5rem;
+    height: 80px;
+}
+
+.palette-swatch {
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 2px solid #eee;
+    transition: transform 0.2s;
+}
+
+.palette-swatch:hover {
+    transform: scale(1.1);
+}
+
+
 .floating-btn {
     position: fixed;
     bottom: 30px;

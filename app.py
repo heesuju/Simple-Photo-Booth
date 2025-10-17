@@ -99,7 +99,7 @@ def generate_default_templates(db_manager):
                 template_path_for_db = f"/{file_path}"
                 hole_count = len(holes)
                 transformations = [{'scale': 1, 'rotation': 0} for _ in holes]
-                db_manager.add_template(template_path_for_db, hole_count, holes, ar_str, layout_str, transformations)
+                db_manager.add_template(template_path_for_db, hole_count, holes, ar_str, layout_str, transformations, is_default=True)
 
                 # Generate the layout thumbnail
                 generate_layout_thumbnail(ar_str, layout_str, "static/layouts")
@@ -180,6 +180,7 @@ async def get_layouts(request: Request):
             layout['holes'] = template['holes']
             layout['hole_count'] = template['hole_count']
             layout['transformations'] = template.get('transformations', [])
+            layout['is_default'] = template.get('is_default', False)
         else:
             # Handle case where no matching template is found, though this should ideally not happen
             layout['template_path'] = None
@@ -282,6 +283,7 @@ def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
 @app.get("/templates_by_layout")
 async def get_templates_by_layout(request: Request, aspect_ratio: str, cell_layout: str):
     templates = request.app.state.db_manager.get_templates_by_layout(aspect_ratio, cell_layout)
+    # No need to manually decode JSON here if the db_manager does it
     return JSONResponse(content=templates)
 
 @app.post("/upload_template")
@@ -370,7 +372,7 @@ async def save_template(request: Request):
     transformations = data.get('transformations')
 
     db_manager = request.app.state.db_manager
-    db_manager.add_template(template_path, hole_count, holes, aspect_ratio, cell_layout, transformations)
+    db_manager.add_template(template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False)
 
     return JSONResponse(content={"message": "Template saved successfully"})
 
@@ -469,13 +471,25 @@ def apply_filters(image, filters):
 
 @app.post("/compose_image")
 @app.post("/compose_image")
-async def compose_image(request: Request, template_path: str = Form(...), holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...)):
+async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
     try:
+        if template_file:
+            # Save the uploaded colored template
+            temp_filename = f"{uuid.uuid4()}.png"
+            base_template_path = os.path.join(UPLOAD_DIR, temp_filename)
+            async with aiofiles.open(base_template_path, 'wb') as out_file:
+                content = await template_file.read()
+                await out_file.write(content)
+        elif template_path:
+            # Use the path from the form
+            base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
+        else:
+            raise HTTPException(status_code=400, detail="No template provided.")
+
         print(f"Received filters: {filters}")
         hole_data = json.loads(holes)
         filter_data = json.loads(filters)
         transform_data = json.loads(transformations)
-        base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
         canvas = np.full((height, width, 3), 255, np.uint8)

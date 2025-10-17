@@ -4,8 +4,16 @@ window.eventBus.on('app:init', (appState) => {
             finalizeBtn.disabled = true; 
     
             const imageComposePromise = (async () => {
-                const d = new FormData(); 
-                d.append('template_path', appState.templateInfo.template_path); 
+                const d = new FormData();
+
+                // Handle colored template
+                if (appState.templateInfo.colored_template_path) {
+                    const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
+                    d.append('template_file', blob, 'template.png');
+                } else {
+                    d.append('template_path', appState.templateInfo.template_path);
+                }
+
                 d.append('holes', JSON.stringify(appState.templateInfo.holes)); 
                 d.append('stickers', JSON.stringify(appState.placedStickers)); 
                 d.append('filters', JSON.stringify(appState.filters)); 
