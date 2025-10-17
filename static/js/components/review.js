@@ -8,6 +8,7 @@ window.eventBus.on('app:init', (appState) => {
     const panelHandle = document.getElementById('panel-handle');
     const panelContent = document.getElementById('review-panel-content');
     const stripContainer = document.getElementById('strip-container');
+    let colorPicker = null; // To hold the iro.js instance
 
     let isPanelDragging = false;
     let startY, startHeight;
@@ -224,14 +225,15 @@ window.eventBus.on('app:init', (appState) => {
         } 
     }
 
-    function showColorPalettePanel(template) {
+    // --- This function now only handles showing the panel and populating it ---
+    async function showColorPalettePanel(template) {
         const templatePanel = document.getElementById('template-gallery-review');
         const colorPanel = document.getElementById('color-palette-panel');
 
         templatePanel.classList.remove('show');
         colorPanel.innerHTML = ''; // Clear previous content
 
-        // Create Back Button
+        // --- Back Button ---
         const backButton = document.createElement('button');
         backButton.className = 'palette-back-btn';
         backButton.textContent = '<';
@@ -241,21 +243,93 @@ window.eventBus.on('app:init', (appState) => {
         });
         colorPanel.appendChild(backButton);
 
-        // Create Color Swatches
-        const colors = ['#FFFFFF', '#000000', '#FFDDC1', '#FFABAB', '#FFC3A0', '#B5EAD7', '#C7CEEA'];
-        colors.forEach(color => {
-            const swatch = document.createElement('div');
-            swatch.className = 'palette-swatch';
-            swatch.style.backgroundColor = color;
-            swatch.addEventListener('click', () => {
-                recolorTemplateAndApply(template, color);
-                colorPanel.classList.remove('show');
-                templatePanel.classList.add('show');
+        // --- Color Swatches ---
+        try {
+            const r = await fetch('/colors');
+            const colors = await r.json();
+            colors.forEach(colorObj => {
+                const swatch = document.createElement('div');
+                swatch.className = 'palette-swatch';
+                swatch.style.backgroundColor = colorObj.hex_code;
+                swatch.addEventListener('click', () => {
+                    recolorTemplateAndApply(template, colorObj.hex_code);
+                    colorPanel.classList.remove('show');
+                    templatePanel.classList.add('show');
+                });
+                colorPanel.appendChild(swatch);
             });
-            colorPanel.appendChild(swatch);
+        } catch (e) {
+            console.error("Failed to load colors:", e);
+        }
+
+        // --- Add Custom Color Button ---
+        const addButton = document.createElement('button');
+        addButton.className = 'palette-add-btn';
+        addButton.textContent = '+';
+        addButton.addEventListener('click', () => {
+            // Pass the template context to the modal setup function
+            setupAndShowModal(template);
         });
+        colorPanel.appendChild(addButton);
 
         colorPanel.classList.add('show');
+    }
+
+    // --- This new function handles the modal logic and is only called once ---
+    function setupAndShowModal(template) {
+        const modal = document.getElementById('color-picker-modal');
+        modal.className = 'modal-visible';
+
+        // Initialize picker and set up listeners only if they haven't been already
+        if (!colorPicker) {
+            colorPicker = new iro.ColorPicker('#color-picker-container', {
+                width: 250,
+                color: "#fff"
+            });
+
+            const hexInput = document.getElementById('color-hex-input');
+
+            colorPicker.on('color:change', function(color) {
+                hexInput.value = color.hexString;
+            });
+
+            hexInput.addEventListener('change', function() {
+                try {
+                    colorPicker.color.hexString = this.value;
+                } catch (e) {
+                    // Ignore invalid hex codes
+                }
+            });
+
+            document.getElementById('color-picker-cancel-btn').addEventListener('click', () => {
+                modal.className = 'modal-hidden';
+            });
+        }
+
+        // We need to update the confirm button's listener every time
+        // to make sure it has the correct 'template' object from the closure.
+        const confirmBtn = document.getElementById('color-picker-confirm-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true); // Clone to remove old listeners
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener('click', async () => {
+            const newColor = colorPicker.color.hexString;
+
+            try {
+                await fetch('/add_color', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hex_code: newColor })
+                });
+            } catch (e) {
+                console.error("Failed to save color:", e);
+            }
+
+            recolorTemplateAndApply(template, newColor);
+            modal.className = 'modal-hidden';
+            document.getElementById('color-palette-panel').classList.remove('show');
+            document.getElementById('template-gallery-review').classList.add('show');
+        });
     }
 
     function renderPreview() { 

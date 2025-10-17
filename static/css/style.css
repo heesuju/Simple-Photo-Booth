@@ -168,11 +168,80 @@ button:hover {
     cursor: pointer;
     border: 2px solid #eee;
     transition: transform 0.2s;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 .palette-swatch:hover {
     transform: scale(1.1);
 }
+
+.palette-add-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 2px dashed #ccc;
+    background-color: #f9f9f9;
+    font-size: 3rem;
+    color: #ccc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.2s, color 0.2s;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.palette-add-btn:hover {
+    background-color: #e9e9e9;
+    color: #999;
+}
+
+/* Modal Styles */
+.modal-hidden {
+    display: none;
+}
+
+.modal-visible {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+.color-picker-wrapper {
+    padding: 20px 0;
+    display: flex;
+    justify-content: center;
+}
+
+#color-hex-input {
+    margin-top: 10px;
+    padding: 8px;
+    width: 150px;
+    text-align: center;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.modal-actions {
+    margin-top: 20px;
+}
+
 
 
 .floating-btn {

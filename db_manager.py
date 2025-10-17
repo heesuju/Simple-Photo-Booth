@@ -41,6 +41,13 @@ class DatabaseManager:
             if 'is_default' not in columns:
                 cursor.execute("ALTER TABLE templates ADD COLUMN is_default BOOLEAN DEFAULT 0")
 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS colors (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    hex_code TEXT NOT NULL UNIQUE
+                )
+            ''')
+
             conn.commit()
 
     def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False):
@@ -54,6 +61,26 @@ class DatabaseManager:
                 (template_path, hole_count, holes_json, aspect_ratio, cell_layout, transformations_json, is_default)
             )
             conn.commit()
+
+    def add_color(self, hex_code):
+        """Adds a new color to the database, ignoring duplicates."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("INSERT INTO colors (hex_code) VALUES (?)", (hex_code,))
+                conn.commit()
+            except sqlite3.IntegrityError:
+                # Color already exists, ignore the error
+                pass
+
+    def get_all_colors(self):
+        """Fetches all colors from the database."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM colors ORDER BY id")
+            colors = [dict(row) for row in cursor.fetchall()]
+        return colors
 
     def get_layouts(self):
         """Fetches distinct layouts (aspect_ratio and cell_layout) from the database."""

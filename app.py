@@ -145,9 +145,16 @@ async def lifespan(app: FastAPI):
             db_manager.add_sticker(sticker_path)
             print(f"Added new sticker to DB: {sticker_path}")
 
+    populate_default_colors(db_manager)
+
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+def populate_default_colors(db_manager):
+    default_colors = ['#FFFFFF', '#000000', '#FFDDC1', '#FFABAB', '#FFC3A0', '#B5EAD7', '#C7CEEA']
+    for color in default_colors:
+        db_manager.add_color(color)
 
 # --- Static Files and Root HTML ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -375,6 +382,23 @@ async def save_template(request: Request):
     db_manager.add_template(template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False)
 
     return JSONResponse(content={"message": "Template saved successfully"})
+
+@app.get("/colors")
+async def get_colors(request: Request):
+    colors = request.app.state.db_manager.get_all_colors()
+    return JSONResponse(content=colors)
+
+@app.post("/add_color")
+async def add_color(request: Request):
+    data = await request.json()
+    hex_code = data.get('hex_code')
+    if not hex_code:
+        raise HTTPException(status_code=400, detail="Hex code not provided.")
+    
+    db_manager = request.app.state.db_manager
+    db_manager.add_color(hex_code)
+    
+    return JSONResponse(content={"message": "Color added successfully"})
 
 @app.get("/stickers")
 async def get_stickers(request: Request):
