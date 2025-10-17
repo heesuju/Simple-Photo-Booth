@@ -99,40 +99,39 @@ button:hover {
 }
 
 .template-item {
-    border: 2px solid #ddd;
-    border-radius: 5px;
-    overflow: hidden;
+    border: 0px solid #ddd;
+    border-radius: 0px;
     cursor: pointer;
-    height: fit-content;
-    transition: transform 0.2s, box-shadow 0.2s;
-    background-color: white;
+    background-color: transparent;
     text-align: center;
     padding: 0px;
 }
 
 .template-item img {
+    border: 2px solid #ddd;
+    border-radius: 5px;
     max-width: 100px;
     max-height: 100px;
     width: auto;
     height: auto;
+    background: black;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .template-item p {
     margin-top: 0.5rem;
 }
 
-.template-item:hover {
+.template-item:hover img {
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.template-item.selected {
+.template-item.selected img{
     border-color: #007bff;
     border-width: 3px;
     box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
 }
-
-
 
 .floating-btn {
     position: fixed;

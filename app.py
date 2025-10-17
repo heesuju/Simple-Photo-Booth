@@ -48,11 +48,17 @@ def get_ip_address():
     return IP
 
 def generate_default_templates(db_manager):
-    aspect_ratios = ["1:1", "2:3", "3:4", "4:5", "5:7"]
-    layouts = ["1x2", "1x3", "1x4", "2x2", "2x3", "2x4"]
+    layouts = {
+        "2:3": ["1x1"],
+        "3:4": ["1x3"],
+        "4:3": ["1x4"],
+        "4:5": ["2x2"],
+        "1:1": ["3x2"]
+    }
 
-    for ar_str in aspect_ratios:
-        for layout_str in layouts:
+    for ar_str, layouts in layouts.items():
+        for layout_str in layouts:       
+
             # Check if a template with this combination already exists
             if db_manager.get_template_by_layout(ar_str, layout_str):
                 print(f"Template for {ar_str} {layout_str} already exists. Skipping.")
