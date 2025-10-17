@@ -691,8 +691,21 @@ async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to upload video chunk: {e}")
 
 @app.post("/compose_video")
-async def compose_video(request: Request, template_path: str = Form(...), holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), transformations: str = Form(...)):
+async def compose_video(request: Request, holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
     try:
+        if template_file:
+            # Save the uploaded colored template
+            temp_filename = f"{uuid.uuid4()}.png"
+            base_template_path = os.path.join(UPLOAD_DIR, temp_filename)
+            async with aiofiles.open(base_template_path, 'wb') as out_file:
+                content = await template_file.read()
+                await out_file.write(content)
+        elif template_path:
+            # Use the path from the form
+            base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
+        else:
+            raise HTTPException(status_code=400, detail="No template provided.")
+
         hole_data = json.loads(holes)
         sticker_data = json.loads(stickers)
         transform_data = json.loads(transformations)
@@ -702,7 +715,6 @@ async def compose_video(request: Request, template_path: str = Form(...), holes:
         clips = [clip.subclip(clip.duration - min_duration) for clip in clips]
 
         # Determine the final video dimensions from the template
-        base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
 
