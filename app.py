@@ -56,58 +56,60 @@ def generate_default_templates(db_manager):
         "1:1": ["3x2"]
     }
 
-    for ar_str, layouts in layouts.items():
-        for layout_str in layouts:       
+    for ar_str, layout_list in layouts.items():
+        for layout_str in layout_list:
+            generate_template_if_not_exists(db_manager, ar_str, layout_str)
 
-            # Check if a template with this combination already exists
-            if db_manager.get_template_by_layout(ar_str, layout_str):
-                print(f"Template for {ar_str} {layout_str} already exists. Skipping.")
-                continue
+def generate_template_if_not_exists(db_manager, ar_str, layout_str):
+    # Check if a an existing DEFAULT template with this combination already exists
+    if db_manager.get_default_template_by_layout(ar_str, layout_str):
+        print(f"Default template for {ar_str} {layout_str} already exists. Skipping.")
+        return
 
-            print(f"Generating template for {ar_str} {layout_str}...")
+    print(f"Generating template for {ar_str} {layout_str}...")
 
-            try:
-                ar_w, ar_h = map(int, ar_str.split(':'))
-                cols, rows = map(int, layout_str.split('x'))
+    try:
+        ar_w, ar_h = map(int, ar_str.split(':'))
+        cols, rows = map(int, layout_str.split('x'))
 
-                base_photo_w = 480
-                base_photo_h = int(base_photo_w * ar_h / ar_w)
-                gap = 30
-                bottom_padding = 150
+        base_photo_w = 480
+        base_photo_h = int(base_photo_w * ar_h / ar_w)
+        gap = 30
+        bottom_padding = 150
 
-                template_w = (base_photo_w * cols) + (gap * (cols + 1))
-                template_h = (base_photo_h * rows) + (gap * (rows + 1)) + bottom_padding
+        template_w = (base_photo_w * cols) + (gap * (cols + 1))
+        template_h = (base_photo_h * rows) + (gap * (rows + 1)) + bottom_padding
 
-                # Create a 4-channel image (BGRA) initialized to white
-                template = np.full((template_h, template_w, 4), (255, 255, 255, 255), np.uint8)
+        # Create a 4-channel image (BGRA) initialized to white
+        template = np.full((template_h, template_w, 4), (255, 255, 255, 255), np.uint8)
 
-                holes = []
-                for r in range(rows):
-                    for c in range(cols):
-                        x = gap + c * (base_photo_w + gap)
-                        y = gap + r * (base_photo_h + gap)
-                        # Set the hole area to be transparent
-                        template[y:y+base_photo_h, x:x+base_photo_w, 3] = 0
-                        holes.append({"x": x, "y": y, "w": base_photo_w, "h": base_photo_h})
+        holes = []
+        for r in range(rows):
+            for c in range(cols):
+                x = gap + c * (base_photo_w + gap)
+                y = gap + r * (base_photo_h + gap)
+                # Set the hole area to be transparent
+                template[y:y+base_photo_h, x:x+base_photo_w, 3] = 0
+                holes.append({"x": x, "y": y, "w": base_photo_w, "h": base_photo_h})
 
-                # Save the generated template
-                filename = f"template_{ar_str.replace(':', '_')}_{layout_str}.png"
-                file_path = os.path.join(GENERATED_TEMPLATES_DIR, filename)
-                cv2.imwrite(file_path, template)
+        # Save the generated template
+        filename = f"template_{ar_str.replace(':', '_')}_{layout_str}.png"
+        file_path = os.path.join(GENERATED_TEMPLATES_DIR, filename)
+        cv2.imwrite(file_path, template)
 
-                # Add to database
-                template_path_for_db = f"/{file_path}"
-                hole_count = len(holes)
-                transformations = [{'scale': 1, 'rotation': 0} for _ in holes]
-                db_manager.add_template(template_path_for_db, hole_count, holes, ar_str, layout_str, transformations, is_default=True)
+        # Add to database
+        template_path_for_db = f"/{file_path}"
+        hole_count = len(holes)
+        transformations = [{'scale': 1, 'rotation': 0} for _ in holes]
+        db_manager.add_template(template_path_for_db, hole_count, holes, ar_str, layout_str, transformations, is_default=True)
 
-                # Generate the layout thumbnail
-                generate_layout_thumbnail(ar_str, layout_str, "static/layouts")
+        # Generate the layout thumbnail
+        generate_layout_thumbnail(ar_str, layout_str, "static/layouts")
 
-                print(f"Successfully generated and saved template for {ar_str} {layout_str}.")
+        print(f"Successfully generated and saved template for {ar_str} {layout_str}.")
 
-            except Exception as e:
-                print(f"Error generating template for {ar_str} {layout_str}: {e}")
+    except Exception as e:
+        print(f"Error generating template for {ar_str} {layout_str}: {e}")
 
 # --- Lifespan Management (Startup/Shutdown) ---
 def rotate_image(image, angle):
@@ -380,6 +382,9 @@ async def save_template(request: Request):
 
     db_manager = request.app.state.db_manager
     db_manager.add_template(template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False)
+
+    # Ensure a default version of this new layout exists
+    generate_template_if_not_exists(db_manager, aspect_ratio, cell_layout)
 
     return JSONResponse(content={"message": "Template saved successfully"})
 

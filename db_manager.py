@@ -109,6 +109,24 @@ class DatabaseManager:
             template['transformations'] = json.loads(template['transformations'])
         return template
 
+    def get_default_template_by_layout(self, aspect_ratio, cell_layout):
+        """Fetches a single default template that matches the given layout."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM templates WHERE aspect_ratio = ? AND cell_layout = ? AND is_default = 1 LIMIT 1", (aspect_ratio, cell_layout))
+            template_row = cursor.fetchone()
+        if template_row is None:
+            return None
+        template = dict(template_row)
+
+        # Decode the JSON string for holes
+        if template and template.get('holes'):
+            template['holes'] = json.loads(template['holes'])
+        if template and template.get('transformations'):
+            template['transformations'] = json.loads(template['transformations'])
+        return template
+
     def get_templates_by_layout(self, aspect_ratio, cell_layout):
         """Fetches all templates that match the given layout."""
         with self._get_connection() as conn:

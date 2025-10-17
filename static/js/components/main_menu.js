@@ -47,5 +47,7 @@ window.eventBus.on('app:init', (appState) => {
         window.eventBus.dispatch('template-edit:show', data);
     });
 
+    window.eventBus.on('layout-gallery:load', loadLayoutGallery);
+
     loadLayoutGallery();
 });
