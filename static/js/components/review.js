@@ -95,6 +95,33 @@ window.eventBus.on('app:init', (appState) => {
             });
             styleStripPanel.appendChild(backButton);
 
+            const noneStyleItem = document.createElement('button');
+            noneStyleItem.className = 'style-strip-item';
+            noneStyleItem.textContent = 'None';
+            noneStyleItem.addEventListener('click', () => {
+                if (appState.selectedForRetake.length === 0) {
+                    alert('Please select a photo to apply the style to.');
+                    return;
+                }
+                for (const pIdx of appState.selectedForRetake) {
+                    const originalBlob = appState.originalCapturedPhotos[pIdx];
+                    const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+
+                    appState.capturedPhotos[pIdx] = originalBlob;
+
+                    if (assignmentIndex !== -1) {
+                        appState.photoAssignments[assignmentIndex] = originalBlob;
+                    }
+
+                    const thumb = document.getElementById('review-thumbnails').children[pIdx];
+                    if (thumb) {
+                        thumb.src = URL.createObjectURL(originalBlob);
+                    }
+                }
+                renderPreview();
+            });
+            styleStripPanel.appendChild(noneStyleItem);
+
             styles.forEach(style => {
                 const styleItem = document.createElement('button');
                 styleItem.className = 'style-strip-item';
@@ -122,7 +149,22 @@ window.eventBus.on('app:init', (appState) => {
         }
 
         for (const pIdx of appState.selectedForRetake) {
-            const imageBlob = appState.capturedPhotos[pIdx];
+            const cacheKey = `${pIdx}-${prompt}`;
+            if (appState.stylizedImagesCache[cacheKey]) {
+                const newImageBlob = appState.stylizedImagesCache[cacheKey];
+                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+                appState.capturedPhotos[pIdx] = newImageBlob;
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = newImageBlob;
+                }
+                const thumb = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumb) {
+                    thumb.src = URL.createObjectURL(newImageBlob);
+                }
+                continue;
+            }
+
+            const imageBlob = appState.originalCapturedPhotos[pIdx];
             
             const formData = new FormData();
             formData.append('prompt', prompt);
@@ -139,20 +181,20 @@ window.eventBus.on('app:init', (appState) => {
                 }
 
                 const newImageBlob = await response.blob();
+                appState.stylizedImagesCache[cacheKey] = newImageBlob;
                 const newImageUrl = URL.createObjectURL(newImageBlob);
 
-                const originalBlob = appState.capturedPhotos[pIdx];
+                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
 
                 appState.capturedPhotos[pIdx] = newImageBlob;
+
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = newImageBlob;
+                }
 
                 const thumb = document.getElementById('review-thumbnails').children[pIdx];
                 if (thumb) {
                     thumb.src = newImageUrl;
-                }
-
-                const assignmentIndex = appState.photoAssignments.indexOf(originalBlob);
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = newImageBlob;
                 }
             } catch (error) {
                 console.error('Error during stylization:', error);
@@ -309,6 +351,7 @@ window.eventBus.on('app:init', (appState) => {
 
     window.eventBus.on('photo-taking:complete', (data) => {
         appState.capturedPhotos = data.photos;
+        appState.originalCapturedPhotos = [...data.photos];
         appState.capturedVideos = data.videos;
         window.eventBus.dispatch('screen:show', 'review-screen');
         showReviewScreen(false); // false = this is the first time, so reset edits
@@ -328,6 +371,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.disabledThumbnailIndex = -1;
             appState.placedStickers = []; 
             appState.removeBackground = false;
+            appState.stylizedImagesCache = {};
             appState.bgRemovedPhotos = {};
             document.getElementById('remove-bg-checkbox').checked = false;
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };

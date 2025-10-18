@@ -92,7 +92,7 @@ window.eventBus.on('app:init', (appState) => {
                     originalBtn.textContent = '압축 중...';
 
                     const formData = new FormData();
-                    appState.photoAssignments.forEach((photoBlob, i) => {
+                    appState.originalCapturedPhotos.forEach((photoBlob, i) => {
                         formData.append('photos', photoBlob, `photo_${i}.jpg`);
                     });
 
@@ -124,6 +124,52 @@ window.eventBus.on('app:init', (appState) => {
                 }
             };
             c.appendChild(originalBtn);
+
+            // Add Download Generated button
+            const generatedBtn = document.createElement('button');
+            generatedBtn.textContent = '생성된 파일 다운로드';
+            generatedBtn.style.marginLeft = '10px';
+            generatedBtn.onclick = async () => {
+                try {
+                    generatedBtn.disabled = true;
+                    generatedBtn.textContent = '압축 중...';
+
+                    const formData = new FormData();
+                    for (const key in appState.stylizedImagesCache) {
+                        const photoBlob = appState.stylizedImagesCache[key];
+                        const [photoIndex, prompt] = key.split('-');
+                        const safePrompt = prompt.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
+                        formData.append('photos', photoBlob, `photo_${photoIndex}_${safePrompt}.jpg`);
+                    }
+
+                    const response = await fetch('/zip_originals', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to create zip file.');
+                    }
+
+                    const zipBlob = await response.blob();
+                    const url = window.URL.createObjectURL(zipBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', 'generated_photos.zip');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+
+                } catch (err) {
+                    console.error('Failed to download generated photos:', err);
+                    alert('생성된 사진을 다운로드하는 데 실패했습니다.');
+                } finally {
+                    generatedBtn.disabled = false;
+                    generatedBtn.textContent = '생성된 파일 다운로드';
+                }
+            };
+            c.appendChild(generatedBtn);
 
             // Add Continue Editing button
             const editBtn = document.createElement('button');
