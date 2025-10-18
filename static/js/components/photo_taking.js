@@ -155,15 +155,46 @@ window.eventBus.on('app:init', (appState) => {
 
         for (const file of files) {
             if (!file.type.startsWith('image/')) continue;
+
             const reader = new FileReader();
             reader.onload = (e) => {
-                const blob = new Blob([e.target.result], { type: file.type });
-                appState.capturedPhotos.push(blob);
-                const t = document.createElement('img');
-                t.src = URL.createObjectURL(blob);
-                t.classList.add('thumbnail');
-                uploadThumbnailsContainer.appendChild(t);
-                updatePhotoStatus();
+                const img = new Image();
+                img.onload = () => {
+                    const templateHole = appState.templateInfo.holes[0];
+                    const targetAspectRatio = templateHole.w / templateHole.h;
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    let srcX = 0, srcY = 0, srcWidth = img.width, srcHeight = img.height;
+                    const currentAspectRatio = img.width / img.height;
+
+                    if (currentAspectRatio > targetAspectRatio) {
+                        // Image is wider than target
+                        srcWidth = img.height * targetAspectRatio;
+                        srcX = (img.width - srcWidth) / 2;
+                    } else if (currentAspectRatio < targetAspectRatio) {
+                        // Image is taller than target
+                        srcHeight = img.width / targetAspectRatio;
+                        srcY = (img.height - srcHeight) / 2;
+                    }
+
+                    // Set canvas to the size of the first hole for consistency
+                    canvas.width = templateHole.w;
+                    canvas.height = templateHole.h;
+
+                    ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 0, 0, canvas.width, canvas.height);
+
+                    canvas.toBlob(blob => {
+                        appState.capturedPhotos.push(blob);
+                        const t = document.createElement('img');
+                        t.src = URL.createObjectURL(blob);
+                        t.classList.add('thumbnail');
+                        uploadThumbnailsContainer.appendChild(t);
+                        updatePhotoStatus();
+                    }, file.type);
+                };
+                img.src = URL.createObjectURL(new Blob([e.target.result], { type: file.type }));
             };
             reader.readAsArrayBuffer(file);
         }
