@@ -438,11 +438,6 @@ button:hover {
     gap: 10px;
 }
 
-#finalize-btn {
-    /* No longer needs individual positioning */
-}
-
-
 #template-edit-preview {
     position: relative;
     flex: 3;
@@ -672,6 +667,13 @@ button:hover {
 
 .filter-slider input[type="range"] {
     width: 100%;
+}
+
+.filter-checkbox {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 #upload-area {

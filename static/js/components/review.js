@@ -9,10 +9,16 @@ window.eventBus.on('app:init', (appState) => {
     const panelHandle = document.getElementById('panel-handle');
     const panelContent = document.getElementById('review-panel-content');
     const stripContainer = document.getElementById('strip-container');
+    const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
     let colorPicker = null; // To hold the iro.js instance
 
     let isPanelDragging = false;
     let startY, startHeight;
+
+    removeBgCheckbox.addEventListener('change', (e) => {
+        appState.removeBackground = e.target.checked;
+        applyBackgroundRemovalPreview();
+    });
 
     finalizeBtn.addEventListener('click', () => window.eventBus.dispatch('review:finalize', { videos: appState.videoAssignments }));
     retakeBtn.addEventListener('click', () => {
@@ -190,6 +196,9 @@ window.eventBus.on('app:init', (appState) => {
             appState.selectedForRetake = []; 
             appState.disabledThumbnailIndex = -1;
             appState.placedStickers = []; 
+            appState.removeBackground = false;
+            appState.bgRemovedPhotos = {};
+            document.getElementById('remove-bg-checkbox').checked = false;
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
             document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
                 if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur' || slider.dataset.filter === 'grain') {
@@ -826,5 +835,42 @@ window.eventBus.on('app:init', (appState) => {
         if (appState.activeSticker.action) {
             appState.activeSticker.action = null;
         }
+    }
+
+    async function applyBackgroundRemovalPreview() {
+        const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
+        const updatePromises = Array.from(photoWrappers).map(async (wrapper, index) => {
+            const imgElement = wrapper.querySelector('.preview-photo-img');
+            const originalPhotoBlob = appState.photoAssignments[index];
+            const originalPhotoIndex = appState.capturedPhotos.indexOf(originalPhotoBlob);
+
+            if (appState.removeBackground) {
+                imgElement.style.opacity = '0.5';
+                if (appState.bgRemovedPhotos[originalPhotoIndex]) {
+                    imgElement.src = appState.bgRemovedPhotos[originalPhotoIndex];
+                } else {
+                    const formData = new FormData();
+                    formData.append('file', originalPhotoBlob);
+                    try {
+                        const response = await fetch('/remove_background', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (!response.ok) throw new Error('Background removal failed');
+                        const newBlob = await response.blob();
+                        const newBlobUrl = URL.createObjectURL(newBlob);
+                        appState.bgRemovedPhotos[originalPhotoIndex] = newBlobUrl;
+                        imgElement.src = newBlobUrl;
+                    } catch (error) {
+                        console.error('Error removing background:', error);
+                        imgElement.src = URL.createObjectURL(originalPhotoBlob);
+                    }
+                }
+                imgElement.style.opacity = '1';
+            } else {
+                imgElement.src = URL.createObjectURL(originalPhotoBlob);
+            }
+        });
+        await Promise.all(updatePromises);
     }
 });

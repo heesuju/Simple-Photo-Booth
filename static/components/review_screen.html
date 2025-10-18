@@ -43,6 +43,14 @@
                         <label for="grain">그레인</label>
                         <input type="range" id="grain" data-filter="grain" min="0" max="100" value="0">
                     </div>
+                    <div class="filter-checkbox">
+                        <input type="checkbox" id="remove-bg-checkbox">
+                        <label for="remove-bg-checkbox">배경 제거</label>
+                    </div>
+                    <div class="filter-slider" id="remove-bg-threshold-slider" style="display: none;">
+                        <label for="remove-bg-threshold">배경 제거 민감도</label>
+                        <input type="range" id="remove-bg-threshold" min="0" max="255" value="50">
+                    </div>
                 </div>
             </div>
         </div>

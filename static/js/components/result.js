@@ -18,6 +18,7 @@ window.eventBus.on('app:init', (appState) => {
                 d.append('stickers', JSON.stringify(appState.placedStickers)); 
                 d.append('filters', JSON.stringify(appState.filters)); 
                 d.append('transformations', JSON.stringify(appState.templateInfo.transformations)); 
+                d.append('remove_background', appState.removeBackground);
                 appState.photoAssignments.forEach((b, i) => { 
                     d.append('photos', b, `photo_${i}.jpg`); 
                 }); 

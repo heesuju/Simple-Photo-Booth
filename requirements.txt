@@ -6,3 +6,6 @@ numpy
 aiofiles
 qrcode[pil]
 moviepy==1.0.3
+rembg
+Pillow
+onnxruntime

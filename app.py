@@ -17,6 +17,9 @@ from contextlib import asynccontextmanager
 from zipfile import ZipFile
 from io import BytesIO
 from starlette.responses import StreamingResponse
+from rembg import remove
+from PIL import Image
+import io
 
 import moviepy.editor as mpe
 
@@ -518,9 +521,28 @@ def apply_filters(image, filters):
 
     return image
 
+@app.post("/remove_background")
+async def remove_background_api(file: UploadFile = File(...)):
+    try:
+        input_bytes = await file.read()
+        output_bytes = remove(input_bytes, model='u2net_human_seg')
+
+        # Create a new image with a white background
+        foreground = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+        background = Image.new("RGBA", foreground.size, (255, 255, 255, 255))
+        background.paste(foreground, (0, 0), foreground)
+
+        # Convert back to bytes
+        img_byte_arr = io.BytesIO()
+        background.convert("RGB").save(img_byte_arr, format='JPEG')
+        img_byte_arr = img_byte_arr.getvalue()
+
+        return StreamingResponse(io.BytesIO(img_byte_arr), media_type="image/jpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove background: {e}")
+
 @app.post("/compose_image")
-@app.post("/compose_image")
-async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
+async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False)):
     try:
         if template_file:
             # Save the uploaded colored template
@@ -546,8 +568,22 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             hole = hole_data[i]
             transform = transform_data[i]
             photo_content = await photo_file.read()
-            nparr = np.frombuffer(photo_content, np.uint8)
-            photo_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+            if remove_background:
+                # Remove background and place on a white canvas
+                output_bytes = remove(photo_content, model='u2net_human_seg')
+                foreground = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+                background = Image.new("RGBA", foreground.size, (255, 255, 255, 255))
+                background.paste(foreground, (0, 0), foreground)
+                
+                # Convert PIL image back to OpenCV format
+                background = background.convert("RGB")
+                open_cv_image = np.array(background)
+                photo_img = open_cv_image[:, :, ::-1].copy() # Convert RGB to BGR
+            else:
+                nparr = np.frombuffer(photo_content, np.uint8)
+                photo_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
             filtered_photo = apply_filters(photo_img, filter_data)
 
             # Apply transformations

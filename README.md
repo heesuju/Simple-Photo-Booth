@@ -98,7 +98,10 @@ The application is a single-page application (SPA) where different "screens" are
 - [ ] Effect Presets
 - [ ] Refine UI
 - [ ] Connect Image Generation API
+- [ ] Add button in results to take another photo
+- [ ] Add timestamp, logos, text to stickers tab
 
 ## Bugs:
 - [ ] Stickers have black background sometimes
 - [ ] Resized stickers have weird borders in video composition
+- [ ] Template not editable when uploading
