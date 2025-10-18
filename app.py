@@ -416,6 +416,24 @@ async def add_color(request: Request):
     
     return JSONResponse(content={"message": "Color added successfully"})
 
+@app.get("/styles")
+async def get_styles(request: Request):
+    styles = request.app.state.db_manager.get_all_styles()
+    return JSONResponse(content=styles)
+
+@app.post("/add_style")
+async def add_style(request: Request):
+    data = await request.json()
+    name = data.get('name')
+    prompt = data.get('prompt')
+    if not name or not prompt:
+        raise HTTPException(status_code=400, detail="Name and prompt are required.")
+    
+    db_manager = request.app.state.db_manager
+    db_manager.add_style(name, prompt)
+    
+    return JSONResponse(content={"message": "Style added successfully"})
+
 @app.post("/zip_originals")
 async def zip_originals(photos: List[UploadFile] = File(...)):
     zip_buffer = BytesIO()

@@ -47,6 +47,13 @@ class DatabaseManager:
                     hex_code TEXT NOT NULL UNIQUE
                 )
             ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS styles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    prompt TEXT NOT NULL
+                )
+            ''')
 
             conn.commit()
 
@@ -160,3 +167,23 @@ class DatabaseManager:
                 (sticker_path,)
             )
             conn.commit()
+
+    def get_all_styles(self):
+        """Fetches all styles from the database."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM styles ORDER BY id")
+            styles = [dict(row) for row in cursor.fetchall()]
+        return styles
+
+    def add_style(self, name, prompt):
+        """Adds a new style to the database, ignoring duplicates."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("INSERT INTO styles (name, prompt) VALUES (?, ?)", (name, prompt))
+                conn.commit()
+            except sqlite3.IntegrityError:
+                # Style with the same name already exists, ignore the error
+                pass

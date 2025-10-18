@@ -133,6 +133,33 @@ button:hover {
     box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
 }
 
+.style-strip-item {
+    width: 80px;
+    height: 80px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    background-color: blue;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0;
+    font-size: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.style-strip-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.style-strip-item.selected {
+    border-color: #007bff;
+    border-width: 3px;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
 .photostrip-item {
     border: 2px solid #ddd;
     border-radius: 5px;

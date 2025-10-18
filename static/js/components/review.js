@@ -11,11 +11,16 @@ window.eventBus.on('app:init', (appState) => {
     const stripContainer = document.getElementById('strip-container');
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
     const stylizeBtn = document.getElementById('stylize-btn');
-    const stylizeModal = document.getElementById('stylize-modal');
-    const stylizeConfirmBtn = document.getElementById('stylize-confirm-btn');
-    const stylizeCancelBtn = document.getElementById('stylize-cancel-btn');
-    const stylizePromptInput = document.getElementById('stylize-prompt-input');
+    const addStyleModal = document.getElementById('add-style-modal');
+    const addStyleConfirmBtn = document.getElementById('add-style-confirm-btn');
+    const addStyleCancelBtn = document.getElementById('add-style-cancel-btn');
+    const newStyleNameInput = document.getElementById('new-style-name');
+    const newStylePromptInput = document.getElementById('new-style-prompt');
+    const styleStripPanel = document.getElementById('style-strip-panel');
+
     let colorPicker = null; // To hold the iro.js instance
+    let isAddingNewStyle = false;
+    let selectedStylePrompt = '';
 
     let isPanelDragging = false;
     let startY, startHeight;
@@ -40,17 +45,79 @@ window.eventBus.on('app:init', (appState) => {
     });
 
     stylizeBtn.addEventListener('click', () => {
-        stylizeModal.className = 'modal-visible';
+        const styleStrip = document.getElementById('style-strip-panel');
+        const isVisible = styleStrip.classList.contains('show');
+        document.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
+        if (!isVisible) {
+            styleStrip.classList.add('show');
+            loadStylesStrip();
+        }
     });
 
-    stylizeCancelBtn.addEventListener('click', () => {
-        stylizeModal.className = 'modal-hidden';
+    addStyleCancelBtn.addEventListener('click', () => {
+        addStyleModal.className = 'modal-hidden';
     });
 
-    stylizeConfirmBtn.addEventListener('click', async () => {
-        const prompt = stylizePromptInput.value;
-        if (!prompt) {
-            alert('Please enter a prompt.');
+    addStyleConfirmBtn.addEventListener('click', async () => {
+        const newName = newStyleNameInput.value;
+        const newPrompt = newStylePromptInput.value;
+        if (!newName || !newPrompt) {
+            alert('Please enter a style name and prompt.');
+            return;
+        }
+        try {
+            await fetch('/add_style', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName, prompt: newPrompt })
+            });
+            addStyleModal.className = 'modal-hidden';
+            newStyleNameInput.value = '';
+            newStylePromptInput.value = '';
+            loadStylesStrip();
+        } catch (e) {
+            console.error("Failed to save style:", e);
+        }
+    });
+
+    async function loadStylesStrip() {
+        try {
+            const response = await fetch('/styles');
+            const styles = await response.json();
+            styleStripPanel.innerHTML = '';
+
+            const backButton = document.createElement('button');
+            backButton.className = 'palette-back-btn';
+            backButton.textContent = '<';
+            backButton.addEventListener('click', () => {
+                styleStripPanel.classList.remove('show');
+                document.getElementById('review-thumbnails').classList.add('show');
+            });
+            styleStripPanel.appendChild(backButton);
+
+            styles.forEach(style => {
+                const styleItem = document.createElement('button');
+                styleItem.className = 'style-strip-item';
+                styleItem.textContent = style.name;
+                styleItem.addEventListener('click', () => applyStyle(style.prompt));
+                styleStripPanel.appendChild(styleItem);
+            });
+
+            const addStyleButton = document.createElement('button');
+            addStyleButton.className = 'palette-add-btn';
+            addStyleButton.textContent = '+';
+            addStyleButton.addEventListener('click', () => {
+                addStyleModal.className = 'modal-visible';
+            });
+            styleStripPanel.appendChild(addStyleButton);
+        } catch (e) {
+            console.error("Failed to load styles:", e);
+        }
+    }
+
+    async function applyStyle(prompt) {
+        if (appState.selectedForRetake.length === 0) {
+            alert('Please select a photo to apply the style to.');
             return;
         }
 
@@ -94,10 +161,7 @@ window.eventBus.on('app:init', (appState) => {
         }
 
         renderPreview();
-
-        stylizeModal.className = 'modal-hidden';
-        stylizePromptInput.value = '';
-    });
+    }
 
     filterControls.addEventListener('input', (e) => {
         if (e.target.type === 'range') {

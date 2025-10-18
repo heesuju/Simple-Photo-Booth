@@ -67,6 +67,7 @@
             <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
             <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates"></div>
             <div id="color-palette-panel" class="strip-panel photo-strip-scroll-box" data-panel="colors"></div>
+            <div id="style-strip-panel" class="strip-panel photo-strip-scroll-box" data-panel="styles"></div>
         </div>
     </div>
 
@@ -76,14 +77,15 @@
         <button id="finalize-btn">최종 완료</button>
     </div>
 
-    <!-- Stylize Modal -->
-    <div id="stylize-modal" class="modal-hidden">
+    <!-- Add Style Modal -->
+    <div id="add-style-modal" class="modal-hidden">
         <div class="modal-content">
-            <h3>스타일 프롬프트 입력</h3>
-            <input type="text" id="stylize-prompt-input" placeholder="예: a beautiful fantasy landscape">
+            <h3>새 스타일 추가</h3>
+            <input type="text" id="new-style-name" placeholder="Style Name (e.g., Futuristic)">
+            <input type="text" id="new-style-prompt" placeholder="Enter a prompt (e.g., a beautiful fantasy landscape)">
             <div class="modal-actions">
-                <button id="stylize-confirm-btn">확인</button>
-                <button id="stylize-cancel-btn">취소</button>
+                <button id="add-style-confirm-btn">확인</button>
+                <button id="add-style-cancel-btn">취소</button>
             </div>
         </div>
     </div>
