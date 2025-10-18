@@ -213,6 +213,13 @@ window.eventBus.on('app:init', (appState) => {
                 i.appendChild(m); 
                 i.addEventListener('click', () => handleTemplateChange(t));
 
+                // Highlight the currently selected template
+                // It checks the original path or the base path if it's a colored template
+                const currentBasePath = appState.templateInfo.template_path.split('#')[0]; // Get path without color info
+                if (t.template_path === currentBasePath) {
+                    i.classList.add('selected');
+                }
+
                 itemContainer.appendChild(i);
 
                 if (t.is_default) {
@@ -354,10 +361,9 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function handleTemplateChange(newTemplate) { 
-        // When changing the base template, clear any previously colored version
-        delete newTemplate.colored_template_path;
         appState.templateInfo = newTemplate; 
         renderPreview(); 
+        loadSimilarTemplates(); // Re-render the strip to update the highlight
     }
 
     function recolorTemplateAndApply(template, color) {
@@ -391,6 +397,7 @@ window.eventBus.on('app:init', (appState) => {
 
             appState.templateInfo = coloredTemplate;
             renderPreview();
+            handleTemplateChange(coloredTemplate);
         };
         img.onerror = () => {
             console.error("Failed to load image for recoloring.");
@@ -572,11 +579,6 @@ window.eventBus.on('app:init', (appState) => {
             appState.selectedHole.element.classList.remove('selected'); 
         } 
         appState.selectedHole = { element: null, index: -1 }; 
-        renderPreview(); 
-    }
-
-    function handleTemplateChange(newTemplate) { 
-        appState.templateInfo = newTemplate; 
         renderPreview(); 
     }
 
