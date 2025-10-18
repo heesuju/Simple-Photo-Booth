@@ -10,6 +10,11 @@ window.eventBus.on('app:init', (appState) => {
     const panelContent = document.getElementById('review-panel-content');
     const stripContainer = document.getElementById('strip-container');
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
+    const stylizeBtn = document.getElementById('stylize-btn');
+    const stylizeModal = document.getElementById('stylize-modal');
+    const stylizeConfirmBtn = document.getElementById('stylize-confirm-btn');
+    const stylizeCancelBtn = document.getElementById('stylize-cancel-btn');
+    const stylizePromptInput = document.getElementById('stylize-prompt-input');
     let colorPicker = null; // To hold the iro.js instance
 
     let isPanelDragging = false;
@@ -31,6 +36,67 @@ window.eventBus.on('app:init', (appState) => {
         });
         appState.selectedForRetake = [];
         retakeBtn.style.display = 'none';
+        stylizeBtn.style.display = 'none';
+    });
+
+    stylizeBtn.addEventListener('click', () => {
+        stylizeModal.className = 'modal-visible';
+    });
+
+    stylizeCancelBtn.addEventListener('click', () => {
+        stylizeModal.className = 'modal-hidden';
+    });
+
+    stylizeConfirmBtn.addEventListener('click', async () => {
+        const prompt = stylizePromptInput.value;
+        if (!prompt) {
+            alert('Please enter a prompt.');
+            return;
+        }
+
+        for (const pIdx of appState.selectedForRetake) {
+            const imageBlob = appState.capturedPhotos[pIdx];
+            
+            const formData = new FormData();
+            formData.append('prompt', prompt);
+            formData.append('file', imageBlob, 'photo.png');
+
+            try {
+                const response = await fetch('/process_and_stylize_image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Stylization failed with status: ${response.status}`);
+                }
+
+                const newImageBlob = await response.blob();
+                const newImageUrl = URL.createObjectURL(newImageBlob);
+
+                const originalBlob = appState.capturedPhotos[pIdx];
+
+                appState.capturedPhotos[pIdx] = newImageBlob;
+
+                const thumb = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumb) {
+                    thumb.src = newImageUrl;
+                }
+
+                const assignmentIndex = appState.photoAssignments.indexOf(originalBlob);
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = newImageBlob;
+                }
+            } catch (error) {
+                console.error('Error during stylization:', error);
+                alert('An error occurred during stylization. Please check the console for details.');
+            }
+        }
+
+        renderPreview();
+
+        stylizeModal.className = 'modal-hidden';
+        stylizePromptInput.value = '';
     });
 
     filterControls.addEventListener('input', (e) => {
@@ -119,6 +185,7 @@ window.eventBus.on('app:init', (appState) => {
             });
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
+            stylizeBtn.style.display = 'none';
         }
     }
 
@@ -622,6 +689,7 @@ window.eventBus.on('app:init', (appState) => {
             });
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
+            stylizeBtn.style.display = 'none';
         }
 
         // Handle hole selection
@@ -664,6 +732,7 @@ window.eventBus.on('app:init', (appState) => {
         }
 
         retakeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
+        stylizeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
     }
 
     function handleSwap(hIdx, pIdx) { 
@@ -836,6 +905,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.activeSticker.action = null;
         }
     }
+
 
     async function applyBackgroundRemovalPreview() {
         const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');

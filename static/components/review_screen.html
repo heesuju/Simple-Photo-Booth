@@ -72,7 +72,20 @@
 
     <div id="review-actions-container">
         <button id="retake-btn" style="display: none;">재촬영</button>
+        <button id="stylize-btn" style="display: none;">스타일 변환</button>
         <button id="finalize-btn">최종 완료</button>
+    </div>
+
+    <!-- Stylize Modal -->
+    <div id="stylize-modal" class="modal-hidden">
+        <div class="modal-content">
+            <h3>스타일 프롬프트 입력</h3>
+            <input type="text" id="stylize-prompt-input" placeholder="예: a beautiful fantasy landscape">
+            <div class="modal-actions">
+                <button id="stylize-confirm-btn">확인</button>
+                <button id="stylize-cancel-btn">취소</button>
+            </div>
+        </div>
     </div>
 
     <!-- Color Picker Modal -->

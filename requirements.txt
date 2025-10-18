@@ -9,3 +9,5 @@ moviepy==1.0.3
 rembg
 Pillow
 onnxruntime
+httpx
+python-dotenv

@@ -266,6 +266,16 @@ button:hover {
     border-radius: 5px;
 }
 
+#stylize-prompt-input {
+    margin-top: 10px;
+    padding: 8px;
+    width: 250px;
+    text-align: center;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
 .modal-actions {
     margin-top: 20px;
 }
