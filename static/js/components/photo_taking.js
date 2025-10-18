@@ -54,7 +54,15 @@ window.eventBus.on('app:init', (appState) => {
         startPhotoSession();
     });
 
+    window.eventBus.on('photo-taking:start-retake', () => {
+        startRetakeSession();
+    });
+
     function startPhotoSession() { 
+        appState.isRetaking = false;
+        appState.photosToRetake = [];
+        appState.newlyCapturedPhotos = [];
+        appState.newlyCapturedVideos = [];
         document.getElementById('app-title').textContent = '사진 촬영'; 
         switchCaptureMode('camera');
         modeSelection.style.display = 'flex';
@@ -71,6 +79,52 @@ window.eventBus.on('app:init', (appState) => {
         cameraStream.play();
 
         updatePhotoStatus(); 
+    }
+
+    function startRetakeSession() {
+        appState.isRetaking = true;
+        appState.newlyCapturedPhotos = [];
+        appState.newlyCapturedVideos = [];
+
+        document.getElementById('app-title').textContent = '사진 재촬영';
+        switchCaptureMode('camera');
+        modeSelection.style.display = 'none';
+        timerControls.style.display = 'flex';
+        startCaptureBtn.style.display = 'block';
+        captureBtn.style.display = 'none';
+        appState.videoUploadPromises = [];
+        thumbnailsContainer.innerHTML = '';
+
+        // Re-acquire camera stream if it's stopped
+        if (!appState.stream || appState.stream.getTracks().every(t => t.readyState === 'ended')) {
+            const h = appState.templateInfo.holes[0];
+            const r = h.w / h.h;
+            navigator.mediaDevices.getUserMedia({ video: { aspectRatio: { ideal: r }, facingMode: 'user' } })
+                .then(stream => {
+                    appState.stream = stream;
+                    cameraStream.srcObject = stream;
+                    cameraStream.play();
+                    updatePhotoStatus();
+                })
+                .catch(e => {
+                    console.error('Retake getUserMedia with aspect ratio failed:', e);
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                        .then(stream => {
+                            appState.stream = stream;
+                            cameraStream.srcObject = stream;
+                            cameraStream.play();
+                            updatePhotoStatus();
+                        })
+                        .catch(e2 => {
+                            alert('Camera access failed: ' + e2.message);
+                            console.error('Retake fallback getUserMedia failed:', e2);
+                        });
+                });
+        } else {
+            cameraStream.srcObject = appState.stream;
+            cameraStream.play();
+            updatePhotoStatus();
+        }
     }
 
     function switchCaptureMode(newMode) {
@@ -174,12 +228,41 @@ window.eventBus.on('app:init', (appState) => {
     });
 
     function updatePhotoStatus() { 
-        const n = appState.templateInfo.hole_count, t = appState.capturedPhotos.length; 
+        const isRetake = appState.isRetaking;
+        const n = isRetake ? appState.photosToRetake.length : appState.templateInfo.hole_count; 
+        const t = isRetake ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
         document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`; 
+        
         if (t >= n) { 
             if (appState.stream) appState.stream.getTracks().forEach(tr => tr.stop()); 
             Promise.all(appState.videoUploadPromises).then(() => {
-                window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: appState.capturedVideos });
+                if (isRetake) {
+                    appState.photosToRetake.forEach((originalIndex, i) => {
+                        const oldPhotoBlob = appState.capturedPhotos[originalIndex];
+                        const newPhotoBlob = appState.newlyCapturedPhotos[i];
+                        const newVideoPath = appState.newlyCapturedVideos[i];
+
+                        // Find all occurrences of the old blob in photo assignments and replace them.
+                        // At the same time, replace the video at the same index.
+                        for (let j = 0; j < appState.photoAssignments.length; j++) {
+                            if (appState.photoAssignments[j] === oldPhotoBlob) {
+                                appState.photoAssignments[j] = newPhotoBlob;
+                                appState.videoAssignments[j] = newVideoPath;
+                            }
+                        }
+
+                        // Now, update the master lists
+                        appState.capturedPhotos[originalIndex] = newPhotoBlob;
+                        appState.capturedVideos[originalIndex] = newVideoPath;
+                    });
+                    appState.isRetaking = false;
+                    appState.photosToRetake = [];
+                    appState.newlyCapturedPhotos = [];
+                    appState.newlyCapturedVideos = [];
+                    window.eventBus.dispatch('review:edit-existing');
+                } else {
+                    window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: appState.capturedVideos });
+                }
             });
         } 
     }
@@ -222,14 +305,21 @@ window.eventBus.on('app:init', (appState) => {
         c.height = v.videoHeight; 
         x.drawImage(v, 0, 0, c.width, c.height); 
         c.toBlob(b => { 
-            appState.capturedPhotos.push(b); 
+            if (appState.isRetaking) {
+                appState.newlyCapturedPhotos.push(b);
+            } else {
+                appState.capturedPhotos.push(b); 
+            }
             const t = document.createElement('img'); 
             t.src = URL.createObjectURL(b); 
             t.classList.add('thumbnail'); 
             thumbnailsContainer.appendChild(t); 
             updatePhotoStatus(); 
 
-            if (appState.capturedPhotos.length < appState.templateInfo.hole_count) {
+            const totalToCapture = appState.isRetaking ? appState.photosToRetake.length : appState.templateInfo.hole_count;
+            const currentCaptureCount = appState.isRetaking ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
+
+            if (currentCaptureCount < totalToCapture) {
                 startRecording();
             }
         }, 'image/jpeg'); 
@@ -250,7 +340,11 @@ window.eventBus.on('app:init', (appState) => {
             }
 
             const data = await response.json();
-            appState.capturedVideos.push(data.video_path);
+            if (appState.isRetaking) {
+                appState.newlyCapturedVideos.push(data.video_path);
+            } else {
+                appState.capturedVideos.push(data.video_path);
+            }
         } catch (e) {
             console.error('Error uploading video:', e);
         }

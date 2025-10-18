@@ -92,6 +92,13 @@ The application is a single-page application (SPA) where different "screens" are
 - [X] Video Download
 - [X] Original Image Download
 - [X] Default Templates & Color Change
+- [X] Retake photos
+- [X] Continue Editing
 - [ ] Remove Background Option
 - [ ] Effect Presets
 - [ ] Refine UI
+- [ ] Connect Image Generation API
+
+## Bugs:
+- [ ] Stickers have black background sometimes
+- [ ] Resized stickers have weird borders in video composition

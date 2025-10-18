@@ -1,6 +1,7 @@
 window.eventBus.on('app:init', (appState) => {
     const reviewScreenContainer = document.getElementById('review-screen-container');
     const finalizeBtn = document.getElementById('finalize-btn');
+    const retakeBtn = document.getElementById('retake-btn');
     const filterControls = document.getElementById('filter-controls');
     const stickerUploadInput = document.getElementById('sticker-upload-input');
     const reviewToolbar = document.getElementById('review-toolbar');
@@ -14,6 +15,18 @@ window.eventBus.on('app:init', (appState) => {
     let startY, startHeight;
 
     finalizeBtn.addEventListener('click', () => window.eventBus.dispatch('review:finalize', { videos: appState.videoAssignments }));
+    retakeBtn.addEventListener('click', () => {
+        window.eventBus.dispatch('review:retake', { indices: appState.selectedForRetake });
+
+        // Clear the selection and hide the button immediately
+        appState.selectedForRetake.forEach(pIdx => {
+            const thumb = document.getElementById('review-thumbnails').children[pIdx];
+            if (thumb) thumb.classList.remove('selected');
+        });
+        appState.selectedForRetake = [];
+        retakeBtn.style.display = 'none';
+    });
+
     filterControls.addEventListener('input', (e) => {
         if (e.target.type === 'range') {
             appState.filters[e.target.dataset.filter] = parseInt(e.target.value, 10);
@@ -26,14 +39,18 @@ window.eventBus.on('app:init', (appState) => {
             const panelType = e.target.dataset.panel;
             const currentActiveBtn = reviewToolbar.querySelector('.active');
 
-            // If clicking the same button, close its panel
+            // If clicking the same button, close its panel and clear selections
             if (currentActiveBtn === e.target) {
                 e.target.classList.remove('active');
                 reviewPanel.classList.remove('show');
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
                 reviewPanel.style.height = '50vh'; // Reset height
+                clearSelections();
                 return;
             }
+
+            // If switching to a new panel, clear selections first
+            clearSelections();
 
             // Deactivate current active button and all panels
             if (currentActiveBtn) {
@@ -73,6 +90,31 @@ window.eventBus.on('app:init', (appState) => {
             }
         }
     });
+
+    function clearSelections() {
+        // Clear selected hole in preview
+        if (appState.selectedHole.element) {
+            appState.selectedHole.element.classList.remove('selected');
+        }
+        appState.selectedHole = { element: null, index: -1 };
+
+        // Clear disabled thumbnail
+        if (appState.disabledThumbnailIndex !== -1) {
+            const oldThumb = document.getElementById('review-thumbnails').children[appState.disabledThumbnailIndex];
+            if (oldThumb) oldThumb.classList.remove('disabled');
+            appState.disabledThumbnailIndex = -1;
+        }
+
+        // Clear photos selected for retake
+        if (appState.selectedForRetake.length > 0) {
+            appState.selectedForRetake.forEach(pIdx => {
+                const thumb = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumb) thumb.classList.remove('selected');
+            });
+            appState.selectedForRetake = [];
+            retakeBtn.style.display = 'none';
+        }
+    }
 
     panelHandle.addEventListener('mousedown', (e) => {
         isPanelDragging = true;
@@ -145,6 +187,8 @@ window.eventBus.on('app:init', (appState) => {
         if (!isContinuingEditing) {
             appState.photoAssignments = [...appState.capturedPhotos]; 
             appState.videoAssignments = [...appState.capturedVideos];
+            appState.selectedForRetake = []; 
+            appState.disabledThumbnailIndex = -1;
             appState.placedStickers = []; 
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
             document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
@@ -188,9 +232,9 @@ window.eventBus.on('app:init', (appState) => {
         appState.capturedPhotos.forEach((b, i) => { 
             const t = document.createElement('img'); 
             t.src = URL.createObjectURL(b); 
-            t.className = 'thumbnail'; 
+            t.className = 'photostrip-item'; 
             t.draggable = false; 
-            t.addEventListener('click', () => handlePhotoSelection(i)); 
+            t.addEventListener('click', (e) => handlePhotoSelection(i, e.currentTarget)); 
             c.appendChild(t); 
         }); 
     }
@@ -215,7 +259,8 @@ window.eventBus.on('app:init', (appState) => {
 
                 // Highlight the currently selected template
                 // It checks the original path or the base path if it's a colored template
-                const currentBasePath = appState.templateInfo.template_path.split('#')[0]; // Get path without color info
+                const currentBasePath = appState.templateInfo.original_path || appState.templateInfo.template_path;
+
                 if (t.template_path === currentBasePath) {
                     i.classList.add('selected');
                 }
@@ -361,6 +406,10 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function handleTemplateChange(newTemplate) { 
+        if (!newTemplate.original_path) {
+            delete newTemplate.colored_template_path;
+            delete newTemplate.original_path;
+        }
         appState.templateInfo = newTemplate; 
         renderPreview(); 
         loadSimilarTemplates(); // Re-render the strip to update the highlight
@@ -369,7 +418,7 @@ window.eventBus.on('app:init', (appState) => {
     function recolorTemplateAndApply(template, color) {
         const img = new Image();
         img.crossOrigin = "Anonymous"; // Required for canvas with cross-origin images
-        img.src = template.template_path;
+        img.src = template.original_path || template.template_path;
         img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
@@ -394,6 +443,7 @@ window.eventBus.on('app:init', (appState) => {
             // Create a new template info object to avoid mutating the original
             const coloredTemplate = { ...template };
             coloredTemplate.colored_template_path = dataURL;
+            coloredTemplate.original_path = template.original_path || template.template_path;
 
             appState.templateInfo = coloredTemplate;
             renderPreview();
@@ -545,17 +595,66 @@ window.eventBus.on('app:init', (appState) => {
         });
     }
 
-    function handleHoleSelection(el, hIdx) { 
-        if (appState.selectedHole.element) { 
-            appState.selectedHole.element.classList.remove('selected'); 
-        } 
-        appState.selectedHole = { element: el, index: hIdx }; 
-        el.classList.add('selected'); 
+    function handleHoleSelection(el, hIdx) {
+        const thumbnailsContainer = document.getElementById('review-thumbnails');
+
+        // Clear previously disabled thumbnail
+        if (appState.disabledThumbnailIndex !== -1) {
+            const oldThumb = thumbnailsContainer.children[appState.disabledThumbnailIndex];
+            if (oldThumb) oldThumb.classList.remove('disabled');
+            appState.disabledThumbnailIndex = -1;
+        }
+
+        // Clear any photos selected for retake
+        if (appState.selectedForRetake.length > 0) {
+            appState.selectedForRetake.forEach(pIdx => {
+                const thumb = thumbnailsContainer.children[pIdx];
+                if (thumb) thumb.classList.remove('selected');
+            });
+            appState.selectedForRetake = [];
+            retakeBtn.style.display = 'none';
+        }
+
+        // Handle hole selection
+        if (appState.selectedHole.element) {
+            appState.selectedHole.element.classList.remove('selected');
+        }
+
+        if (appState.selectedHole.index === hIdx) {
+            appState.selectedHole = { element: null, index: -1 };
+        } else {
+            el.classList.add('selected');
+            appState.selectedHole = { element: el, index: hIdx };
+
+            // Disable the corresponding thumbnail
+            const photoInHole = appState.photoAssignments[hIdx];
+            const thumbIndex = appState.capturedPhotos.indexOf(photoInHole);
+            if (thumbIndex !== -1) {
+                const thumbToDisable = thumbnailsContainer.children[thumbIndex];
+                if (thumbToDisable) thumbToDisable.classList.add('disabled');
+                appState.disabledThumbnailIndex = thumbIndex;
+            }
+        }
     }
 
-    function handlePhotoSelection(pIdx) { 
-        if (appState.selectedHole.index === -1) return; 
-        handleSwap(appState.selectedHole.index, pIdx); 
+    function handlePhotoSelection(pIdx, el) {
+        // If a hole is selected, perform the swap.
+        if (appState.selectedHole.index !== -1) {
+            handleSwap(appState.selectedHole.index, pIdx);
+            return;
+        }
+
+        // If no hole is selected, handle multi-selection for retake.
+        const selectedIndex = appState.selectedForRetake.indexOf(pIdx);
+        if (selectedIndex > -1) {
+            appState.selectedForRetake.splice(selectedIndex, 1);
+            el.classList.remove('selected');
+        } else {
+            appState.selectedForRetake.push(pIdx);
+            el.classList.add('selected');
+        }
+
+        retakeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
     }
 
     function handleSwap(hIdx, pIdx) { 
@@ -579,6 +678,14 @@ window.eventBus.on('app:init', (appState) => {
             appState.selectedHole.element.classList.remove('selected'); 
         } 
         appState.selectedHole = { element: null, index: -1 }; 
+
+        // Clear disabled thumbnail
+        if (appState.disabledThumbnailIndex !== -1) {
+            const oldThumb = document.getElementById('review-thumbnails').children[appState.disabledThumbnailIndex];
+            if (oldThumb) oldThumb.classList.remove('disabled');
+            appState.disabledThumbnailIndex = -1;
+        }
+
         renderPreview(); 
     }
 

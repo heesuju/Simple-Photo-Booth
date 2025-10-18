@@ -133,6 +133,34 @@ button:hover {
     box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
 }
 
+.photostrip-item {
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    max-width: 100px;
+    max-height: 100px;
+    width: auto;
+    height: auto;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.photostrip-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.photostrip-item.selected {
+    border-color: #007bff;
+    border-width: 3px;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+.photostrip-item.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
 .template-item-container {
     display: flex;
     flex-direction: column;
@@ -401,11 +429,17 @@ button:hover {
     display: flex;
 }
 
-#finalize-btn {
+#review-actions-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
     z-index: 1020;
+    display: flex;
+    gap: 10px;
+}
+
+#finalize-btn {
+    /* No longer needs individual positioning */
 }
 
 

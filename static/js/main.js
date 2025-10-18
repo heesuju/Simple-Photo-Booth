@@ -60,9 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const appState = {
         templateInfo: null,
         selectedTemplate: { element: null, data: null },
-        capturedPhotos: [],
-        photoAssignments: [],
-        selectedHole: { element: null, index: -1 },
+            capturedPhotos: [],
+            photoAssignments: [],
+            videoAssignments: [],        selectedHole: { element: null, index: -1 },
         placedStickers: [],
         stream: null,
         activeSticker: { element: null, data: null, action: null },
@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCapturing: false,
         captureMode: 'camera',
         filters: { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 },
+        photosToRetake: [],
     };
 
     // Handles showing and hiding the different application screens
@@ -81,6 +82,12 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById(id).style.display = 'none';
         });
         document.getElementById(screenId).style.display = 'block';
+    });
+
+    window.eventBus.on('review:retake', (data) => {
+        appState.photosToRetake = data.indices;
+        window.eventBus.dispatch('screen:show', 'app-content');
+        window.eventBus.dispatch('photo-taking:start-retake');
     });
 
     // Initializes the application by loading all components and dispatching the app:init event
