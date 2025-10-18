@@ -284,8 +284,15 @@ window.eventBus.on('app:init', (appState) => {
 
                         // Now, update the master lists
                         appState.capturedPhotos[originalIndex] = newPhotoBlob;
+                        appState.originalCapturedPhotos[originalIndex] = newPhotoBlob;
                         appState.capturedVideos[originalIndex] = newVideoPath;
-                    });
+
+                        // Invalidate cache for the retaken photo
+                        for (const key in appState.stylizedImagesCache) {
+                            if (key.startsWith(originalIndex + '-')) {
+                                delete appState.stylizedImagesCache[key];
+                            }
+                        }                    });
                     appState.isRetaking = false;
                     appState.photosToRetake = [];
                     appState.newlyCapturedPhotos = [];
