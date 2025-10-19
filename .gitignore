@@ -6,6 +6,7 @@ uploads/
 results/
 stickers/
 layouts/
+fonts/
 generated_templates/
 *.db
 videos/

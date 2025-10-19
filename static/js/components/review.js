@@ -6,11 +6,19 @@ window.eventBus.on('app:init', (appState) => {
     const stickerUploadInput = document.getElementById('sticker-upload-input');
     const reviewToolbar = document.getElementById('review-toolbar');
     const reviewPanel = document.getElementById('review-panel');
+    const panelSelector = document.getElementById('panel-selector');
     const panelHandle = document.getElementById('panel-handle');
     const panelContent = document.getElementById('review-panel-content');
     const stripContainer = document.getElementById('strip-container');
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
     const stylizeBtn = document.getElementById('stylize-btn');
+    const addFontBtn = document.getElementById('add-font-btn');
+    const fontGallery = document.getElementById('font-gallery');
+    const fontUploadInput = document.createElement('input');
+    fontUploadInput.type = 'file';
+    fontUploadInput.accept = '.ttf,.otf,.woff,.woff2';
+    fontUploadInput.style.display = 'none';
+    reviewScreenContainer.appendChild(fontUploadInput);
     const addStyleModal = document.getElementById('add-style-modal');
     const addStyleConfirmBtn = document.getElementById('add-style-confirm-btn');
     const addStyleCancelBtn = document.getElementById('add-style-cancel-btn');
@@ -53,6 +61,36 @@ window.eventBus.on('app:init', (appState) => {
             loadStylesStrip();
         }
     });
+
+    panelSelector.addEventListener('click', (e) => {
+        if (e.target.classList.contains('panel-selector-btn')) {
+            const panelType = e.target.dataset.panel;
+            const currentActiveBtn = panelSelector.querySelector('.active');
+
+            if (currentActiveBtn) {
+                currentActiveBtn.classList.remove('active');
+            }
+            e.target.classList.add('active');
+
+            panelContent.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+            const targetPanel = panelContent.querySelector(`.panel-section[data-panel="${panelType}"]`);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+
+            addFontBtn.style.display = panelType === 'text' ? 'block' : 'none';
+
+            if (panelType === 'text') {
+                loadFontGallery();
+            }
+        }
+    });
+
+    addFontBtn.addEventListener('click', () => {
+        fontUploadInput.click();
+    });
+
+    fontUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_font', loadFontGallery));
 
     addStyleCancelBtn.addEventListener('click', () => {
         addStyleModal.className = 'modal-hidden';
@@ -419,6 +457,46 @@ window.eventBus.on('app:init', (appState) => {
         } catch (e) { 
             console.error(e); 
         } 
+    }
+
+    async function loadFontGallery() {
+        try {
+            const r = await fetch('/fonts');
+            const d = await r.json();
+            const c = document.getElementById('font-gallery');
+            c.innerHTML = '';
+
+            const styleSheet = document.createElement('style');
+            document.head.appendChild(styleSheet);
+
+            d.forEach(f => {
+                const fontFace = `@font-face {
+                    font-family: '${f.font_name}';
+                    src: url('${encodeURI(f.font_path.substring(1))}');
+                }`;
+                styleSheet.sheet.insertRule(fontFace, styleSheet.sheet.cssRules.length);
+
+                const i = document.createElement('div');
+                i.className = 'font-item';
+                const fontPreview = document.createElement('div');
+                fontPreview.className = 'font-item-font';
+                fontPreview.style.fontFamily = f.font_name;
+                fontPreview.textContent = 'Abc';
+                const fontName = document.createElement('div');
+                fontName.textContent = f.font_name;
+                i.appendChild(fontPreview);
+                i.appendChild(fontName);
+                i.addEventListener('click', () => addTextToCanvas(f));
+                c.appendChild(i);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function addTextToCanvas(font) {
+        // Placeholder for adding text to canvas
+        console.log('Adding text with font:', font);
     }
 
     function renderReviewThumbnails() { 

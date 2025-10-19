@@ -8,10 +8,17 @@
 
     <div id="review-panel">
         <div id="panel-handle"></div>
+        <div id="panel-selector">
+            <button class="panel-selector-btn active" data-panel="stickers">스티커</button>
+            <button class="panel-selector-btn" data-panel="text">텍스트</button>
+        </div>
         <div id="review-panel-content">
             <div class="panel-section" data-panel="stickers">
                 <div id="sticker-gallery" class="gallery-container"></div>
                 <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
+            </div>
+            <div class="panel-section" data-panel="text">
+                <div id="font-gallery" class="gallery-container"></div>
             </div>
             <div class="panel-section" data-panel="filters">
                 <div id="filter-controls">
@@ -74,7 +81,10 @@
     <div id="review-actions-container">
         <button id="retake-btn" style="display: none;">재촬영</button>
         <button id="stylize-btn" style="display: none;">스타일 변환</button>
-        <button id="finalize-btn">최종 완료</button>
+        <div class="finalize-options">
+            <button id="add-font-btn" style="display: none;">폰트 추가</button>
+            <button id="finalize-btn">최종 완료</button>
+        </div>
     </div>
 
     <!-- Add Style Modal -->

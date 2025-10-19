@@ -44,6 +44,7 @@ PORT = 8000
 DATABASE = 'photobooth.db'
 UPLOAD_DIR = "static/uploads"
 STICKERS_DIR = "static/stickers" # New directory for stickers
+FONTS_DIR = "static/fonts"
 RESULTS_DIR = "static/results"
 GENERATED_TEMPLATES_DIR = "static/generated_templates"
 
@@ -142,6 +143,7 @@ async def lifespan(app: FastAPI):
     app.state.db_manager.init_db()
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(STICKERS_DIR, exist_ok=True) # Create stickers dir
+    os.makedirs(FONTS_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(GENERATED_TEMPLATES_DIR, exist_ok=True)
     os.makedirs(VIDEOS_DIR, exist_ok=True)
@@ -158,6 +160,15 @@ async def lifespan(app: FastAPI):
         if sticker_path not in existing_stickers:
             db_manager.add_sticker(sticker_path)
             print(f"Added new sticker to DB: {sticker_path}")
+
+    # --- Sync Fonts with DB ---
+    existing_fonts = {f['font_path'] for f in db_manager.get_all_fonts()}
+    for filename in os.listdir(FONTS_DIR):
+        font_path = f"/{FONTS_DIR}/{filename}"
+        if font_path not in existing_fonts:
+            font_name = os.path.splitext(filename)[0]
+            db_manager.add_font(font_name, font_path)
+            print(f"Added new font to DB: {font_name}")
 
     populate_default_colors(db_manager)
 
@@ -476,6 +487,39 @@ async def upload_sticker(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading sticker: {e}")
 
+@app.get("/fonts")
+async def get_fonts(request: Request):
+    return JSONResponse(content=request.app.state.db_manager.get_all_fonts())
+
+@app.post("/upload_font")
+async def upload_font(request: Request, file: UploadFile = File(...)):
+    allowed_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
+    file_extension = os.path.splitext(file.filename)[1].lower()
+
+    if file.content_type not in ['font/ttf', 'font/otf', 'font/woff', 'font/woff2', 'application/octet-stream'] or file_extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Please upload a valid font file.")
+
+    db_manager = request.app.state.db_manager
+    font_name = os.path.splitext(file.filename)[0]
+    if db_manager.get_font_by_name(font_name):
+        raise HTTPException(status_code=409, detail=f"Font with name '{font_name}' already exists.")
+
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(FONTS_DIR, unique_filename)
+
+    try:
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            content = await file.read()
+            await out_file.write(content)
+        
+        db_manager = request.app.state.db_manager
+        font_name = os.path.splitext(file.filename)[0]
+        db_manager.add_font(font_name, f"/{file_path}")
+        return JSONResponse(content={"font_path": f"/{file_path}"}, status_code=201)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading font: {e}")
+
 def apply_filters(image, filters):
     brightness = int(filters.get('brightness', 100))
     contrast = int(filters.get('contrast', 100))
@@ -596,7 +640,7 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
 
             # Step 2: Call Pollinations.ai
             encoded_prompt = quote(prompt)
-            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=kontext&image={direct_link}&nologo=true&enhance=true"
+            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=kontext&image={direct_link}"
             print(f"Proxying request to: {pollinations_url}")
 
             async with httpx.AsyncClient() as client:

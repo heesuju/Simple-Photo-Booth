@@ -55,6 +55,14 @@ class DatabaseManager:
                 )
             ''')
 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS fonts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    font_name TEXT NOT NULL UNIQUE,
+                    font_path TEXT NOT NULL
+                )
+            ''')
+
             conn.commit()
 
     def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False):
@@ -187,3 +195,32 @@ class DatabaseManager:
             except sqlite3.IntegrityError:
                 # Style with the same name already exists, ignore the error
                 pass
+
+    def get_all_fonts(self):
+        """Fetches all fonts from the database."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM fonts ORDER BY id")
+            fonts = [dict(row) for row in cursor.fetchall()]
+        return fonts
+
+    def add_font(self, font_name, font_path):
+        """Adds a new font to the database, ignoring duplicates."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("INSERT INTO fonts (font_name, font_path) VALUES (?, ?)", (font_name, font_path))
+                conn.commit()
+            except sqlite3.IntegrityError:
+                # Font with the same name already exists, ignore the error
+                pass
+
+    def get_font_by_name(self, font_name):
+        """Fetches a font by its name."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM fonts WHERE font_name = ?", (font_name,))
+            font = cursor.fetchone()
+        return dict(font) if font else None
