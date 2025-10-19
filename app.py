@@ -618,29 +618,33 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
         headers["Authorization"] = f"Bearer {api_key}"
 
     max_retries = 3
+    direct_link = None
+
+    try:
+        # It's important to rewind the file pointer if you are reading it multiple times
+        await file.seek(0)
+        # Step 1: Upload to tmpfiles.org
+        async with httpx.AsyncClient() as client:
+            files = {'file': (file.filename, await file.read(), file.content_type)}
+            upload_response = await client.post("https://tmpfiles.org/api/v1/upload", files=files, timeout=30.0)
+            upload_response.raise_for_status()
+            upload_data = upload_response.json()
+
+            if upload_data.get("status") != "success":
+                raise HTTPException(status_code=500, detail=f"Failed to upload to temporary storage: {upload_data}")
+
+            temp_url = upload_data["data"]["url"]
+            direct_link = temp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+            print(f"Temporarily hosted at: {direct_link}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload to temporary storage: {e}")
+
     for attempt in range(max_retries):
         try:
-            # It's important to rewind the file pointer if you are reading it multiple times
-            await file.seek(0)
-            # Step 1: Upload to tmpfiles.org
-            async with httpx.AsyncClient() as client:
-                files = {'file': (file.filename, await file.read(), file.content_type)}
-                upload_response = await client.post("https://tmpfiles.org/api/v1/upload", files=files, timeout=30.0)
-                upload_response.raise_for_status()
-                upload_data = upload_response.json()
-
-                if upload_data.get("status") != "success":
-                    raise HTTPException(status_code=500, detail=f"Failed to upload to temporary storage: {upload_data}")
-
-                temp_url = upload_data["data"]["url"]
-                direct_link = temp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-                print(f"Temporarily hosted at: {direct_link}")
-
-            await asyncio.sleep(1)
-
             # Step 2: Call Pollinations.ai
             encoded_prompt = quote(prompt)
-            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=kontext&image={direct_link}"
+            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=kontext&image={direct_link}&nologo=true&enhance=true"
             print(f"Proxying request to: {pollinations_url}")
 
             async with httpx.AsyncClient() as client:
