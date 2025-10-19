@@ -164,6 +164,10 @@ window.eventBus.on('app:init', (appState) => {
                 continue;
             }
 
+            const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+            const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
+            const wrapper = photoWrappers[assignmentIndex];
+
             const imageBlob = appState.originalCapturedPhotos[pIdx];
             
             const formData = new FormData();
@@ -171,20 +175,23 @@ window.eventBus.on('app:init', (appState) => {
             formData.append('file', imageBlob, 'photo.png');
 
             try {
+                if (wrapper) {
+                    wrapper.classList.add('loading');
+                }
+
                 const response = await fetch('/process_and_stylize_image', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Stylization failed with status: ${response.status}`);
+                    const errorText = await response.text();
+                    throw new Error(`Stylization failed: ${errorText}`);
                 }
 
                 const newImageBlob = await response.blob();
                 appState.stylizedImagesCache[cacheKey] = newImageBlob;
                 const newImageUrl = URL.createObjectURL(newImageBlob);
-
-                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
 
                 appState.capturedPhotos[pIdx] = newImageBlob;
 
@@ -199,6 +206,10 @@ window.eventBus.on('app:init', (appState) => {
             } catch (error) {
                 console.error('Error during stylization:', error);
                 alert('An error occurred during stylization. Please check the console for details.');
+            } finally {
+                if (wrapper) {
+                    wrapper.classList.remove('loading');
+                }
             }
         }
 

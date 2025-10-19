@@ -10,7 +10,7 @@ import socket
 from typing import List
 import random
 from urllib.parse import quote
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -20,6 +20,7 @@ from starlette.responses import StreamingResponse
 from rembg import remove
 from PIL import Image
 import io
+import asyncio
 import httpx
 
 import moviepy.editor as mpe
@@ -572,40 +573,48 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
         print("Using Pollinations API Key.")
         headers["Authorization"] = f"Bearer {api_key}"
 
-    try:
-        # Step 1: Upload to tmpfiles.org
-        async with httpx.AsyncClient() as client:
-            files = {'file': (file.filename, await file.read(), file.content_type)}
-            upload_response = await client.post("https://tmpfiles.org/api/v1/upload", files=files, timeout=30.0)
-            upload_response.raise_for_status()
-            upload_data = upload_response.json()
-            
-            if upload_data.get("status") != "success":
-                raise HTTPException(status_code=500, detail=f"Failed to upload to temporary storage: {upload_data}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # It's important to rewind the file pointer if you are reading it multiple times
+            await file.seek(0)
+            # Step 1: Upload to tmpfiles.org
+            async with httpx.AsyncClient() as client:
+                files = {'file': (file.filename, await file.read(), file.content_type)}
+                upload_response = await client.post("https://tmpfiles.org/api/v1/upload", files=files, timeout=30.0)
+                upload_response.raise_for_status()
+                upload_data = upload_response.json()
 
-            temp_url = upload_data["data"]["url"]
-            
-            # Transform the viewer URL into the direct download URL
-            direct_link = temp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-            print(f"Temporarily hosted at: {direct_link}")
+                if upload_data.get("status") != "success":
+                    raise HTTPException(status_code=500, detail=f"Failed to upload to temporary storage: {upload_data}")
 
-        # Step 2: Call Pollinations.ai with the correct direct link
-        # Use urllib.parse.quote for robust prompt encoding
-        encoded_prompt = quote(prompt)
-        pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=kontext&image={direct_link}&nologo=true&enhance=true"
-        print(f"Proxying request to: {pollinations_url}")
+                temp_url = upload_data["data"]["url"]
+                direct_link = temp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                print(f"Temporarily hosted at: {direct_link}")
 
-        async with httpx.AsyncClient() as client:
-            stylize_response = await client.get(pollinations_url, headers=headers, timeout=90.0, follow_redirects=True)
-            stylize_response.raise_for_status()
+            await asyncio.sleep(1)
 
-        # Step 3: Stream the final image back
-        content_type = stylize_response.headers.get('Content-Type', 'application/octet-stream')
-        return StreamingResponse(io.BytesIO(stylize_response.content), media_type=content_type)
+            # Step 2: Call Pollinations.ai
+            encoded_prompt = quote(prompt)
+            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=kontext&image={direct_link}&nologo=true&enhance=true"
+            print(f"Proxying request to: {pollinations_url}")
 
-    except Exception as e:
-        print(f"Error in /process_and_stylize_image: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to stylize image: {e}")
+            async with httpx.AsyncClient() as client:
+                stylize_response = await client.get(pollinations_url, headers=headers, timeout=60.0, follow_redirects=True)
+                stylize_response.raise_for_status()
+
+            # Step 3: Stream the final image back
+            content_type = stylize_response.headers.get('Content-Type', 'application/octet-stream')
+            return StreamingResponse(io.BytesIO(stylize_response.content), media_type=content_type)
+
+        except Exception as e:
+            print(f"Attempt {attempt + 1} of {max_retries} failed: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(3)
+            else:
+                error_message = f"Failed to stylize image after {max_retries} attempts: {e}"
+                print(f"Error in /process_and_stylize_image: {error_message}")
+                return Response(content=error_message, status_code=500)
 
 @app.post("/compose_image")
 async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False)):
