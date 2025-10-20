@@ -614,6 +614,30 @@ button:hover {
     object-fit: contain;
 }
 
+.placed-text-wrapper {
+    position: absolute;
+    border: 2px dotted transparent;
+}
+
+.placed-text-wrapper.active {
+    border-color: #007bff;
+}
+
+.editable-text {
+    width: 100%;
+    height: 100%;
+    font-size: 24px;
+    background-color: transparent;
+    border: none;
+    text-align: center;
+    color: black;
+}
+
+.editable-text:focus {
+    outline: none;
+    border: 1px dashed #007bff;
+}
+
 /* --- App Content --- */
 #app-content {
     display: flex;

@@ -95,13 +95,19 @@ The application is a single-page application (SPA) where different "screens" are
 - [X] Retake photos
 - [X] Continue Editing
 - [ ] Remove Background Option
+- [ ] Add color selection to text
 - [ ] Effect Presets
 - [ ] Refine UI
-- [ ] Connect Image Generation API
+- [X] Connect Image Generation API
 - [ ] Add button in results to take another photo
 - [ ] Add timestamp, logos, text to stickers tab
+- [ ] Add image resizing to cells preview
 
 ## Bugs:
 - [ ] Stickers have black background sometimes
 - [ ] Resized stickers have weird borders in video composition
 - [ ] Template not editable when uploading
+- [ ] Disable generate style when generating in progress
+- [ ] Add cancel button to style
+- [ ] Add refresh button to style
+- [ ] fix video creation for image uploaded

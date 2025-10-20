@@ -26,6 +26,11 @@ window.eventBus.on('app:init', (appState) => {
     const newStylePromptInput = document.getElementById('new-style-prompt');
     const styleStripPanel = document.getElementById('style-strip-panel');
 
+    const textInputModal = document.getElementById('text-input-modal');
+    const textInputField = document.getElementById('text-input-field');
+    const textInputConfirmBtn = document.getElementById('text-input-confirm-btn');
+    const textInputCancelBtn = document.getElementById('text-input-cancel-btn');
+
     let colorPicker = null; // To hold the iro.js instance
     let isAddingNewStyle = false;
     let selectedStylePrompt = '';
@@ -387,6 +392,7 @@ window.eventBus.on('app:init', (appState) => {
             reviewPanel.style.height = `${newHeight}px`;
         } else {
             handleStickerMove(e);
+            handleTextMove(e);
         }
     });
 
@@ -396,6 +402,16 @@ window.eventBus.on('app:init', (appState) => {
             reviewPanel.style.transition = 'bottom 0.3s ease-in-out, height 0.3s ease-in-out'; // Re-enable transition
         }
         handleStickerMouseUp(e);
+        handleTextMouseUp(e);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (appState.activeText.element && !appState.activeText.element.contains(e.target)) {
+            const textBox = appState.activeText.element.querySelector('.editable-text');
+            textBox.contentEditable = false;
+            appState.activeText = { element: null, data: null, action: null };
+            renderPlacedTexts();
+        }
     });
 
     window.eventBus.on('photo-taking:complete', (data) => {
@@ -418,7 +434,9 @@ window.eventBus.on('app:init', (appState) => {
             appState.videoAssignments = [...appState.capturedVideos];
             appState.selectedForRetake = []; 
             appState.disabledThumbnailIndex = -1;
-            appState.placedStickers = []; 
+            appState.placedStickers = [];
+            appState.placedTexts = [];
+            appState.activeText = { element: null, data: null, action: null }; 
             appState.removeBackground = false;
             appState.stylizedImagesCache = {};
             appState.bgRemovedPhotos = {};
@@ -495,8 +513,226 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function addTextToCanvas(font) {
-        // Placeholder for adding text to canvas
-        console.log('Adding text with font:', font);
+        showTextInputModal(null, font);
+    }
+
+    function showTextInputModal(existingTextData, font) {
+        textInputModal.className = 'modal-visible';
+        textInputField.value = existingTextData ? existingTextData.text : '텍스트 입력';
+        textInputField.focus();
+
+        const confirmHandler = () => {
+            const newText = textInputField.value;
+            if (existingTextData) {
+                existingTextData.text = newText;
+            } else {
+                const { scale, renderedWidth } = getPreviewScaling();
+                const templateNaturalWidth = renderedWidth / scale;
+                if (scale === 1) return;
+
+                const textNaturalWidth = templateNaturalWidth * 0.6;
+
+                const template = document.querySelector('#review-preview .preview-template-img');
+                const imageNaturalWidth = template.naturalWidth;
+                const imageNaturalHeight = template.naturalHeight;
+
+                const imageX = (imageNaturalWidth - textNaturalWidth) / 2;
+                const imageY = (imageNaturalHeight - 50) / 2;
+
+                appState.placedTexts.push({
+                    id: Date.now(),
+                    text: newText,
+                    font: font.font_name,
+                    x: Math.round(imageX),
+                    y: Math.round(imageY),
+                    width: Math.round(textNaturalWidth),
+                    height: 50,
+                    rotation: 0,
+                    fontSize: 40
+                });
+            }
+            renderPlacedTexts();
+            closeModal();
+        };
+
+        const cancelHandler = () => {
+            closeModal();
+        };
+
+        const keydownHandler = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                confirmHandler();
+            } else if (e.key === 'Escape') {
+                cancelHandler();
+            }
+        };
+
+        const closeModal = () => {
+            textInputModal.className = 'modal-hidden';
+            textInputConfirmBtn.removeEventListener('click', confirmHandler);
+            textInputCancelBtn.removeEventListener('click', cancelHandler);
+            textInputField.removeEventListener('keydown', keydownHandler);
+        };
+
+        textInputConfirmBtn.addEventListener('click', confirmHandler);
+        textInputCancelBtn.addEventListener('click', cancelHandler);
+        textInputField.addEventListener('keydown', keydownHandler);
+    }
+
+    function renderPlacedTexts() {
+        document.querySelectorAll('.placed-text-wrapper').forEach(w => w.remove());
+        const { scale, offsetX, offsetY } = getPreviewScaling();
+        if (scale === 1) return; // Preview not ready
+        const previewContainer = document.getElementById('review-preview');
+
+        appState.placedTexts.forEach(d => {
+            const w = document.createElement('div');
+            w.className = 'placed-text-wrapper';
+            if (appState.activeText.data && appState.activeText.data.id === d.id) {
+                w.classList.add('active');
+            }
+            w.style.position = 'absolute';
+            w.style.left = `${offsetX + d.x * scale}px`;
+            w.style.top = `${offsetY + d.y * scale}px`;
+            w.style.width = `${d.width * scale}px`;
+            w.style.transform = `rotate(${d.rotation}deg)`;
+            w.style.display = 'flex';
+            w.style.alignItems = 'center';
+
+            const i = document.createElement('div');
+            i.contentEditable = false;
+            i.className = 'editable-text';
+            i.style.fontFamily = d.font;
+            i.style.fontSize = `${d.fontSize * scale}px`;
+            i.innerHTML = d.text.replace(/\n/g, '<br>');
+            i.style.whiteSpace = 'pre-wrap';
+
+            w.style.height = 'auto';
+            d.height = i.offsetHeight / scale;
+
+            i.addEventListener('input', (e) => {
+                d.text = e.target.innerText;
+            });
+
+            w.addEventListener('mousedown', (e) => handleTextMouseDown(e, d, w), false);
+            w.appendChild(i);
+
+            if (appState.activeText.data && appState.activeText.data.id === d.id) {
+                const selectionBox = document.createElement('div');
+                selectionBox.className = 'selection-box';
+                w.appendChild(selectionBox);
+
+                const resizeRotateHandle = document.createElement('div');
+                resizeRotateHandle.className = 'sticker-handle resize-rotate';
+                resizeRotateHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    appState.activeText.action = 'resize-rotate';
+                    
+                    const { scale, offsetX, offsetY } = getPreviewScaling();
+                    const previewRect = document.getElementById('review-preview').getBoundingClientRect();
+                    const centerX = previewRect.left + offsetX + (d.x + d.width / 2) * scale;
+                    const centerY = previewRect.top + offsetY + (d.y + w.offsetHeight / 2) * scale;
+
+                    appState.dragStart = { 
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        centerX, 
+                        centerY, 
+                        initialWidth: d.width,
+                        initialHeight: w.offsetHeight / scale,
+                        initialRotation: d.rotation,
+                        initialFontSize: d.fontSize,
+                        initialDistance: Math.hypot(e.clientX - centerX, e.clientY - centerY),
+                        initialAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
+                    };
+                });
+                w.appendChild(resizeRotateHandle);
+
+                const closeHandle = document.createElement('div');
+                closeHandle.className = 'sticker-handle close';
+                closeHandle.textContent = 'X';
+                closeHandle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = appState.placedTexts.findIndex(t => t.id === d.id);
+                    if (index > -1) {
+                        appState.placedTexts.splice(index, 1);
+                    }
+                    appState.activeText = { element: null, data: null, action: null };
+                    renderPlacedTexts();
+                });
+                w.appendChild(closeHandle);
+            }
+
+            previewContainer.appendChild(w);
+        });
+    }
+
+    function handleTextMouseDown(e, data, el) {
+        if (el.querySelector('.editable-text').isContentEditable) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (appState.activeText.action) return;
+        if (!appState.activeText.data || appState.activeText.data.id !== data.id) {
+            appState.activeText = { element: el, data: data, action: 'move' };
+            renderPlacedTexts();
+        } else {
+            appState.activeText.action = 'move';
+        }
+        appState.dragStart = { x: e.clientX, y: e.clientY, initialX: data.x, initialY: data.y };
+    }
+
+    function handleTextMove(e) {
+        if (!appState.activeText.action) return;
+        e.preventDefault();
+        
+        const { scale } = getPreviewScaling();
+        if (scale === 1) return;
+
+        const dX_natural = (e.clientX - appState.dragStart.x) / scale;
+        const dY_natural = (e.clientY - appState.dragStart.y) / scale;
+
+        const text = appState.activeText.data;
+
+        if (appState.activeText.action === 'move') {
+            text.x = Math.round(appState.dragStart.initialX + dX_natural);
+            text.y = Math.round(appState.dragStart.initialY + dY_natural);
+        } else if (appState.activeText.action === 'resize-rotate') {
+            const { scale, offsetX, offsetY } = getPreviewScaling();
+            const centerX = appState.dragStart.centerX;
+            const centerY = appState.dragStart.centerY;
+
+            const mouseVecX = e.clientX - centerX;
+            const mouseVecY = e.clientY - centerY;
+
+            const localAngleRad = Math.atan2(appState.dragStart.initialHeight / 2, appState.dragStart.initialWidth / 2);
+            const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
+            text.rotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
+
+            const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
+            const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
+            const scaleFactor = newDiagScreen / (localDiag * scale);
+
+            const minSizeNatural = 20 / scale;
+            text.width = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);
+            text.height = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
+            text.fontSize = Math.max(10, appState.dragStart.initialFontSize * scaleFactor);
+
+            const previewRect = document.getElementById('review-preview').getBoundingClientRect();
+            const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
+            const new_center_natural_y = (centerY - (previewRect.top + offsetY)) / scale;
+
+            text.x = new_center_natural_x - text.width / 2;
+            text.y = new_center_natural_y - text.height / 2;
+        } 
+
+        renderPlacedTexts();
+    }
+
+    function handleTextMouseUp(e) {
+        if (appState.activeText.action) {
+            appState.activeText.action = null;
+        }
     }
 
     function renderReviewThumbnails() { 
@@ -675,8 +911,9 @@ window.eventBus.on('app:init', (appState) => {
         t.onload = () => { 
             renderPhotoAssignments(); 
             renderPlacedStickers(); 
+            renderPlacedTexts();
         }; 
-    }
+    } 
 
     function handleTemplateChange(newTemplate) { 
         if (!newTemplate.original_path) {

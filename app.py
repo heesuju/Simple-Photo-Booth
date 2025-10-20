@@ -648,7 +648,7 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
             print(f"Proxying request to: {pollinations_url}")
 
             async with httpx.AsyncClient() as client:
-                stylize_response = await client.get(pollinations_url, headers=headers, timeout=60.0, follow_redirects=True)
+                stylize_response = await client.get(pollinations_url, headers=headers, timeout=100.0, follow_redirects=True)
                 stylize_response.raise_for_status()
 
             # Step 3: Stream the final image back
@@ -923,4 +923,4 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
         raise HTTPException(status_code=500, detail=f"Failed to compose video: {e}")
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=PORT, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=PORT, reload=False)
