@@ -97,6 +97,35 @@ class DatabaseManager:
                 del p['filter_values']
         return presets
 
+    def populate_default_filter_presets(self):
+        """Populates the database with a default set of filter presets."""
+        default_presets = [
+            {"name": "Black & White", "values": {"brightness": 100, "contrast": 120, "saturate": 0, "warmth": 100, "sharpness": 10, "blur": 0, "grain": 5}},
+            {"name": "Sepia", "values": {"brightness": 100, "contrast": 110, "saturate": 50, "warmth": 130, "sharpness": 0, "blur": 0, "grain": 0}},
+            {"name": "Retro", "values": {"brightness": 110, "contrast": 120, "saturate": 80, "warmth": 110, "sharpness": 0, "blur": 0, "grain": 15}},
+            {"name": "Vivid", "values": {"brightness": 100, "contrast": 110, "saturate": 150, "warmth": 100, "sharpness": 5, "blur": 0, "grain": 0}},
+            {"name": "Cool", "values": {"brightness": 105, "contrast": 105, "saturate": 100, "warmth": 85, "sharpness": 0, "blur": 0, "grain": 0}},
+            {"name": "Warm", "values": {"brightness": 105, "contrast": 105, "saturate": 100, "warmth": 115, "sharpness": 0, "blur": 0, "grain": 0}},
+            {"name": "High Contrast", "values": {"brightness": 100, "contrast": 150, "saturate": 110, "warmth": 100, "sharpness": 10, "blur": 0, "grain": 0}},
+            {"name": "Faded", "values": {"brightness": 110, "contrast": 80, "saturate": 70, "warmth": 100, "sharpness": 0, "blur": 1, "grain": 5}},
+            {"name": "Sharp", "values": {"brightness": 100, "contrast": 100, "saturate": 100, "warmth": 100, "sharpness": 50, "blur": 0, "grain": 0}},
+            {"name": "Dreamy", "values": {"brightness": 110, "contrast": 100, "saturate": 110, "warmth": 100, "sharpness": 0, "blur": 3, "grain": 0}},
+        ]
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            for preset in default_presets:
+                try:
+                    values_json = json.dumps(preset["values"])
+                    cursor.execute(
+                        "INSERT INTO filter_presets (name, filter_values) VALUES (?, ?)",
+                        (preset["name"], values_json)
+                    )
+                except sqlite3.IntegrityError:
+                    # Preset with the same name already exists, ignore.
+                    pass
+            conn.commit()
+
     def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False):
         """Adds a new template record to the database."""
         holes_json = json.dumps(holes)
