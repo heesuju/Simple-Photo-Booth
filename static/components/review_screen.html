@@ -91,11 +91,33 @@
     <div id="add-style-modal" class="modal-hidden">
         <div class="modal-content">
             <h3>새 스타일 추가</h3>
-            <input type="text" id="new-style-name" placeholder="Style Name (e.g., Futuristic)">
-            <input type="text" id="new-style-prompt" placeholder="Enter a prompt (e.g., a beautiful fantasy landscape)">
+            <div>
+                <input type="text" id="new-style-name" placeholder="Style Name (e.g., Futuristic)">
+            </div>
+            <div>
+                <textarea id="new-style-prompt" placeholder="Enter a prompt (e.g., a beautiful fantasy landscape)" rows="4"></textarea>
+            </div>
             <div class="modal-actions">
                 <button id="add-style-confirm-btn">확인</button>
                 <button id="add-style-cancel-btn">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Style Modal -->
+    <div id="edit-style-modal" class="modal-hidden">
+        <div class="modal-content">
+            <h3>스타일 수정</h3>
+            <input type="hidden" id="edit-style-id">
+            <div>
+                <input type="text" id="edit-style-name" placeholder="Style Name (e.g., Futuristic)">
+            </div>
+            <div>
+                <textarea id="edit-style-prompt" placeholder="Enter a prompt (e.g., a beautiful fantasy landscape)" rows="4"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button id="edit-style-confirm-btn">확인</button>
+                <button id="edit-style-cancel-btn">취소</button>
             </div>
         </div>
     </div>

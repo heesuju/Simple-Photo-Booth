@@ -196,6 +196,26 @@ class DatabaseManager:
                 # Style with the same name already exists, ignore the error
                 pass
 
+    def delete_style(self, style_id):
+        """Deletes a style from the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM styles WHERE id = ?", (style_id,))
+                conn.commit()
+        except Exception as e:
+            print(f"Error deleting style from database: {e}")
+
+    def update_style(self, style_id, name, prompt):
+        """Updates a style in the database."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE styles SET name = ?, prompt = ? WHERE id = ?",
+                (name, prompt, style_id)
+            )
+            conn.commit()
+
     def get_all_fonts(self):
         """Fetches all fonts from the database."""
         with self._get_connection() as conn:

@@ -123,6 +123,31 @@ window.eventBus.on('app:init', (appState) => {
         }
     });
 
+    document.getElementById('edit-style-confirm-btn').addEventListener('click', () => {
+        const styleId = document.getElementById('edit-style-id').value;
+        const name = document.getElementById('edit-style-name').value;
+        const prompt = document.getElementById('edit-style-prompt').value;
+        updateStyle(styleId, name, prompt);
+    });
+
+    document.getElementById('edit-style-cancel-btn').addEventListener('click', () => {
+        document.getElementById('edit-style-modal').className = 'modal-hidden';
+    });
+
+    async function updateStyle(styleId, name, prompt) {
+        try {
+            await fetch(`/styles/${styleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, prompt })
+            });
+            document.getElementById('edit-style-modal').className = 'modal-hidden';
+            loadStylesStrip();
+        } catch (e) {
+            console.error("Failed to update style:", e);
+        }
+    }
+
     async function loadStylesStrip() {
         try {
             const response = await fetch('/styles');
@@ -138,6 +163,8 @@ window.eventBus.on('app:init', (appState) => {
             });
             styleStripPanel.appendChild(backButton);
 
+            const noneStyleContainer = document.createElement('div');
+            noneStyleContainer.className = 'style-item-container';
             const noneStyleItem = document.createElement('button');
             noneStyleItem.className = 'style-strip-item';
             noneStyleItem.textContent = 'None';
@@ -163,25 +190,84 @@ window.eventBus.on('app:init', (appState) => {
                 }
                 renderPreview();
             });
-            styleStripPanel.appendChild(noneStyleItem);
+            noneStyleContainer.appendChild(noneStyleItem);
+            styleStripPanel.appendChild(noneStyleContainer);
 
             styles.forEach(style => {
+                const container = document.createElement('div');
+                container.className = 'style-item-container';
+
                 const styleItem = document.createElement('button');
                 styleItem.className = 'style-strip-item';
                 styleItem.textContent = style.name;
                 styleItem.addEventListener('click', () => applyStyle(style.prompt));
-                styleStripPanel.appendChild(styleItem);
+
+                const hoverButtons = document.createElement('div');
+                hoverButtons.className = 'style-item-hover-buttons';
+
+                const editButton = document.createElement('button');
+                editButton.className = 'edit-btn';
+                editButton.textContent = 'Edit';
+                editButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openEditStyleModal(style);
+                });
+
+                const removeButton = document.createElement('button');
+                removeButton.className = 'remove-btn';
+                removeButton.textContent = 'Remove';
+                removeButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeStyle(style.id);
+                });
+
+                hoverButtons.appendChild(editButton);
+                hoverButtons.appendChild(removeButton);
+                container.appendChild(styleItem);
+                container.appendChild(hoverButtons);
+                styleStripPanel.appendChild(container);
             });
 
+            const addStyleContainer = document.createElement('div');
+            addStyleContainer.className = 'style-item-container';
             const addStyleButton = document.createElement('button');
             addStyleButton.className = 'palette-add-btn';
             addStyleButton.textContent = '+';
             addStyleButton.addEventListener('click', () => {
                 addStyleModal.className = 'modal-visible';
             });
-            styleStripPanel.appendChild(addStyleButton);
+            addStyleContainer.appendChild(addStyleButton);
+            styleStripPanel.appendChild(addStyleContainer);
         } catch (e) {
             console.error("Failed to load styles:", e);
+        }
+    }
+
+    function openEditStyleModal(style) {
+        const editStyleModal = document.getElementById('edit-style-modal');
+        const editStyleId = document.getElementById('edit-style-id');
+        const editStyleName = document.getElementById('edit-style-name');
+        const editStylePrompt = document.getElementById('edit-style-prompt');
+
+        editStyleId.value = style.id;
+        editStyleName.value = style.name;
+        editStylePrompt.value = style.prompt;
+
+        editStyleModal.className = 'modal-visible';
+    }
+
+    async function removeStyle(styleId) {
+        if (!confirm('Are you sure you want to delete this style?')) {
+            return;
+        }
+
+        try {
+            await fetch(`/styles?style_id=${styleId}`, {
+                method: 'DELETE'
+            });
+            loadStylesStrip();
+        } catch (e) {
+            console.error("Failed to remove style:", e);
         }
     }
 

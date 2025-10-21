@@ -147,6 +147,7 @@ button:hover {
     padding: 0;
     font-size: 1rem;
     transition: transform 0.2s, box-shadow 0.2s;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 .style-strip-item:hover {
@@ -158,6 +159,36 @@ button:hover {
     border-color: #007bff;
     border-width: 3px;
     box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+.style-item-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.style-item-hover-buttons {
+    display: none;
+    margin-top: 5px;
+}
+
+.style-item-container:hover .style-item-hover-buttons {
+    display: flex;
+}
+
+.style-item-hover-buttons button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin: 0 0.25rem;
+}
+
+.style-item-hover-buttons .edit-btn {
+    background-color: #ffc107; /* Yellow */
+}
+
+.style-item-hover-buttons .remove-btn {
+    background-color: #dc3545; /* Red */
 }
 
 .photostrip-item {
@@ -293,14 +324,15 @@ button:hover {
     border-radius: 5px;
 }
 
-#stylize-prompt-input {
+#new-style-prompt,
+#edit-style-prompt {
     margin-top: 10px;
     padding: 8px;
     width: 250px;
-    text-align: center;
     font-size: 1rem;
     border: 1px solid #ccc;
     border-radius: 5px;
+    resize: vertical;
 }
 
 .modal-actions {

@@ -446,6 +446,27 @@ async def add_style(request: Request):
     
     return JSONResponse(content={"message": "Style added successfully"})
 
+@app.delete("/styles")
+async def delete_style(request: Request, style_id: int):
+    try:
+        db_manager = request.app.state.db_manager
+        db_manager.delete_style(style_id)
+        return Response(status_code=204)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete style: {e}")
+
+@app.put("/styles/{style_id}")
+async def update_style(request: Request, style_id: int):
+    try:
+        data = await request.json()
+        name = data.get("name")
+        prompt = data.get("prompt")
+        db_manager = request.app.state.db_manager
+        db_manager.update_style(style_id, name, prompt)
+        return JSONResponse(content={"message": "Style updated successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update style: {e}")
+
 @app.post("/zip_originals")
 async def zip_originals(photos: List[UploadFile] = File(...)):
     zip_buffer = BytesIO()
