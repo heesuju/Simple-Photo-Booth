@@ -544,6 +544,9 @@ window.eventBus.on('app:init', (appState) => {
             const presetStrip = document.getElementById('filter-preset-strip');
             presetStrip.innerHTML = '';
 
+            const firstPhoto = appState.capturedPhotos[0];
+            const firstPhotoUrl = firstPhoto ? URL.createObjectURL(firstPhoto) : '';
+
             const nonePresetItem = document.createElement('button');
             nonePresetItem.className = 'style-strip-item';
             nonePresetItem.textContent = 'None';
@@ -560,9 +563,22 @@ window.eventBus.on('app:init', (appState) => {
             presetStrip.appendChild(nonePresetItem);
 
             presets.forEach(preset => {
-                const presetItem = document.createElement('button');
+                const presetItem = document.createElement('div');
                 presetItem.className = 'style-strip-item';
-                presetItem.textContent = preset.name;
+
+                const thumbnail = document.createElement('img');
+                thumbnail.className = 'filter-preset-thumbnail';
+                thumbnail.src = firstPhotoUrl;
+                const values = preset.values;
+                thumbnail.style.filter = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
+
+                const name = document.createElement('div');
+                name.className = 'filter-preset-name';
+                name.textContent = preset.name;
+
+                presetItem.appendChild(thumbnail);
+                presetItem.appendChild(name);
+
                 presetItem.addEventListener('click', () => applyFilterPreset(preset.values));
                 presetStrip.appendChild(presetItem);
             });

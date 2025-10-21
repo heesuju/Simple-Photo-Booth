@@ -705,7 +705,7 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
                 "image": direct_link,
                 "nologo": True,
                 "enhance": True,
-                "private": True
+                "private": True,
             }
             print(f"Proxying request to: {pollinations_url}")
             print(params)
