@@ -75,6 +75,7 @@
             <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates"></div>
             <div id="color-palette-panel" class="strip-panel photo-strip-scroll-box" data-panel="colors"></div>
             <div id="style-strip-panel" class="strip-panel photo-strip-scroll-box" data-panel="styles"></div>
+            <div id="filter-preset-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters"></div>
         </div>
     </div>
 
@@ -83,6 +84,7 @@
         <button id="stylize-btn" style="display: none;">스타일 변환</button>
         <div class="finalize-options">
             <button id="add-font-btn" style="display: none;">폰트 추가</button>
+            <button id="add-preset-btn" class="floating-btn-add" style="display: none;">+</button>
             <button id="finalize-btn">최종 완료</button>
         </div>
     </div>
@@ -145,6 +147,28 @@
             <div class="modal-actions">
                 <button id="text-input-confirm-btn">확인</button>
                 <button id="text-input-cancel-btn">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Filter Preset Modal -->
+    <div id="add-filter-preset-modal" class="modal-hidden">
+        <div class="modal-content">
+            <h3>새 필터 프리셋 추가</h3>
+            <div class="modal-body">
+                <div class="modal-left">
+                    <input type="text" id="new-preset-name" placeholder="Preset Name">
+                    <div id="preset-filter-controls">
+                        <!-- Filter sliders will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="modal-right">
+                    <div id="preset-preview"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="add-preset-confirm-btn">확인</button>
+                <button id="add-preset-cancel-btn">취소</button>
             </div>
         </div>
     </div>

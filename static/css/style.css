@@ -191,6 +191,10 @@ button:hover {
     background-color: #dc3545; /* Red */
 }
 
+.style-item-hover-buttons .retry-btn {
+    background-color: #28a745; /* Green */
+}
+
 .photostrip-item {
     border: 2px solid #ddd;
     border-radius: 5px;
@@ -337,6 +341,35 @@ button:hover {
 
 .modal-actions {
     margin-top: 20px;
+}
+
+#add-filter-preset-modal .modal-content {
+    width: 80vw;
+    max-width: 800px;
+}
+
+.modal-body {
+    display: flex;
+    gap: 20px;
+}
+
+.modal-left {
+    flex: 1;
+}
+
+.modal-right {
+    flex: 2; /* Give more space to the preview */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#preset-preview {
+    width: 100%;
+    height: 100%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 

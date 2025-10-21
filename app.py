@@ -467,6 +467,24 @@ async def update_style(request: Request, style_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update style: {e}")
 
+@app.get("/filter_presets")
+async def get_filter_presets(request: Request):
+    presets = request.app.state.db_manager.get_all_filter_presets()
+    return JSONResponse(content=presets)
+
+@app.post("/filter_presets")
+async def add_filter_preset(request: Request):
+    data = await request.json()
+    name = data.get("name")
+    filter_values = data.get("filter_values")
+    if not name or not filter_values:
+        raise HTTPException(status_code=400, detail="Name and values are required.")
+    
+    db_manager = request.app.state.db_manager
+    db_manager.add_filter_preset(name, filter_values)
+    
+    return JSONResponse(content={"message": "Filter preset added successfully"})
+
 @app.post("/zip_originals")
 async def zip_originals(photos: List[UploadFile] = File(...)):
     zip_buffer = BytesIO()
@@ -483,6 +501,21 @@ async def zip_originals(photos: List[UploadFile] = File(...)):
     }
     
     return StreamingResponse(zip_buffer, media_type="application/x-zip-compressed", headers=headers)
+
+@app.post("/apply_filters_to_image")
+async def apply_filters_to_image(file: UploadFile = File(...), filters: str = Form(...)):
+    try:
+        filter_data = json.loads(filters)
+        photo_content = await file.read()
+        nparr = np.frombuffer(photo_content, np.uint8)
+        photo_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        filtered_photo = apply_filters(photo_img, filter_data)
+        
+        _, encoded_img = cv2.imencode('.PNG', filtered_photo)
+        return StreamingResponse(io.BytesIO(encoded_img.tobytes()), media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply filters: {e}")
 
 @app.get("/stickers")
 async def get_stickers(request: Request):

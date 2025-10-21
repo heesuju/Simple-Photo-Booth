@@ -63,7 +63,39 @@ class DatabaseManager:
                 )
             ''')
 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS filter_presets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    filter_values TEXT NOT NULL
+                )
+            ''')
+
             conn.commit()
+
+    def add_filter_preset(self, name, filter_values):
+        """Adds a new filter preset to the database."""
+        values_json = json.dumps(filter_values)
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO filter_presets (name, filter_values) VALUES (?, ?)",
+                (name, values_json)
+            )
+            conn.commit()
+
+    def get_all_filter_presets(self):
+        """Fetches all filter presets from the database."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM filter_presets ORDER BY id")
+            presets = [dict(row) for row in cursor.fetchall()]
+        for p in presets:
+            if p.get('filter_values'):
+                p['values'] = json.loads(p['filter_values'])
+                del p['filter_values']
+        return presets
 
     def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False):
         """Adds a new template record to the database."""

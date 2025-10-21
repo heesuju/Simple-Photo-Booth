@@ -13,6 +13,7 @@ window.eventBus.on('app:init', (appState) => {
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
     const stylizeBtn = document.getElementById('stylize-btn');
     const addFontBtn = document.getElementById('add-font-btn');
+    const addPresetBtn = document.getElementById('add-preset-btn');
     const fontGallery = document.getElementById('font-gallery');
     const fontUploadInput = document.createElement('input');
     fontUploadInput.type = 'file';
@@ -134,6 +135,34 @@ window.eventBus.on('app:init', (appState) => {
         document.getElementById('edit-style-modal').className = 'modal-hidden';
     });
 
+    document.getElementById('add-preset-btn').addEventListener('click', () => {
+        const addPresetModal = document.getElementById('add-filter-preset-modal');
+        const presetFilterControls = document.getElementById('preset-filter-controls');
+        const filterControls = document.getElementById('filter-controls');
+        presetFilterControls.innerHTML = filterControls.innerHTML;
+
+        const presetPreview = document.getElementById('preset-preview');
+        const firstPhoto = appState.capturedPhotos[0];
+        if (firstPhoto) {
+            const imageUrl = URL.createObjectURL(firstPhoto);
+            presetPreview.style.backgroundImage = `url(${imageUrl})`;
+
+            const updatePreviewFilters = () => {
+                const values = {};
+                presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
+                    values[slider.dataset.filter] = parseInt(slider.value, 10);
+                });
+                const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
+                presetPreview.style.filter = filterString;
+            };
+
+            presetFilterControls.addEventListener('input', updatePreviewFilters);
+            updatePreviewFilters();
+        }
+
+        addPresetModal.className = 'modal-visible';
+    });
+
     async function updateStyle(styleId, name, prompt) {
         try {
             await fetch(`/styles/${styleId}`, {
@@ -145,6 +174,40 @@ window.eventBus.on('app:init', (appState) => {
             loadStylesStrip();
         } catch (e) {
             console.error("Failed to update style:", e);
+        }
+    }
+
+    document.getElementById('add-preset-confirm-btn').addEventListener('click', () => {
+        const name = document.getElementById('new-preset-name').value;
+        if (!name) {
+            alert('Please enter a name for the preset.');
+            return;
+        }
+
+        const presetFilterControls = document.getElementById('preset-filter-controls');
+        const values = {};
+        presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
+            values[slider.dataset.filter] = parseInt(slider.value, 10);
+        });
+
+        addFilterPreset(name, values);
+    });
+
+    document.getElementById('add-preset-cancel-btn').addEventListener('click', () => {
+        document.getElementById('add-filter-preset-modal').className = 'modal-hidden';
+    });
+
+    async function addFilterPreset(name, values) {
+        try {
+            await fetch('/filter_presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, filter_values: values })
+            });
+            document.getElementById('add-filter-preset-modal').className = 'modal-hidden';
+            loadFilterPresets();
+        } catch (e) {
+            console.error("Failed to add filter preset:", e);
         }
     }
 
@@ -221,8 +284,17 @@ window.eventBus.on('app:init', (appState) => {
                     removeStyle(style.id);
                 });
 
+                const retryButton = document.createElement('button');
+                retryButton.className = 'retry-btn';
+                retryButton.textContent = 'Retry';
+                retryButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    retryStyle(style.prompt);
+                });
+
                 hoverButtons.appendChild(editButton);
                 hoverButtons.appendChild(removeButton);
+                hoverButtons.appendChild(retryButton);
                 container.appendChild(styleItem);
                 container.appendChild(hoverButtons);
                 styleStripPanel.appendChild(container);
@@ -241,6 +313,68 @@ window.eventBus.on('app:init', (appState) => {
         } catch (e) {
             console.error("Failed to load styles:", e);
         }
+    }
+
+    async function retryStyle(prompt) {
+        if (appState.selectedForRetake.length === 0) {
+            alert('Please select a photo to apply the style to.');
+            return;
+        }
+
+        for (const pIdx of appState.selectedForRetake) {
+            const cacheKey = `${pIdx}-${prompt}`;
+            delete appState.stylizedImagesCache[cacheKey];
+
+            const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+            const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
+            const wrapper = photoWrappers[assignmentIndex];
+
+            const imageBlob = appState.originalCapturedPhotos[pIdx];
+            
+            const formData = new FormData();
+            formData.append('prompt', prompt);
+            formData.append('file', imageBlob, 'photo.png');
+
+            try {
+                if (wrapper) {
+                    wrapper.classList.add('loading');
+                }
+
+                const response = await fetch('/process_and_stylize_image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Stylization failed: ${errorText}`);
+                }
+
+                const newImageBlob = await response.blob();
+                appState.stylizedImagesCache[cacheKey] = newImageBlob;
+                const newImageUrl = URL.createObjectURL(newImageBlob);
+
+                appState.capturedPhotos[pIdx] = newImageBlob;
+
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = newImageBlob;
+                }
+
+                const thumb = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumb) {
+                    thumb.src = newImageUrl;
+                }
+            } catch (error) {
+                console.error('Error during stylization:', error);
+                alert('An error occurred during stylization. Please check the console for details.');
+            } finally {
+                if (wrapper) {
+                    wrapper.classList.remove('loading');
+                }
+            }
+        }
+
+        renderPreview();
     }
 
     function openEditStyleModal(style) {
@@ -380,10 +514,16 @@ window.eventBus.on('app:init', (appState) => {
             // Activate the new button and its corresponding panel
             e.target.classList.add('active');
 
-            if (panelType === 'photos' || panelType === 'templates') {
+            if (panelType === 'photos' || panelType === 'templates' || panelType === 'filters') {
                 const targetStrip = stripContainer.querySelector(`.strip-panel[data-panel="${panelType}"]`);
                 if (targetStrip) {
                     targetStrip.classList.add('show');
+                }
+                if (panelType === 'filters') {
+                    loadFilterPresets();
+                    addPresetBtn.style.display = 'block';
+                } else {
+                    addPresetBtn.style.display = 'none';
                 }
             } else {
                 const targetPanel = panelContent.querySelector(`.panel-section[data-panel="${panelType}"]`);
@@ -392,9 +532,92 @@ window.eventBus.on('app:init', (appState) => {
                     targetPanel.classList.add('active');
                 }
                 reviewPanel.classList.add('show');
+                addPresetBtn.style.display = 'none';
             }
         }
     });
+
+    async function loadFilterPresets() {
+        try {
+            const response = await fetch('/filter_presets');
+            const presets = await response.json();
+            const presetStrip = document.getElementById('filter-preset-strip');
+            presetStrip.innerHTML = '';
+
+            const nonePresetItem = document.createElement('button');
+            nonePresetItem.className = 'style-strip-item';
+            nonePresetItem.textContent = 'None';
+            nonePresetItem.addEventListener('click', () => {
+                appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
+                for (const filter in appState.filters) {
+                    const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
+                    if (slider) {
+                        slider.value = appState.filters[filter];
+                    }
+                }
+                applyPhotoFilters();
+            });
+            presetStrip.appendChild(nonePresetItem);
+
+            presets.forEach(preset => {
+                const presetItem = document.createElement('button');
+                presetItem.className = 'style-strip-item';
+                presetItem.textContent = preset.name;
+                presetItem.addEventListener('click', () => applyFilterPreset(preset.values));
+                presetStrip.appendChild(presetItem);
+            });
+        } catch (e) {
+            console.error("Failed to load filter presets:", e);
+        }
+    }
+
+    async function applyFilterPreset(values) {
+        appState.filters = { ...values };
+        for (const filter in values) {
+            const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
+            if (slider) {
+                slider.value = values[filter];
+            }
+        }
+        applyPhotoFilters(); // Apply CSS filters for instant preview
+
+        for (const pIdx of appState.selectedForRetake) {
+            const imageBlob = appState.originalCapturedPhotos[pIdx];
+            const formData = new FormData();
+            formData.append('file', imageBlob, 'photo.png');
+            formData.append('filters', JSON.stringify(values));
+
+            try {
+                const response = await fetch('/apply_filters_to_image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to apply filters: ${errorText}`);
+                }
+
+                const newImageBlob = await response.blob();
+                const newImageUrl = URL.createObjectURL(newImageBlob);
+
+                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+                appState.capturedPhotos[pIdx] = newImageBlob;
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = newImageBlob;
+                }
+
+                const thumb = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumb) {
+                    thumb.src = newImageUrl;
+                }
+            } catch (error) {
+                console.error('Error applying filters:', error);
+                alert('An error occurred while applying filters. Please check the console for details.');
+            }
+        }
+        renderPreview();
+    }
 
     reviewScreenContainer.addEventListener('click', (e) => {
         if (reviewPanel.classList.contains('show')) {
