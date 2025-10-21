@@ -111,4 +111,6 @@ The application is a single-page application (SPA) where different "screens" are
 - [ ] Add cancel button to style
 - [ ] Add refresh button to style
 - [ ] fix video creation for image uploaded
-- [ ] Add crop edit for uploaded photos
+- [X] Add crop edit for uploaded photos
+fix video capture enabled for uploads
+fix crop right offset

@@ -16,6 +16,7 @@ window.eventBus.on('app:init', (appState) => {
 
                 d.append('holes', JSON.stringify(appState.templateInfo.holes)); 
                 d.append('stickers', JSON.stringify(appState.placedStickers)); 
+                d.append('texts', JSON.stringify(appState.placedTexts));
                 d.append('filters', JSON.stringify(appState.filters)); 
                 d.append('transformations', JSON.stringify(appState.templateInfo.transformations)); 
                 d.append('remove_background', appState.removeBackground);
@@ -40,6 +41,7 @@ window.eventBus.on('app:init', (appState) => {
 
                         d.append('holes', JSON.stringify(appState.templateInfo.holes));
                         d.append('stickers', JSON.stringify(appState.placedStickers));
+                        d.append('texts', JSON.stringify(appState.placedTexts));
                         d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
                         data.videos.forEach((video_path, i) => {
                             d.append('video_paths', video_path);

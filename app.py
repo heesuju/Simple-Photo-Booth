@@ -18,7 +18,7 @@ from zipfile import ZipFile
 from io import BytesIO
 from starlette.responses import StreamingResponse
 from rembg import remove
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import io
 import asyncio
 import httpx
@@ -664,8 +664,43 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
                 print(f"Error in /process_and_stylize_image: {error_message}")
                 return Response(content=error_message, status_code=500)
 
+def draw_texts(image, texts_data, db_manager):
+    if not texts_data:
+        return image
+
+    pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA))
+    draw = ImageDraw.Draw(pil_image)
+
+    for text_info in texts_data:
+        font_name = text_info.get('font')
+        font_info = db_manager.get_font_by_name(font_name)
+        if not font_info:
+            print(f"Font '{font_name}' not found in database. Skipping text.")
+            continue
+
+        font_path = os.path.join(os.getcwd(), font_info['font_path'].lstrip('/'))
+        if not os.path.exists(font_path):
+            print(f"Font file not found at '{font_path}'. Skipping text.")
+            continue
+
+        text = text_info.get('text', '')
+        font_size = int(text_info.get('fontSize', 40))
+        x = int(text_info.get('x', 0))
+        y = int(text_info.get('y', 0))
+        
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+        except IOError:
+            print(f"Failed to load font '{font_path}'. Skipping text.")
+            continue
+
+        draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))
+
+    return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGBA2BGRA)
+
 @app.post("/compose_image")
-async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False)):
+
+async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False)):
     try:
         if template_file:
             # Save the uploaded colored template
@@ -815,6 +850,11 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             blended_roi = (clipped_sticker * sticker_alpha_mask) + (roi * (1 - sticker_alpha_mask))
             final_image_bgra[y1:y2, x1:x2] = blended_roi
 
+        if texts:
+            texts_data = json.loads(texts)
+            db_manager = request.app.state.db_manager
+            final_image_bgra = draw_texts(final_image_bgra, texts_data, db_manager)
+
         # --- Save final image and generate QR code ---
         result_filename = f"{uuid.uuid4()}.png"
         result_path = os.path.join(RESULTS_DIR, result_filename)
@@ -850,7 +890,7 @@ async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to upload video chunk: {e}")
 
 @app.post("/compose_video")
-async def compose_video(request: Request, holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
+async def compose_video(request: Request, holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), texts: str = Form(None), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
     try:
         if template_file:
             # Save the uploaded colored template
@@ -911,7 +951,49 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
             sticker_img = sticker_img.resize((sticker['width'], sticker['height'])).rotate(-sticker.get('rotation', 0))
             sticker_clips.append(sticker_img.set_position((sticker['x'], sticker['y'])))
 
-        final_clip = mpe.CompositeVideoClip([background_clip] + video_clips + [template_clip] + sticker_clips, size=(width, height))
+        text_clips = []
+        if texts:
+            texts_data = json.loads(texts)
+            db_manager = request.app.state.db_manager
+            for text_info in texts_data:
+                font_name = text_info.get('font')
+                font_info = db_manager.get_font_by_name(font_name)
+                if not font_info:
+                    continue
+                font_path = os.path.join(os.getcwd(), font_info['font_path'].lstrip('/'))
+                if not os.path.exists(font_path):
+                    continue
+                
+                text = text_info.get('text', '')
+                font_size = int(text_info.get('fontSize', 40))
+                pos_x = int(text_info.get('x', 0))
+                pos_y = int(text_info.get('y', 0))
+
+                # Create a transparent image with the text
+                try:
+                    font = ImageFont.truetype(font_path, font_size)
+                except IOError:
+                    print(f"Failed to load font '{font_path}'. Skipping text.")
+                    continue
+
+                # Get text size using textbbox
+                bbox = font.getbbox(text)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+
+                # Create a transparent image to draw the text on
+                text_img = Image.new('RGBA', (text_width, text_height), (255, 255, 255, 0))
+                draw = ImageDraw.Draw(text_img)
+                draw.text((0, 0), text, font=font, fill=(0, 0, 0, 255)) # Black, fully opaque
+
+                # Convert PIL image to numpy array for MoviePy
+                text_np = np.array(text_img)
+
+                text_clip = mpe.ImageClip(text_np).set_duration(min_duration)
+                text_clip = text_clip.set_position((pos_x, pos_y))
+                text_clips.append(text_clip)
+
+        final_clip = mpe.CompositeVideoClip([background_clip] + video_clips + [template_clip] + sticker_clips + text_clips, size=(width, height))
         
         result_filename = f"{uuid.uuid4()}.mp4"
         result_path = os.path.join(RESULTS_DIR, result_filename)

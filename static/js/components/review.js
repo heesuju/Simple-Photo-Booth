@@ -67,7 +67,7 @@ window.eventBus.on('app:init', (appState) => {
         }
     });
 
-    panelSelector.addEventListener('click', (e) => {
+    panelSelector.addEventListener('click', async (e) => {
         if (e.target.classList.contains('panel-selector-btn')) {
             const panelType = e.target.dataset.panel;
             const currentActiveBtn = panelSelector.querySelector('.active');
@@ -86,7 +86,7 @@ window.eventBus.on('app:init', (appState) => {
             addFontBtn.style.display = panelType === 'text' ? 'block' : 'none';
 
             if (panelType === 'text') {
-                loadFontGallery();
+                showTextInputModal(null);
             }
         }
     });
@@ -504,7 +504,6 @@ window.eventBus.on('app:init', (appState) => {
                 fontName.textContent = f.font_name;
                 i.appendChild(fontPreview);
                 i.appendChild(fontName);
-                i.addEventListener('click', () => addTextToCanvas(f));
                 c.appendChild(i);
             });
         } catch (e) {
@@ -512,20 +511,33 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    function addTextToCanvas(font) {
-        showTextInputModal(null, font);
-    }
-
     function showTextInputModal(existingTextData, font) {
         textInputModal.className = 'modal-visible';
         textInputField.value = existingTextData ? existingTextData.text : '텍스트 입력';
         textInputField.focus();
 
-        const confirmHandler = () => {
+        const confirmHandler = async () => {
             const newText = textInputField.value;
             if (existingTextData) {
                 existingTextData.text = newText;
             } else {
+                let selectedFont = font;
+                if (!selectedFont) {
+                    try {
+                        const r = await fetch('/fonts');
+                        const d = await r.json();
+                        if (d.length > 0) {
+                            selectedFont = d[0];
+                        } else {
+                            alert('No fonts available. Please upload a font.');
+                            return;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        return;
+                    }
+                }
+
                 const { scale, renderedWidth } = getPreviewScaling();
                 const templateNaturalWidth = renderedWidth / scale;
                 if (scale === 1) return;
@@ -542,7 +554,7 @@ window.eventBus.on('app:init', (appState) => {
                 appState.placedTexts.push({
                     id: Date.now(),
                     text: newText,
-                    font: font.font_name,
+                    font: selectedFont.font_name,
                     x: Math.round(imageX),
                     y: Math.round(imageY),
                     width: Math.round(textNaturalWidth),
