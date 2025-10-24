@@ -1,0 +1,46 @@
+#template-edit-screen .preview-container {
+    height: 70vh;
+}
+
+#template-edit-preview {
+    position: relative;
+    flex: 3;
+    overflow: visible;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    display: flex; /* Center the template image */
+    align-items: center;
+    justify-content: center;
+}
+
+#template-edit-preview .preview-template-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.editable-hole-wrapper {
+    position: absolute;
+    border: 2px dashed #ccc;
+    box-sizing: border-box;
+    transform-origin: center center;
+}
+
+.editable-hole-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2rem;
+    color: #ccc;
+    background-color: rgba(200, 200, 200, 0.5);
+}
+
+.editable-hole-wrapper.active {
+    border-color: #007bff;
+}
+
+.review-container.template-edit-container {
+    display: block;
+}

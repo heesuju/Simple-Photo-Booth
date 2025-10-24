@@ -1,7 +1,8 @@
 <div class="app-header">
-    <h2 id="app-title"></h2>
-    <p id="app-status"></p>
+    <h2 id="app-title">웹 포토부스</h2>
+    <p id="app-status">준비 중...</p>
 </div>
+
 <div class="app-container">
     <div class="main-content">
         <div id="photo-booth">
@@ -9,15 +10,19 @@
                 <button class="mode-btn active" data-mode="camera">카메라</button>
                 <button class="mode-btn" data-mode="upload">업로드</button>
             </div>
+
             <video id="camera-stream" autoplay playsinline></video>
+
             <div id="upload-area" style="display: none;">
                 <input type="file" id="photo-upload-input" accept="image/png, image/jpeg" multiple style="display: none;">
                 <button id="photo-upload-btn">이미지 선택</button>
                 <div id="upload-thumbnails-container"></div>
             </div>
+
             <canvas id="capture-canvas" style="display: none;"></canvas>
-            <div id="countdown-display" style="display: none; font-size: 5rem; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
+            <div id="countdown-display" style="display: none;">3</div>
         </div>
+
         <div id="timer-controls">
             <label for="timer-select">타이머</label>
             <select id="timer-select">
@@ -27,11 +32,13 @@
                 <option value="10">10초</option>
             </select>
         </div>
+
         <div id="action-buttons">
             <button id="start-capture-btn">시작</button>
             <button id="capture-btn" style="display: none;">촬영</button>
         </div>
     </div>
+
     <div class="sidebar">
         <h3>촬영된 사진</h3>
         <div id="thumbnails-container"></div>

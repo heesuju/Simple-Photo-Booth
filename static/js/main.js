@@ -12,11 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Loads the HTML for each component into the main index.html file
     async function loadHtmlComponents() {
         const components = [
-            { id: 'main-menu', url: '/static/components/main_menu.html' },
-            { id: 'app-content', url: '/static/components/photo_taking_screen.html' },
-            { id: 'review-screen', url: '/static/components/review_screen.html' },
-            { id: 'result-screen', url: '/static/components/result_screen.html' },
-            { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html' }
+            { id: 'main-menu', url: '/static/components/main_menu.html', css: '/static/css/main_menu.css' },
+            { id: 'app-content', url: '/static/components/photo_taking_screen.html', css: '/static/css/photo_taking_screen.css' },
+            { id: 'review-screen', url: '/static/components/review_screen.html', css: '/static/css/review_screen.css' },
+            { id: 'result-screen', url: '/static/components/result_screen.html', css: '/static/css/result_screen.css' },
+            { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' }
         ];
 
         for (const component of components) {
@@ -24,8 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch(component.url);
                 const html = await response.text();
                 document.getElementById(component.id).innerHTML = html;
+
+                if (component.css) {
+                    await loadStyleSheet(component.css, component.id);
+                }
             } catch (error) {
-                console.error(`Error loading component: ${component.id}`, error);
+                console.error(`Error loading component or CSS for ${component.id}:`, error);
             }
         }
     }
@@ -56,6 +60,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function loadStyleSheet(cssFile, componentId) {
+        return new Promise((resolve, reject) => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cssFile;
+            link.setAttribute('data-component-id', componentId);
+            link.onload = () => resolve();
+            link.onerror = () => reject(new Error(`Failed to load ${cssFile}`));
+            document.head.appendChild(link);
+        });
+    }
+
     // The global application state
     const appState = {
         templateInfo: null,
@@ -79,9 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handles showing and hiding the different application screens
     window.eventBus.on('screen:show', (screenId) => {
         ['main-menu', 'app-content', 'review-screen', 'result-screen', 'template-edit-screen'].forEach(id => {
-            document.getElementById(id).style.display = 'none';
+            const screenElement = document.getElementById(id);
+            if (screenElement) {
+                screenElement.style.display = 'none';
+            }
         });
-        document.getElementById(screenId).style.display = 'block';
+
+        const activeScreen = document.getElementById(screenId);
+        if (activeScreen) {
+            activeScreen.style.display = 'block';
+        }
+
+        // Disable all component-specific stylesheets
+        document.querySelectorAll('link[data-component-id]').forEach(link => {
+            link.disabled = true;
+        });
+
+        // Enable the stylesheet for the active screen
+        const activeStylesheet = document.querySelector(`link[data-component-id="${screenId}"]`);
+        if (activeStylesheet) {
+            activeStylesheet.disabled = false;
+        }
     });
 
     window.eventBus.on('review:retake', (data) => {

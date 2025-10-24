@@ -1,0 +1,29 @@
+.layout-item {
+    border: 0px solid #ddd;
+    border-radius: 0px;
+    cursor: pointer;
+    background-color: transparent;
+    text-align: center;
+    padding: 0px;
+}
+
+.layout-item img {
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    max-width: 200px;
+    max-height: 200px;
+    width: auto;
+    height: auto;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.layout-item:hover img {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.layout-item.selected img {
+    border-color: #007bff;
+    border-width: 3px;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
