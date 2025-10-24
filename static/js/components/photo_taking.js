@@ -46,6 +46,7 @@ window.eventBus.on('app:init', (appState) => {
     let isResizing = false;
     let resizeHandle = '';
     let startX, startY, startWidth, startHeight, startLeft, startTop;
+    let tempCropData = {}; // key: index, value: { x, y, width, height, scaleX, scaleY }
 
     startCaptureBtn.addEventListener('click', () => window.eventBus.dispatch('capture-sequence:start'));
     captureBtn.addEventListener('click', () => window.eventBus.dispatch('capture:manual'));
@@ -209,6 +210,18 @@ window.eventBus.on('app:init', (appState) => {
         modeSelection.style.display = 'none';
     }
 
+    function naturalToDisplayCoords(crop, img, container) {
+        const scaleX = img.width / img.naturalWidth;
+        const scaleY = img.height / img.naturalHeight;
+
+        return {
+            x: crop.x * scaleX + (img.offsetLeft || 0),
+            y: crop.y * scaleY + (img.offsetTop || 0),
+            width: crop.width * scaleX,
+            height: crop.height * scaleY
+        };
+    }
+
     function openCroppingUI(index) {
         currentCropIndex = index;
         const blob = appState.capturedPhotos[index];
@@ -239,16 +252,26 @@ window.eventBus.on('app:init', (appState) => {
 
             let rectWidth, rectHeight, rectX, rectY;
 
-            if (imageAspectRatio > targetAspectRatio) {
-                rectWidth = imgDisplayHeight * targetAspectRatio;
-                rectHeight = imgDisplayHeight;
-                rectX = (imgDisplayWidth - rectWidth) / 2 + imgDisplayX;
-                rectY = imgDisplayY;
+            if (tempCropData[index]) {
+                const crop = tempCropData[index];
+                const displayCrop = naturalToDisplayCoords(crop, cropImage, cropContainer);
+
+                rectX = displayCrop.x;
+                rectY = displayCrop.y;
+                rectWidth = displayCrop.width;
+                rectHeight = displayCrop.height;
             } else {
-                rectWidth = imgDisplayWidth;
-                rectHeight = rectWidth / targetAspectRatio;
-                rectX = imgDisplayX;
-                rectY = (imgDisplayHeight - rectHeight) / 2 + imgDisplayY;
+                if (imageAspectRatio > targetAspectRatio) {
+                    rectWidth = imgDisplayHeight * targetAspectRatio;
+                    rectHeight = imgDisplayHeight;
+                    rectX = (imgDisplayWidth - rectWidth) / 2 + imgDisplayX;
+                    rectY = imgDisplayY;
+                } else {
+                    rectWidth = imgDisplayWidth;
+                    rectHeight = rectWidth / targetAspectRatio;
+                    rectX = imgDisplayX;
+                    rectY = (imgDisplayHeight - rectHeight) / 2 + imgDisplayY;
+                }
             }
 
             cropRectangle.style.width = `${rectWidth}px`;
@@ -258,7 +281,6 @@ window.eventBus.on('app:init', (appState) => {
 
             cropRectInfo = { x: rectX, y: rectY, width: rectWidth, height: rectHeight };
 
-            // Add handles
             cropRectangle.innerHTML = `
                 <div class="crop-handle nw"></div>
                 <div class="crop-handle ne"></div>
@@ -378,27 +400,46 @@ window.eventBus.on('app:init', (appState) => {
 
         const imageRect = cropImage.getBoundingClientRect();
         const containerRect = cropContainer.getBoundingClientRect();
-
         const cropX = (cropRectInfo.x - (imageRect.left - containerRect.left)) * scaleX;
         const cropY = (cropRectInfo.y - (imageRect.top - containerRect.top)) * scaleY;
-        const cropWidth = cropRectInfo.width * scaleX;
-        const cropHeight = cropRectInfo.height * scaleY;
 
+        tempCropData[currentCropIndex] = {
+            x: cropX,   // now natural coordinates
+            y: cropY,
+            width: cropRectInfo.width * scaleX,
+            height: cropRectInfo.height * scaleY
+        };
+
+        // Generate cropped thumbnail
         const canvas = document.createElement('canvas');
-        canvas.width = cropWidth;
-        canvas.height = cropHeight;
+        canvas.width = tempCropData[currentCropIndex].width;
+        canvas.height = tempCropData[currentCropIndex].height;
         const ctx = canvas.getContext('2d');
 
-        ctx.drawImage(cropImage, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+        const img = new Image();
+        img.src = cropImage.src;
+        img.onload = () => {
+        ctx.drawImage(
+                img,
+                tempCropData[currentCropIndex].x,
+                tempCropData[currentCropIndex].y,
+                tempCropData[currentCropIndex].width,
+                tempCropData[currentCropIndex].height,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
 
         canvas.toBlob(blob => {
-            appState.capturedPhotos[currentCropIndex] = blob;
             const thumb = thumbnailsContainer.querySelector(`[data-index="${currentCropIndex}"]`);
             if (thumb) {
                 thumb.src = URL.createObjectURL(blob);
             }
-            croppingModal.className = 'modal-hidden';
         }, 'image/jpeg');
+        };
+
+        croppingModal.className = 'modal-hidden';
     });
 
     cropCancelBtn.addEventListener('click', () => {
@@ -409,12 +450,15 @@ window.eventBus.on('app:init', (appState) => {
     let mediaRecorder;
     let recordedBlobs;
 
-    window.eventBus.on('capture-sequence:start', () => {
+    window.eventBus.on('capture-sequence:start', async () => {
         if (appState.captureMode === 'upload') {
             if (appState.capturedPhotos.length !== appState.templateInfo.hole_count) {
                 alert(`사진을 ${appState.templateInfo.hole_count}개 선택해야 합니다.`);
                 return;
             }
+
+            await applyCropsBeforeNext(); // apply the crops now
+
             window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: [] });
             return;
         }
@@ -591,5 +635,48 @@ window.eventBus.on('app:init', (appState) => {
         } catch (e) {
             console.error('Error uploading video:', e);
         }
+    }
+
+    async function applyCropsBeforeNext() {
+        for (const index in tempCropData) {
+            const blob = appState.capturedPhotos[index];
+            const crop = tempCropData[index];
+
+            const img = new Image();
+            img.src = URL.createObjectURL(blob);
+
+            await new Promise(resolve => {
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = crop.width;
+                    canvas.height = crop.height;
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.drawImage(
+                        img,
+                        crop.x,
+                        crop.y,
+                        crop.width,
+                        crop.height,
+                        0,
+                        0,
+                        canvas.width,
+                        canvas.height
+                    );
+
+                    canvas.toBlob(blob => {
+                        appState.capturedPhotos[index] = blob;
+
+                        const thumb = thumbnailsContainer.querySelector(`[data-index="${index}"]`);
+                        if (thumb) {
+                            thumb.src = URL.createObjectURL(blob);
+                        }
+                        resolve();
+                    }, 'image/jpeg');
+                };
+            });
+        }
+
+        tempCropData = {}; // clear
     }
 });

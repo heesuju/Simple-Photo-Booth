@@ -140,11 +140,6 @@
     background-color: rgba(255, 255, 255, 0.7);
     z-index: 10; /* on top of video/canvas */
     transition: background-color 0.3s;
-    pointer-events: none;
-}
-
-.drop-area-full * {
-    pointer-events: auto;
 }
 
 .drop-area-full.dragover {
