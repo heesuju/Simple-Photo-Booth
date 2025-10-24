@@ -366,7 +366,7 @@ window.eventBus.on('app:init', (appState) => {
                 }
             } catch (error) {
                 console.error('Error during stylization:', error);
-                alert('An error occurred during stylization. Please check the console for details.');
+                showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
             } finally {
                 if (wrapper) {
                     wrapper.classList.remove('loading');
@@ -468,7 +468,7 @@ window.eventBus.on('app:init', (appState) => {
                 }
             } catch (error) {
                 console.error('Error during stylization:', error);
-                alert('An error occurred during stylization. Please check the console for details.');
+                showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
             } finally {
                 if (wrapper) {
                     wrapper.classList.remove('loading');
