@@ -373,3 +373,28 @@
     font-weight: bold;
     font-size: 14px;
 }
+
+/* === APP HEADER (fixed height) === */
+.app-header {
+    height: 60px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    background: #1e1e1e;
+    border-bottom: 1px solid #333;
+    box-sizing: border-box;
+    z-index: 100;
+    flex-shrink: 0;
+}
+
+/* === APP CONTAINER: split between main-content and sidebar === */
+.app-container {
+    display: flex;
+    flex-direction: row;
+    height: calc(100% - 60px); /* fill remaining viewport after header */
+    min-height: 0; /* critical for children to be able to shrink */
+    overflow: hidden;
+    box-sizing: border-box;
+}

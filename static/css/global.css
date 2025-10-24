@@ -1,25 +1,26 @@
 /* Basic Styles */
-body {
-    font-family: sans-serif;
-    background-color: #f0f2f5;
+html, body {
+    height: 100%;
+    width: 100%;
     margin: 0;
-    height: 100vh;
-    width: 100vw;
-    -webkit-user-select: none; /* Safari */
-    -ms-user-select: none; /* IE 10+ and Edge */
-    user-select: none; /* Standard syntax */
-    display: flex;
-    flex-direction: column;
+    padding: 0;
+    overflow: hidden; /* Prevent page scrolling */
+    font-family: sans-serif;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background-color: #f0f2f5;
+    color: #fff;
+    box-sizing: border-box;
 }
 
 .container {
-    width: 100%;
     height: 100%;
-    box-sizing: border-box;
-    text-align: center;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    box-sizing: border-box;
+    overflow: hidden; /* important so children control scrolling */
 }
 
 button {
@@ -137,4 +138,8 @@ button:hover {
     height: 100%;
     width: 100%;
     flex-grow: 1;
+}
+
+* {
+    box-sizing: border-box;
 }
