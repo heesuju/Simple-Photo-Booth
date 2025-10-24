@@ -4,13 +4,34 @@ window.eventBus.on('app:init', (appState) => {
     const captureBtn = document.getElementById('capture-btn');
     const timerControls = document.getElementById('timer-controls');
     const modeSelection = document.getElementById('mode-selection');
-    const photoUploadBtn = document.getElementById('photo-upload-btn');
+    const dropArea = document.getElementById('drop-area');
     const photoUploadInput = document.getElementById('photo-upload-input');
+    const photoUploadBtn = document.getElementById('photo-upload-btn');
+
+    // Drag & drop events
+    dropArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropArea.classList.add('dragover');
+    });
+
+    dropArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropArea.classList.remove('dragover');
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropArea.classList.remove('dragover');
+
+        const files = e.dataTransfer.files;
+        // Reuse your existing function
+        handlePhotoUpload({ target: { files } });
+    });
+
     const cameraStream = document.getElementById('camera-stream');
     const uploadArea = document.getElementById('upload-area');
     const countdownDisplay = document.getElementById('countdown-display');
     const thumbnailsContainer = document.getElementById('thumbnails-container');
-    const uploadThumbnailsContainer = document.getElementById('upload-thumbnails-container');
 
     const croppingModal = document.getElementById('cropping-modal');
     const cropContainer = document.getElementById('crop-container');
@@ -87,7 +108,6 @@ window.eventBus.on('app:init', (appState) => {
         appState.capturedVideos = [];
         appState.videoUploadPromises = [];
         thumbnailsContainer.innerHTML = '';
-        uploadThumbnailsContainer.innerHTML = '';
 
         cameraStream.srcObject = appState.stream;
         cameraStream.play();
@@ -177,14 +197,16 @@ window.eventBus.on('app:init', (appState) => {
 
                 const t = document.createElement('img');
                 t.src = URL.createObjectURL(blob);
-                t.classList.add('thumbnail');
+                t.classList.add('thumbnail', 'upload-thumbnail');
+                t.setAttribute('data-index', index);
                 t.addEventListener('click', () => openCroppingUI(index));
-                uploadThumbnailsContainer.appendChild(t);
+                thumbnailsContainer.appendChild(t);
                 updatePhotoStatus();
             };
             reader.readAsArrayBuffer(file);
         }
         photoUploadInput.value = null;
+        modeSelection.style.display = 'none';
     }
 
     function openCroppingUI(index) {
@@ -371,8 +393,10 @@ window.eventBus.on('app:init', (appState) => {
 
         canvas.toBlob(blob => {
             appState.capturedPhotos[currentCropIndex] = blob;
-            const thumb = uploadThumbnailsContainer.children[currentCropIndex];
-            thumb.src = URL.createObjectURL(blob);
+            const thumb = thumbnailsContainer.querySelector(`[data-index="${currentCropIndex}"]`);
+            if (thumb) {
+                thumb.src = URL.createObjectURL(blob);
+            }
             croppingModal.className = 'modal-hidden';
         }, 'image/jpeg');
     });
@@ -531,6 +555,7 @@ window.eventBus.on('app:init', (appState) => {
             const t = document.createElement('img'); 
             t.src = URL.createObjectURL(b); 
             t.classList.add('thumbnail'); 
+            t.setAttribute('data-index', appState.capturedPhotos.length - 1);
             thumbnailsContainer.appendChild(t); 
             updatePhotoStatus(); 
 

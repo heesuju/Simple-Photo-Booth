@@ -19,7 +19,13 @@ This is a web-based photobooth application built with FastAPI and vanilla JavaSc
 │   │   ├── review_screen.html
 │   │   └── template_edit_screen.html
 │   ├── css/
-│   │   └── style.css       # Main stylesheet
+│   │   ├── common.css
+│   │   ├── global.css
+│   │   ├── main_menu.css
+│   │   ├── photo_taking_screen.css
+│   │   ├── result_screen.css
+│   │   ├── review_screen.css
+│   │   └── template_edit_screen.css
 │   ├── js/
 │   │   ├── main.js         # Main frontend script, event bus, and screen management
 │   │   └── components/     # JavaScript logic for each UI component
@@ -73,7 +79,12 @@ The application is a single-page application (SPA) where different "screens" are
         *   On finalization, it sends all the data (photos, template info, sticker placements, filter values, video clips) to the backend's `/compose_image` and `/compose_video` endpoints.
         *   Displays the final generated image, a download button, and the QR code provided by the backend.
 
-3.  **Database (`db_manager.py`)**:
+3.  **CSS (`static/css/`)**:
+    *   **`global.css`**: Contains base styles for the entire application, such as `html`, `body`, and container styles.
+    *   **`common.css`**: Contains styles for shared components that are used across multiple screens, such as headers and sidebars.
+    *   **Screen-specific CSS**: Each screen has its own CSS file (e.g., `photo_taking_screen.css`) that contains styles specific to that screen. These are loaded dynamically by `main.js` when the corresponding screen is shown.
+
+4.  **Database (`db_manager.py`)**:
     *   A simple class that abstracts SQLite operations.
     *   Manages a `templates` table (storing paths, hole coordinates, aspect ratios) and a `stickers` table (storing paths).
 
