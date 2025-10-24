@@ -291,12 +291,15 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     cropRectangle.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // prevent text selection
+
         if (e.target.classList.contains('crop-handle')) {
             isResizing = true;
             resizeHandle = e.target.className.split(' ')[1];
         } else {
             isDragging = true;
         }
+
         startX = e.clientX;
         startY = e.clientY;
         startLeft = cropRectInfo.x;
@@ -306,87 +309,144 @@ window.eventBus.on('app:init', (appState) => {
     });
 
     window.addEventListener('mousemove', (e) => {
+        if (!isResizing && !isDragging) return;
+
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        const imageRect = cropImage.getBoundingClientRect();
+        const containerRect = cropContainer.getBoundingClientRect();
+
+        let newLeft = startLeft;
+        let newTop = startTop;
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+
+        const aspectRatio = startWidth / startHeight;
+
         if (isDragging) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            let newLeft = startLeft + dx;
-            let newTop = startTop + dy;
-
-            const imageRect = cropImage.getBoundingClientRect();
-            const containerRect = cropContainer.getBoundingClientRect();
-
-            if (newLeft < imageRect.left - containerRect.left) newLeft = imageRect.left - containerRect.left;
-            if (newTop < imageRect.top - containerRect.top) newTop = imageRect.top - containerRect.top;
-            if (newLeft + cropRectInfo.width > imageRect.right - containerRect.left) newLeft = imageRect.right - containerRect.left - cropRectInfo.width;
-            if (newTop + cropRectInfo.height > imageRect.bottom - containerRect.top) newTop = imageRect.bottom - containerRect.top - cropRectInfo.height;
+            // Move rectangle
+            newLeft = Math.max(startLeft + dx, imageRect.left - containerRect.left);
+            newTop = Math.max(startTop + dy, imageRect.top - containerRect.top);
+            newLeft = Math.min(newLeft, imageRect.right - containerRect.left - startWidth);
+            newTop = Math.min(newTop, imageRect.bottom - containerRect.top - startHeight);
 
             cropRectangle.style.left = `${newLeft}px`;
             cropRectangle.style.top = `${newTop}px`;
             cropRectInfo.x = newLeft;
             cropRectInfo.y = newTop;
-        } else if (isResizing) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            return;
+        }
 
-            let newWidth = startWidth;
-            let newHeight = startHeight;
-            let newLeft = startLeft;
-            let newTop = startTop;
-
-            const aspectRatio = startWidth / startHeight;
-
-            if (resizeHandle.includes('e')) {
-                newWidth = startWidth + dx;
-                newHeight = newWidth / aspectRatio;
-            }
-            if (resizeHandle.includes('w')) {
+        // Resizing logic per handle
+        switch (resizeHandle) {
+            case 'nw':
                 newWidth = startWidth - dx;
                 newHeight = newWidth / aspectRatio;
                 newLeft = startLeft + dx;
-            }
-            if (resizeHandle.includes('s')) {
-                newHeight = startHeight + dy;
-                newWidth = newHeight * aspectRatio;
-            }
-            if (resizeHandle.includes('n')) {
-                newHeight = startHeight - dy;
-                newHeight = newHeight < 20 ? 20 : newHeight;
-                newWidth = newHeight * aspectRatio;
-                newTop = startTop + dy;
-            }
-
-            const imageRect = cropImage.getBoundingClientRect();
-            const containerRect = cropContainer.getBoundingClientRect();
-
-            if (newWidth > imageRect.width) {
-                newWidth = imageRect.width;
+                newTop = startTop + (startHeight - newHeight);
+                break;
+            case 'ne':
+                newWidth = startWidth + dx;
                 newHeight = newWidth / aspectRatio;
-            }
-            if (newHeight > imageRect.height) {
-                newHeight = imageRect.height;
-                newWidth = newHeight * aspectRatio;
-            }
-            if (newLeft < imageRect.left - containerRect.left) {
-                newLeft = imageRect.left - containerRect.left;
-            }
-            if (newTop < imageRect.top - containerRect.top) {
-                newTop = imageRect.top - containerRect.top;
-            }
-            if (newLeft + newWidth > imageRect.right - containerRect.left) {
-                newWidth = imageRect.right - containerRect.left - newLeft;
+                newTop = startTop + (startHeight - newHeight);
+                break;
+            case 'sw':
+                newWidth = startWidth - dx;
                 newHeight = newWidth / aspectRatio;
-            }
-            if (newTop + newHeight > imageRect.bottom - containerRect.top) {
-                newHeight = imageRect.bottom - containerRect.top - newTop;
-                newWidth = newHeight * aspectRatio;
-            }
-
-            cropRectangle.style.width = `${newWidth}px`;
-            cropRectangle.style.height = `${newHeight}px`;
-            cropRectangle.style.left = `${newLeft}px`;
-            cropRectangle.style.top = `${newTop}px`;
-            cropRectInfo = { x: newLeft, y: newTop, width: newWidth, height: newHeight };
+                newLeft = startLeft + dx;
+                break;
+            case 'se':
+                newWidth = startWidth + dx;
+                newHeight = newWidth / aspectRatio;
+                break;
         }
+
+        // Minimum size
+        const minSize = 20;
+        if (newWidth < minSize) {
+            newWidth = minSize;
+            newHeight = newWidth / aspectRatio;
+        }
+        if (newHeight < minSize) {
+            newHeight = minSize;
+            newWidth = newHeight * aspectRatio;
+        }
+
+        // Recalculate newLeft/newTop for handles that depend on width/height changes
+        switch (resizeHandle) {
+            case 'nw':
+                newLeft = startLeft + (startWidth - newWidth);
+                newTop = startTop + (startHeight - newHeight);
+                break;
+            case 'ne':
+                newTop = startTop + (startHeight - newHeight);
+                break;
+            case 'sw':
+                newLeft = startLeft + (startWidth - newWidth);
+                break;
+            case 'se':
+                // no change needed for bottom-right
+                break;
+        }
+
+        // Constrain within image bounds while preserving aspect ratio
+        if (newLeft < imageRect.left - containerRect.left) {
+            if (resizeHandle.includes('w')) {
+                const maxWidth = startWidth + (startLeft - (imageRect.left - containerRect.left));
+                newWidth = maxWidth;
+                newHeight = newWidth / aspectRatio;
+                newLeft = imageRect.left - containerRect.left;
+                if (resizeHandle.includes('n')) {
+                    newTop = startTop + (startHeight - newHeight);
+                }
+            } else {
+                newLeft = startLeft;
+            }
+        }
+        if (newTop < imageRect.top - containerRect.top) {
+            if (resizeHandle.includes('n')) {
+                const maxHeight = startHeight + (startTop - (imageRect.top - containerRect.top));
+                newHeight = maxHeight;
+                newWidth = newHeight * aspectRatio;
+                newTop = imageRect.top - containerRect.top;
+                if (resizeHandle.includes('w')) {
+                    newLeft = startLeft + (startWidth - newWidth);
+                }
+            } else {
+                newTop = startTop;
+            }
+        }
+        if (newLeft + newWidth > imageRect.right - containerRect.left) {
+            if (resizeHandle.includes('e')) {
+                const maxWidth = imageRect.right - containerRect.left - newLeft;
+                newWidth = maxWidth;
+                newHeight = newWidth / aspectRatio;
+                if (resizeHandle.includes('n')) {
+                    newTop = startTop + (startHeight - newHeight);
+                }
+            } else {
+                newWidth = startWidth;
+            }
+        }
+        if (newTop + newHeight > imageRect.bottom - containerRect.top) {
+            if (resizeHandle.includes('s')) {
+                const maxHeight = imageRect.bottom - containerRect.top - newTop;
+                newHeight = maxHeight;
+                newWidth = newHeight * aspectRatio;
+                if (resizeHandle.includes('w')) {
+                    newLeft = startLeft + (startWidth - newWidth);
+                }
+            } else {
+                newHeight = startHeight;
+            }
+        }
+
+        cropRectangle.style.left = `${newLeft}px`;
+        cropRectangle.style.top = `${newTop}px`;
+        cropRectangle.style.width = `${newWidth}px`;
+        cropRectangle.style.height = `${newHeight}px`;
+        cropRectInfo = { x: newLeft, y: newTop, width: newWidth, height: newHeight };
     });
 
     window.addEventListener('mouseup', () => {
