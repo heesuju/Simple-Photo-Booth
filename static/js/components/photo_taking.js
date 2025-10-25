@@ -33,20 +33,8 @@ window.eventBus.on('app:init', (appState) => {
     const countdownDisplay = document.getElementById('countdown-display');
     const thumbnailsContainer = document.getElementById('thumbnails-container');
 
-    const croppingModal = document.getElementById('cropping-modal');
-    const cropContainer = document.getElementById('crop-container');
-    const cropImage = document.getElementById('crop-image');
-    const cropRectangle = document.getElementById('crop-rectangle');
-    const cropConfirmBtn = document.getElementById('crop-confirm-btn');
-    const cropCancelBtn = document.getElementById('crop-cancel-btn');
 
-    let currentCropIndex = -1;
-    let cropRectInfo = { x: 0, y: 0, width: 0, height: 0 };
-    let isDragging = false;
-    let isResizing = false;
-    let resizeHandle = '';
-    let startX, startY, startWidth, startHeight, startLeft, startTop;
-    let tempCropData = {}; // key: index, value: { x, y, width, height, scaleX, scaleY }
+
 
     startCaptureBtn.addEventListener('click', () => window.eventBus.dispatch('capture-sequence:start'));
     captureBtn.addEventListener('click', () => window.eventBus.dispatch('capture:manual'));
@@ -210,301 +198,23 @@ window.eventBus.on('app:init', (appState) => {
         modeSelection.style.display = 'none';
     }
 
-    function naturalToDisplayCoords(crop, img, container) {
-        const scaleX = img.width / img.naturalWidth;
-        const scaleY = img.height / img.naturalHeight;
 
-        return {
-            x: crop.x * scaleX + (img.offsetLeft || 0),
-            y: crop.y * scaleY + (img.offsetTop || 0),
-            width: crop.width * scaleX,
-            height: crop.height * scaleY
-        };
-    }
 
     function openCroppingUI(index) {
-        currentCropIndex = index;
         const blob = appState.capturedPhotos[index];
-        cropImage.src = URL.createObjectURL(blob);
-        croppingModal.className = 'modal-visible';
-
         const templateHole = appState.templateInfo.holes[index];
         const targetAspectRatio = templateHole.w / templateHole.h;
 
-        cropImage.onload = () => {
-            const imageAspectRatio = cropImage.naturalWidth / cropImage.naturalHeight;
-            const containerWidth = cropContainer.offsetWidth;
-            const containerHeight = cropContainer.offsetHeight;
-
-            let imgDisplayWidth, imgDisplayHeight, imgDisplayX, imgDisplayY;
-
-            if (containerWidth / containerHeight > imageAspectRatio) {
-                imgDisplayHeight = containerHeight;
-                imgDisplayWidth = imgDisplayHeight * imageAspectRatio;
-                imgDisplayY = 0;
-                imgDisplayX = (containerWidth - imgDisplayWidth) / 2;
-            } else {
-                imgDisplayWidth = containerWidth;
-                imgDisplayHeight = imgDisplayWidth / imageAspectRatio;
-                imgDisplayX = 0;
-                imgDisplayY = (containerHeight - imgDisplayHeight) / 2;
-            }
-
-            let rectWidth, rectHeight, rectX, rectY;
-
-            if (tempCropData[index]) {
-                const crop = tempCropData[index];
-                const displayCrop = naturalToDisplayCoords(crop, cropImage, cropContainer);
-
-                rectX = displayCrop.x;
-                rectY = displayCrop.y;
-                rectWidth = displayCrop.width;
-                rectHeight = displayCrop.height;
-            } else {
-                if (imageAspectRatio > targetAspectRatio) {
-                    rectWidth = imgDisplayHeight * targetAspectRatio;
-                    rectHeight = imgDisplayHeight;
-                    rectX = (imgDisplayWidth - rectWidth) / 2 + imgDisplayX;
-                    rectY = imgDisplayY;
-                } else {
-                    rectWidth = imgDisplayWidth;
-                    rectHeight = rectWidth / targetAspectRatio;
-                    rectX = imgDisplayX;
-                    rectY = (imgDisplayHeight - rectHeight) / 2 + imgDisplayY;
+        appState.cropper.show(blob, targetAspectRatio).then(croppedBlob => {
+            if (croppedBlob) {
+                appState.capturedPhotos[index] = croppedBlob;
+                const thumb = thumbnailsContainer.querySelector(`[data-index="${index}"]`);
+                if (thumb) {
+                    thumb.src = URL.createObjectURL(croppedBlob);
                 }
             }
-
-            cropRectangle.style.width = `${rectWidth}px`;
-            cropRectangle.style.height = `${rectHeight}px`;
-            cropRectangle.style.left = `${rectX}px`;
-            cropRectangle.style.top = `${rectY}px`;
-
-            cropRectInfo = { x: rectX, y: rectY, width: rectWidth, height: rectHeight };
-
-            cropRectangle.innerHTML = `
-                <div class="crop-handle nw"></div>
-                <div class="crop-handle ne"></div>
-                <div class="crop-handle sw"></div>
-                <div class="crop-handle se"></div>
-            `;
-        };
+        });
     }
-
-    cropRectangle.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // prevent text selection
-
-        if (e.target.classList.contains('crop-handle')) {
-            isResizing = true;
-            resizeHandle = e.target.className.split(' ')[1];
-        } else {
-            isDragging = true;
-        }
-
-        startX = e.clientX;
-        startY = e.clientY;
-        startLeft = cropRectInfo.x;
-        startTop = cropRectInfo.y;
-        startWidth = cropRectInfo.width;
-        startHeight = cropRectInfo.height;
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (!isResizing && !isDragging) return;
-
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-
-        const imageRect = cropImage.getBoundingClientRect();
-        const containerRect = cropContainer.getBoundingClientRect();
-
-        let newLeft = startLeft;
-        let newTop = startTop;
-        let newWidth = startWidth;
-        let newHeight = startHeight;
-
-        const aspectRatio = startWidth / startHeight;
-
-        if (isDragging) {
-            // Move rectangle
-            newLeft = Math.max(startLeft + dx, imageRect.left - containerRect.left);
-            newTop = Math.max(startTop + dy, imageRect.top - containerRect.top);
-            newLeft = Math.min(newLeft, imageRect.right - containerRect.left - startWidth);
-            newTop = Math.min(newTop, imageRect.bottom - containerRect.top - startHeight);
-
-            cropRectangle.style.left = `${newLeft}px`;
-            cropRectangle.style.top = `${newTop}px`;
-            cropRectInfo.x = newLeft;
-            cropRectInfo.y = newTop;
-            return;
-        }
-
-        // Resizing logic per handle
-        switch (resizeHandle) {
-            case 'nw':
-                newWidth = startWidth - dx;
-                newHeight = newWidth / aspectRatio;
-                newLeft = startLeft + dx;
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'ne':
-                newWidth = startWidth + dx;
-                newHeight = newWidth / aspectRatio;
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'sw':
-                newWidth = startWidth - dx;
-                newHeight = newWidth / aspectRatio;
-                newLeft = startLeft + dx;
-                break;
-            case 'se':
-                newWidth = startWidth + dx;
-                newHeight = newWidth / aspectRatio;
-                break;
-        }
-
-        // Minimum size
-        const minSize = 20;
-        if (newWidth < minSize) {
-            newWidth = minSize;
-            newHeight = newWidth / aspectRatio;
-        }
-        if (newHeight < minSize) {
-            newHeight = minSize;
-            newWidth = newHeight * aspectRatio;
-        }
-
-        // Recalculate newLeft/newTop for handles that depend on width/height changes
-        switch (resizeHandle) {
-            case 'nw':
-                newLeft = startLeft + (startWidth - newWidth);
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'ne':
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'sw':
-                newLeft = startLeft + (startWidth - newWidth);
-                break;
-            case 'se':
-                // no change needed for bottom-right
-                break;
-        }
-
-        // Constrain within image bounds while preserving aspect ratio
-        if (newLeft < imageRect.left - containerRect.left) {
-            if (resizeHandle.includes('w')) {
-                const maxWidth = startWidth + (startLeft - (imageRect.left - containerRect.left));
-                newWidth = maxWidth;
-                newHeight = newWidth / aspectRatio;
-                newLeft = imageRect.left - containerRect.left;
-                if (resizeHandle.includes('n')) {
-                    newTop = startTop + (startHeight - newHeight);
-                }
-            } else {
-                newLeft = startLeft;
-            }
-        }
-        if (newTop < imageRect.top - containerRect.top) {
-            if (resizeHandle.includes('n')) {
-                const maxHeight = startHeight + (startTop - (imageRect.top - containerRect.top));
-                newHeight = maxHeight;
-                newWidth = newHeight * aspectRatio;
-                newTop = imageRect.top - containerRect.top;
-                if (resizeHandle.includes('w')) {
-                    newLeft = startLeft + (startWidth - newWidth);
-                }
-            } else {
-                newTop = startTop;
-            }
-        }
-        if (newLeft + newWidth > imageRect.right - containerRect.left) {
-            if (resizeHandle.includes('e')) {
-                const maxWidth = imageRect.right - containerRect.left - newLeft;
-                newWidth = maxWidth;
-                newHeight = newWidth / aspectRatio;
-                if (resizeHandle.includes('n')) {
-                    newTop = startTop + (startHeight - newHeight);
-                }
-            } else {
-                newWidth = startWidth;
-            }
-        }
-        if (newTop + newHeight > imageRect.bottom - containerRect.top) {
-            if (resizeHandle.includes('s')) {
-                const maxHeight = imageRect.bottom - containerRect.top - newTop;
-                newHeight = maxHeight;
-                newWidth = newHeight * aspectRatio;
-                if (resizeHandle.includes('w')) {
-                    newLeft = startLeft + (startWidth - newWidth);
-                }
-            } else {
-                newHeight = startHeight;
-            }
-        }
-
-        cropRectangle.style.left = `${newLeft}px`;
-        cropRectangle.style.top = `${newTop}px`;
-        cropRectangle.style.width = `${newWidth}px`;
-        cropRectangle.style.height = `${newHeight}px`;
-        cropRectInfo = { x: newLeft, y: newTop, width: newWidth, height: newHeight };
-    });
-
-    window.addEventListener('mouseup', () => {
-        isDragging = false;
-        isResizing = false;
-    });
-
-    cropConfirmBtn.addEventListener('click', () => {
-        const scaleX = cropImage.naturalWidth / cropImage.width;
-        const scaleY = cropImage.naturalHeight / cropImage.height;
-
-        const imageRect = cropImage.getBoundingClientRect();
-        const containerRect = cropContainer.getBoundingClientRect();
-        const cropX = (cropRectInfo.x - (imageRect.left - containerRect.left)) * scaleX;
-        const cropY = (cropRectInfo.y - (imageRect.top - containerRect.top)) * scaleY;
-
-        tempCropData[currentCropIndex] = {
-            x: cropX,   // now natural coordinates
-            y: cropY,
-            width: cropRectInfo.width * scaleX,
-            height: cropRectInfo.height * scaleY
-        };
-
-        // Generate cropped thumbnail
-        const canvas = document.createElement('canvas');
-        canvas.width = tempCropData[currentCropIndex].width;
-        canvas.height = tempCropData[currentCropIndex].height;
-        const ctx = canvas.getContext('2d');
-
-        const img = new Image();
-        img.src = cropImage.src;
-        img.onload = () => {
-        ctx.drawImage(
-                img,
-                tempCropData[currentCropIndex].x,
-                tempCropData[currentCropIndex].y,
-                tempCropData[currentCropIndex].width,
-                tempCropData[currentCropIndex].height,
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-
-        canvas.toBlob(blob => {
-            const thumb = thumbnailsContainer.querySelector(`[data-index="${currentCropIndex}"]`);
-            if (thumb) {
-                thumb.src = URL.createObjectURL(blob);
-            }
-        }, 'image/jpeg');
-        };
-
-        croppingModal.className = 'modal-hidden';
-    });
-
-    cropCancelBtn.addEventListener('click', () => {
-        croppingModal.className = 'modal-hidden';
-    });
 
 
     let mediaRecorder;
@@ -516,8 +226,6 @@ window.eventBus.on('app:init', (appState) => {
                 alert(`사진을 ${appState.templateInfo.hole_count}개 선택해야 합니다.`);
                 return;
             }
-
-            await applyCropsBeforeNext(); // apply the crops now
 
             window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: [] });
             return;
@@ -697,46 +405,5 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    async function applyCropsBeforeNext() {
-        for (const index in tempCropData) {
-            const blob = appState.capturedPhotos[index];
-            const crop = tempCropData[index];
 
-            const img = new Image();
-            img.src = URL.createObjectURL(blob);
-
-            await new Promise(resolve => {
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = crop.width;
-                    canvas.height = crop.height;
-                    const ctx = canvas.getContext('2d');
-
-                    ctx.drawImage(
-                        img,
-                        crop.x,
-                        crop.y,
-                        crop.width,
-                        crop.height,
-                        0,
-                        0,
-                        canvas.width,
-                        canvas.height
-                    );
-
-                    canvas.toBlob(blob => {
-                        appState.capturedPhotos[index] = blob;
-
-                        const thumb = thumbnailsContainer.querySelector(`[data-index="${index}"]`);
-                        if (thumb) {
-                            thumb.src = URL.createObjectURL(blob);
-                        }
-                        resolve();
-                    }, 'image/jpeg');
-                };
-            });
-        }
-
-        tempCropData = {}; // clear
-    }
 });

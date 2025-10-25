@@ -1148,7 +1148,34 @@ window.eventBus.on('app:init', (appState) => {
                 e.stopPropagation();
                 handleStylizeButtonClick(i, t);
             });
+
+            const cropButton = document.createElement('button');
+            cropButton.textContent = '✂️';
+            cropButton.title = 'Crop Photo';
+            cropButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const blob = appState.capturedPhotos[i];
+                const templateHole = appState.templateInfo.holes[i];
+                const targetAspectRatio = templateHole.w / templateHole.h;
+                appState.cropper.show(blob, targetAspectRatio).then(croppedBlob => {
+                    if (croppedBlob) {
+                        const originalBlob = appState.capturedPhotos[i];
+                        appState.capturedPhotos[i] = croppedBlob;
+                        appState.originalCapturedPhotos[i] = croppedBlob;
+
+                        const assignmentIndex = appState.photoAssignments.indexOf(originalBlob);
+                        if (assignmentIndex !== -1) {
+                            appState.photoAssignments[assignmentIndex] = croppedBlob;
+                        }
+
+                        renderReviewThumbnails();
+                        renderPreview();
+                    }
+                });
+            });
+
             actions.appendChild(stylizeButton);
+            actions.appendChild(cropButton);
 
             itemContainer.appendChild(content);
             itemContainer.appendChild(actions);

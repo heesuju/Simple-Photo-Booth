@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'app-content', url: '/static/components/photo_taking_screen.html', css: '/static/css/photo_taking_screen.css' },
             { id: 'review-screen', url: '/static/components/review_screen.html', css: '/static/css/review_screen.css' },
             { id: 'result-screen', url: '/static/components/result_screen.html', css: '/static/css/result_screen.css' },
-            { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' }
+            { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' },
+            { id: 'crop-modal-container', url: '/static/components/shared/crop_modal.html' }
         ];
 
         for (const component of components) {
@@ -128,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initApp() {
         await loadHtmlComponents();
         await loadJsComponents();
+        appState.cropper = window.initCropper(appState);
         window.eventBus.dispatch('app:init', appState);
     }
 
