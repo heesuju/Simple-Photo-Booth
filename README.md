@@ -93,35 +93,3 @@ The application is a single-page application (SPA) where different "screens" are
 1.  Install dependencies: `pip install -r requirements.txt`
 2.  Run the server: `python app.py`
 3.  Open a web browser and navigate to `http://localhost:8000`.
-
-## TODO:
-- [X] Basic UI
-- [X] Capture Timer
-- [X] Stickers
-- [X] Effects(Monotone, Contrast, etc)
-- [X] Upload Pictures
-- [X] Video Download
-- [X] Original Image Download
-- [X] Default Templates & Color Change
-- [X] Retake photos
-- [X] Continue Editing
-- [ ] Remove Background Option
-- [ ] Add color selection to text
-- [ ] Effect Presets
-- [ ] Refine UI
-- [X] Connect Image Generation API
-- [ ] Add button in results to take another photo
-- [ ] Add timestamp, logos, text to stickers tab
-- [ ] Add image resizing to cells preview
-
-## Bugs:
-- [ ] Stickers have black background sometimes
-- [ ] Resized stickers have weird borders in video composition
-- [ ] Template not editable when uploading
-- [ ] Disable generate style when generating in progress
-- [ ] Add cancel button to style
-- [ ] Add refresh button to style
-- [ ] fix video creation for image uploaded
-- [X] Add crop edit for uploaded photos
-fix video capture enabled for uploads
-fix crop right offset

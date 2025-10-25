@@ -10,8 +10,9 @@ window.eventBus.on('app:init', (appState) => {
     const panelHandle = document.getElementById('panel-handle');
     const panelContent = document.getElementById('review-panel-content');
     const stripContainer = document.getElementById('strip-container');
+    const stripBackBtn = document.getElementById('strip-back-btn');
+    let panelHistory = [];
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
-    const stylizeBtn = document.getElementById('stylize-btn');
     const addFontBtn = document.getElementById('add-font-btn');
     const addPresetBtn = document.getElementById('add-preset-btn');
     const fontGallery = document.getElementById('font-gallery');
@@ -26,7 +27,7 @@ window.eventBus.on('app:init', (appState) => {
     const newStyleNameInput = document.getElementById('new-style-name');
     const newStylePromptInput = document.getElementById('new-style-prompt');
     const styleStripPanel = document.getElementById('style-strip-panel');
-
+    
     const textInputModal = document.getElementById('text-input-modal');
     const textInputField = document.getElementById('text-input-field');
     const textInputConfirmBtn = document.getElementById('text-input-confirm-btn');
@@ -38,6 +39,8 @@ window.eventBus.on('app:init', (appState) => {
 
     let isPanelDragging = false;
     let startY, startHeight;
+    
+    appState.selectedForStylizing = [];
 
     removeBgCheckbox.addEventListener('change', (e) => {
         appState.removeBackground = e.target.checked;
@@ -55,17 +58,6 @@ window.eventBus.on('app:init', (appState) => {
         });
         appState.selectedForRetake = [];
         retakeBtn.style.display = 'none';
-        stylizeBtn.style.display = 'none';
-    });
-
-    stylizeBtn.addEventListener('click', () => {
-        const styleStrip = document.getElementById('style-strip-panel');
-        const isVisible = styleStrip.classList.contains('show');
-        document.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
-        if (!isVisible) {
-            styleStrip.classList.add('show');
-            loadStylesStrip();
-        }
     });
 
     panelSelector.addEventListener('click', async (e) => {
@@ -217,26 +209,17 @@ window.eventBus.on('app:init', (appState) => {
             const styles = await response.json();
             styleStripPanel.innerHTML = '';
 
-            const backButton = document.createElement('button');
-            backButton.className = 'palette-back-btn';
-            backButton.textContent = '<';
-            backButton.addEventListener('click', () => {
-                styleStripPanel.classList.remove('show');
-                document.getElementById('review-thumbnails').classList.add('show');
-            });
-            styleStripPanel.appendChild(backButton);
-
             const noneStyleContainer = document.createElement('div');
             noneStyleContainer.className = 'style-item-container';
             const noneStyleItem = document.createElement('button');
             noneStyleItem.className = 'style-strip-item';
             noneStyleItem.textContent = 'None';
             noneStyleItem.addEventListener('click', () => {
-                if (appState.selectedForRetake.length === 0) {
+                if (appState.selectedForStylizing.length === 0) {
                     alert('Please select a photo to apply the style to.');
                     return;
                 }
-                for (const pIdx of appState.selectedForRetake) {
+                for (const pIdx of appState.selectedForStylizing) {
                     const originalBlob = appState.originalCapturedPhotos[pIdx];
                     const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
 
@@ -316,12 +299,12 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     async function retryStyle(prompt) {
-        if (appState.selectedForRetake.length === 0) {
+        if (appState.selectedForStylizing.length === 0) {
             alert('Please select a photo to apply the style to.');
             return;
         }
 
-        for (const pIdx of appState.selectedForRetake) {
+        for (const pIdx of appState.selectedForStylizing) {
             const cacheKey = `${pIdx}-${prompt}`;
             delete appState.stylizedImagesCache[cacheKey];
 
@@ -406,12 +389,12 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     async function applyStyle(prompt) {
-        if (appState.selectedForRetake.length === 0) {
+        if (appState.selectedForStylizing.length === 0) {
             alert('Please select a photo to apply the style to.');
             return;
         }
 
-        for (const pIdx of appState.selectedForRetake) {
+        for (const pIdx of appState.selectedForStylizing) {
             const cacheKey = `${pIdx}-${prompt}`;
             if (appState.stylizedImagesCache[cacheKey]) {
                 const newImageBlob = appState.stylizedImagesCache[cacheKey];
@@ -486,23 +469,34 @@ window.eventBus.on('app:init', (appState) => {
         }
     });
 
+
     reviewToolbar.addEventListener('click', (e) => {
         if (e.target.classList.contains('toolbar-btn')) {
             const panelType = e.target.dataset.panel;
             const currentActiveBtn = reviewToolbar.querySelector('.active');
+            const sidebar = document.getElementById('review-sidebar');
 
             // If clicking the same button, close its panel and clear selections
             if (currentActiveBtn === e.target) {
                 e.target.classList.remove('active');
                 reviewPanel.classList.remove('show');
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
+                sidebar.classList.remove('strip-active');
                 reviewPanel.style.height = '50vh'; // Reset height
                 clearSelections();
+                stripBackBtn.style.display = 'none';
+                panelHistory = [];
                 return;
             }
 
             // If switching to a new panel, clear selections first
             clearSelections();
+
+            const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
+            if (currentOpenPanel) {
+                panelHistory.push(currentOpenPanel.dataset.panel);
+            }
+
 
             // Deactivate current active button and all panels
             if (currentActiveBtn) {
@@ -510,14 +504,17 @@ window.eventBus.on('app:init', (appState) => {
             }
             reviewPanel.classList.remove('show');
             stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
+            sidebar.classList.remove('strip-active');
 
             // Activate the new button and its corresponding panel
             e.target.classList.add('active');
 
-            if (panelType === 'photos' || panelType === 'templates' || panelType === 'filters') {
+            if (panelType === 'photos' || panelType === 'templates' || panelType === 'filters' || panelType === 'colors' || panelType === 'styles') {
                 const targetStrip = stripContainer.querySelector(`.strip-panel[data-panel="${panelType}"]`);
                 if (targetStrip) {
                     targetStrip.classList.add('show');
+                    sidebar.classList.add('strip-active');
+                    stripBackBtn.style.display = 'block';
                 }
                 if (panelType === 'filters') {
                     loadFilterPresets();
@@ -533,9 +530,39 @@ window.eventBus.on('app:init', (appState) => {
                 }
                 reviewPanel.classList.add('show');
                 addPresetBtn.style.display = 'none';
+                stripBackBtn.style.display = 'none';
+                panelHistory = [];
             }
         }
     });
+
+    stripBackBtn.addEventListener('click', () => {
+        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
+        if (currentOpenPanel) {
+            currentOpenPanel.classList.remove('show');
+        }
+
+        const lastPanelType = panelHistory.pop();
+        if (lastPanelType) {
+            const targetStrip = stripContainer.querySelector(`.strip-panel[data-panel="${lastPanelType}"]`);
+            if (targetStrip) {
+                targetStrip.classList.add('show');
+                const correspondingButton = reviewToolbar.querySelector(`[data-panel=${lastPanelType}]`);
+                if (correspondingButton) {
+                    reviewToolbar.querySelector('.active').classList.remove('active');
+                    correspondingButton.classList.add('active');
+                }
+            }
+        } else {
+            stripBackBtn.style.display = 'none';
+            document.getElementById('review-sidebar').classList.remove('strip-active');
+            const currentActiveBtn = reviewToolbar.querySelector('.active');
+            if(currentActiveBtn) {
+                currentActiveBtn.classList.remove('active');
+            }
+        }
+    });
+
 
     async function loadFilterPresets() {
         try {
@@ -670,7 +697,6 @@ window.eventBus.on('app:init', (appState) => {
             });
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
-            stylizeBtn.style.display = 'none';
         }
     }
 
@@ -752,6 +778,8 @@ window.eventBus.on('app:init', (appState) => {
         window.eventBus.dispatch('screen:show', 'review-screen');
         showReviewScreen(true); // true = keep existing edits
     });
+
+
 
     function showReviewScreen(isContinuingEditing = false) { 
         if (!isContinuingEditing) {
@@ -880,6 +908,7 @@ window.eventBus.on('app:init', (appState) => {
                     id: Date.now(),
                     text: newText,
                     font: selectedFont.font_name,
+                    color: '#000000',
                     x: Math.round(imageX),
                     y: Math.round(imageY),
                     width: Math.round(textNaturalWidth),
@@ -942,6 +971,7 @@ window.eventBus.on('app:init', (appState) => {
             i.className = 'editable-text';
             i.style.fontFamily = d.font;
             i.style.fontSize = `${d.fontSize * scale}px`;
+            i.style.color = d.color || '#000000';
             i.innerHTML = d.text.replace(/\n/g, '<br>');
             i.style.whiteSpace = 'pre-wrap';
 
@@ -1075,15 +1105,40 @@ window.eventBus.on('app:init', (appState) => {
     function renderReviewThumbnails() { 
         const c = document.getElementById('review-thumbnails'); 
         c.innerHTML = ''; 
+
         appState.capturedPhotos.forEach((b, i) => { 
+            // Create a container for the image and button
+            const itemContainer = document.createElement('div');
+            itemContainer.className = 'photostrip-item-container';
+
+            // Create the image element
             const t = document.createElement('img'); 
             t.src = URL.createObjectURL(b); 
             t.className = 'photostrip-item'; 
             t.draggable = false; 
             t.addEventListener('click', (e) => handlePhotoSelection(i, e.currentTarget)); 
-            c.appendChild(t); 
+
+            // Append the image to the container
+            itemContainer.appendChild(t);
+
+            // Create the "Stylize" magic wand button
+            const stylizeButton = document.createElement('button');
+            stylizeButton.className = 'stylize-btn';
+            stylizeButton.textContent = '🪄'; // magic wand emoji
+            stylizeButton.title = 'Stylize Photo';
+            stylizeButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // prevent triggering the photo selection
+                handleStylizeButtonClick(i, t); // define this function to open a stylize/edit UI
+            });
+
+            // Append the button to the container
+            itemContainer.appendChild(stylizeButton);
+
+            // Append the full container to the main strip
+            c.appendChild(itemContainer); 
         }); 
     }
+
 
     async function loadSimilarTemplates() { 
         const { aspect_ratio, cell_layout } = appState.templateInfo; 
@@ -1139,15 +1194,9 @@ window.eventBus.on('app:init', (appState) => {
         templatePanel.classList.remove('show');
         colorPanel.innerHTML = ''; // Clear previous content
 
-        // --- Back Button ---
-        const backButton = document.createElement('button');
-        backButton.className = 'palette-back-btn';
-        backButton.textContent = '<';
-        backButton.addEventListener('click', () => {
-            colorPanel.classList.remove('show');
-            templatePanel.classList.add('show');
-        });
-        colorPanel.appendChild(backButton);
+        panelHistory.push('templates');
+        stripBackBtn.style.display = 'block';
+
 
         // --- Color Swatches ---
         try {
@@ -1159,8 +1208,7 @@ window.eventBus.on('app:init', (appState) => {
                 swatch.style.backgroundColor = colorObj.hex_code;
                 swatch.addEventListener('click', () => {
                     recolorTemplateAndApply(template, colorObj.hex_code);
-                    colorPanel.classList.remove('show');
-                    templatePanel.classList.add('show');
+                    stripBackBtn.click();
                 });
                 colorPanel.appendChild(swatch);
             });
@@ -1173,20 +1221,29 @@ window.eventBus.on('app:init', (appState) => {
         addButton.className = 'palette-add-btn';
         addButton.textContent = '+';
         addButton.addEventListener('click', () => {
-            // Pass the template context to the modal setup function
-            setupAndShowModal(template);
+            setupAndShowColorModal(async (newColor) => {
+                try {
+                    await fetch('/add_color', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ hex_code: newColor })
+                    });
+                } catch (e) {
+                    console.error("Failed to save color:", e);
+                }
+                recolorTemplateAndApply(template, newColor);
+                stripBackBtn.click();
+            });
         });
         colorPanel.appendChild(addButton);
 
         colorPanel.classList.add('show');
     }
 
-    // --- This new function handles the modal logic and is only called once ---
-    function setupAndShowModal(template) {
+    function setupAndShowColorModal(onConfirm) {
         const modal = document.getElementById('color-picker-modal');
         modal.className = 'modal-visible';
 
-        // Initialize picker and set up listeners only if they haven't been already
         if (!colorPicker) {
             colorPicker = new iro.ColorPicker('#color-picker-container', {
                 width: 250,
@@ -1194,17 +1251,13 @@ window.eventBus.on('app:init', (appState) => {
             });
 
             const hexInput = document.getElementById('color-hex-input');
-
             colorPicker.on('color:change', function(color) {
                 hexInput.value = color.hexString;
             });
-
             hexInput.addEventListener('change', function() {
                 try {
                     colorPicker.color.hexString = this.value;
-                } catch (e) {
-                    // Ignore invalid hex codes
-                }
+                } catch (e) {}
             });
 
             document.getElementById('color-picker-cancel-btn').addEventListener('click', () => {
@@ -1212,29 +1265,22 @@ window.eventBus.on('app:init', (appState) => {
             });
         }
 
-        // We need to update the confirm button's listener every time
-        // to make sure it has the correct 'template' object from the closure.
         const confirmBtn = document.getElementById('color-picker-confirm-btn');
-        const newConfirmBtn = confirmBtn.cloneNode(true); // Clone to remove old listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
-        newConfirmBtn.addEventListener('click', async () => {
+        newConfirmBtn.addEventListener('click', () => {
             const newColor = colorPicker.color.hexString;
-
-            try {
-                await fetch('/add_color', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hex_code: newColor })
-                });
-            } catch (e) {
-                console.error("Failed to save color:", e);
-            }
-
-            recolorTemplateAndApply(template, newColor);
+            onConfirm(newColor);
             modal.className = 'modal-hidden';
-            document.getElementById('color-palette-panel').classList.remove('show');
-            document.getElementById('template-gallery-review').classList.add('show');
+        });
+    }
+
+    function openTextColorPicker() {
+        if (!appState.activeText.data) return;
+        setupAndShowColorModal((newColor) => {
+            appState.activeText.data.color = newColor;
+            renderPlacedTexts();
         });
     }
 
@@ -1242,7 +1288,6 @@ window.eventBus.on('app:init', (appState) => {
         const p = document.getElementById('review-preview'); 
         document.getElementById('review-photos-container').innerHTML = ''; 
         const t = document.getElementById('review-template-overlay');
-        // Use the colored path if it exists, otherwise use the original path
         t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path; 
         t.className = 'preview-template-img'; 
         t.onload = () => { 
@@ -1250,7 +1295,7 @@ window.eventBus.on('app:init', (appState) => {
             renderPlacedStickers(); 
             renderPlacedTexts();
         }; 
-    } 
+    }
 
     function handleTemplateChange(newTemplate) { 
         if (!newTemplate.original_path) {
@@ -1366,6 +1411,39 @@ window.eventBus.on('app:init', (appState) => {
         applyPhotoFilters(); 
     }
 
+    function handleStylizeButtonClick(photoIndex, photoEl) {
+        appState.selectedForStylizing = [];
+        appState.selectedForStylizing.push(photoIndex);
+        showStylizePanel()
+    }
+    
+    function showStylizePanel() {
+        const styleStrip = document.getElementById('style-strip-panel');
+        const stripContainer = document.getElementById('strip-container');
+        const stripBackBtn = document.getElementById('strip-back-btn');
+        const isVisible = styleStrip.classList.contains('show');
+
+        // Close any currently open strip panel
+        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel'))
+            .find(p => p.classList.contains('show'));
+        if (currentOpenPanel) {
+            panelHistory.push(currentOpenPanel.dataset.panel);
+            currentOpenPanel.classList.remove('show');
+        }
+
+        // Hide all panels before toggling
+        document.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
+
+        if (!isVisible) {
+            styleStrip.classList.add('show');
+            loadStylesStrip(); // Load available styles
+            stripBackBtn.style.display = 'block';
+        } else {
+            stripBackBtn.style.display = 'none';
+            panelHistory = [];
+        }
+    }
+
     function renderPlacedStickers() {
         document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
         const { scale, offsetX, offsetY } = getPreviewScaling();
@@ -1460,7 +1538,6 @@ window.eventBus.on('app:init', (appState) => {
             });
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
-            stylizeBtn.style.display = 'none';
         }
 
         // Handle hole selection
@@ -1503,7 +1580,6 @@ window.eventBus.on('app:init', (appState) => {
         }
 
         retakeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
-        stylizeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
     }
 
     function handleSwap(hIdx, pIdx) { 

@@ -1,9 +1,26 @@
 <div id="review-screen-container">
-    <div id="review-toolbar">
-        <button class="toolbar-btn" data-panel="photos">사진</button>
-        <button class="toolbar-btn" data-panel="templates">템플릿</button>
-        <button class="toolbar-btn" data-panel="stickers">스티커</button>
-        <button class="toolbar-btn" data-panel="filters">필터</button>
+    <div class="review-container">
+        <div id="review-preview" class="preview-container">
+            <div id="review-photos-container"></div>
+            <img id="review-template-overlay" src="" alt="Template Overlay">
+        </div>
+    </div>
+
+    <div id="review-sidebar">
+        <div id="review-toolbar">
+            <button class="toolbar-btn" data-panel="photos">사진</button>
+            <button class="toolbar-btn" data-panel="templates">템플릿</button>
+            <button class="toolbar-btn" data-panel="stickers">스티커</button>
+            <button class="toolbar-btn" data-panel="filters">필터</button>
+        </div>
+        <div id="strip-container">
+            <button id="strip-back-btn" class="strip-back-btn" style="display: none;">&lt;</button>
+            <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
+            <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates"></div>
+            <div id="color-palette-panel" class="strip-panel photo-strip-scroll-box" data-panel="colors"></div>
+            <div id="style-strip-panel" class="strip-panel photo-strip-scroll-box" data-panel="styles"></div>
+            <div id="filter-preset-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters"></div>
+        </div>
     </div>
 
     <div id="review-panel">
@@ -63,25 +80,8 @@
         </div>
     </div>
 
-    <div class="review-main-content">
-        <div class="review-container">
-            <div id="review-preview" class="preview-container">
-                <div id="review-photos-container"></div>
-                <img id="review-template-overlay" src="" alt="Template Overlay">
-            </div>
-        </div>
-        <div id="strip-container">
-            <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
-            <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates"></div>
-            <div id="color-palette-panel" class="strip-panel photo-strip-scroll-box" data-panel="colors"></div>
-            <div id="style-strip-panel" class="strip-panel photo-strip-scroll-box" data-panel="styles"></div>
-            <div id="filter-preset-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters"></div>
-        </div>
-    </div>
-
     <div id="review-actions-container">
         <button id="retake-btn" style="display: none;">재촬영</button>
-        <button id="stylize-btn" style="display: none;">스타일 변환</button>
         <div class="finalize-options">
             <button id="add-font-btn" style="display: none;">폰트 추가</button>
             <button id="add-preset-btn" class="floating-btn-add" style="display: none;">+</button>
