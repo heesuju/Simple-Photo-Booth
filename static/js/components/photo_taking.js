@@ -94,6 +94,8 @@ window.eventBus.on('app:init', (appState) => {
         startCaptureBtn.style.display = 'block';
         captureBtn.style.display = 'none';
         appState.capturedPhotos = [];
+        appState.originalPhotos = [];
+        appState.cropData = [];
         appState.capturedVideos = [];
         appState.videoUploadPromises = [];
         thumbnailsContainer.innerHTML = '';
@@ -167,33 +169,58 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    function handlePhotoUpload(event) {
+    async function handlePhotoUpload(event) { // Made async
         const files = event.target.files;
         const requiredPhotos = appState.templateInfo.hole_count;
-        if (files.length + appState.capturedPhotos.length > requiredPhotos) {
-            alert(`최대 ${requiredPhotos}개의 이미지만 업로드할 수 있습니다.`);
+        
+        const filesArray = Array.from(files);
+        const imageFiles = filesArray.filter(file => file.type.startsWith('image/'));
+
+        if (imageFiles.length + appState.capturedPhotos.length > requiredPhotos) {
+            alert(`최대 ${requiredPhotos}개의 이미지만 업로드할 수 입니다.`);
             return;
         }
 
-        for (const file of files) {
-            if (!file.type.startsWith('image/')) continue;
+        const processedImages = await Promise.all(imageFiles.map(async (file, i) => {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const originalBlob = new Blob([e.target.result], { type: file.type });
+                    
+                    // Calculate the index based on current appState.capturedPhotos.length + current file's position in imageFiles
+                    const actualIndex = appState.capturedPhotos.length + i; 
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const blob = new Blob([e.target.result], { type: file.type });
-                appState.capturedPhotos.push(blob);
-                const index = appState.capturedPhotos.length - 1;
+                    const templateHole = appState.templateInfo.holes[actualIndex];
+                    const targetAspectRatio = templateHole.w / templateHole.h;
+                    
+                    const defaultCropData = await appState.cropper.getDefaultCropData(originalBlob, targetAspectRatio);
+                    const croppedResult = await appState.cropper.crop(originalBlob, targetAspectRatio, defaultCropData);
 
-                const t = document.createElement('img');
-                t.src = URL.createObjectURL(blob);
-                t.classList.add('thumbnail', 'upload-thumbnail');
-                t.setAttribute('data-index', index);
-                t.addEventListener('click', () => openCroppingUI(index));
-                thumbnailsContainer.appendChild(t);
-                updatePhotoStatus();
-            };
-            reader.readAsArrayBuffer(file);
-        }
+                    resolve({
+                        originalBlob: originalBlob,
+                        croppedBlob: croppedResult.croppedBlob,
+                        cropData: croppedResult.cropData,
+                        index: actualIndex // Store the actual index
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }));
+
+        processedImages.forEach(item => {
+            appState.capturedPhotos.push(item.croppedBlob);
+            appState.originalPhotos.push(item.originalBlob);
+            appState.cropData.push(item.cropData);
+            
+            const t = document.createElement('img');
+            t.src = URL.createObjectURL(item.croppedBlob);
+            t.classList.add('thumbnail', 'upload-thumbnail');
+            t.setAttribute('data-index', item.index);
+            t.addEventListener('click', () => openCroppingUI(item.index));
+            thumbnailsContainer.appendChild(t);
+        });
+
+        updatePhotoStatus();
         photoUploadInput.value = null;
         modeSelection.style.display = 'none';
     }
@@ -201,16 +228,18 @@ window.eventBus.on('app:init', (appState) => {
 
 
     function openCroppingUI(index) {
-        const blob = appState.capturedPhotos[index];
+        const originalBlob = appState.originalPhotos[index];
+        const currentCropData = appState.cropData[index];
         const templateHole = appState.templateInfo.holes[index];
         const targetAspectRatio = templateHole.w / templateHole.h;
 
-        appState.cropper.show(blob, targetAspectRatio).then(croppedBlob => {
-            if (croppedBlob) {
-                appState.capturedPhotos[index] = croppedBlob;
+        appState.cropper.show(originalBlob, targetAspectRatio, currentCropData).then(result => {
+            if (result) {
+                appState.capturedPhotos[index] = result.croppedBlob;
+                appState.cropData[index] = result.cropData;
                 const thumb = thumbnailsContainer.querySelector(`[data-index="${index}"]`);
                 if (thumb) {
-                    thumb.src = URL.createObjectURL(croppedBlob);
+                    thumb.src = URL.createObjectURL(result.croppedBlob);
                 }
             }
         });
@@ -227,7 +256,7 @@ window.eventBus.on('app:init', (appState) => {
                 return;
             }
 
-            window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: [] });
+            window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, originalPhotos: appState.originalPhotos, cropData: appState.cropData, videos: [] });
             return;
         }
 
@@ -301,7 +330,8 @@ window.eventBus.on('app:init', (appState) => {
                         }
 
                         appState.capturedPhotos[originalIndex] = newPhotoBlob;
-                        appState.originalCapturedPhotos[originalIndex] = newPhotoBlob;
+                        appState.originalPhotos[originalIndex] = newPhotoBlob;
+                        appState.cropData[originalIndex] = null;
                         appState.capturedVideos[originalIndex] = newVideoPath;
 
                         for (const key in appState.stylizedImagesCache) {
@@ -315,7 +345,7 @@ window.eventBus.on('app:init', (appState) => {
                     appState.newlyCapturedVideos = [];
                     window.eventBus.dispatch('review:edit-existing');
                 } else {
-                    window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, videos: appState.capturedVideos });
+                    window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, originalPhotos: appState.originalPhotos, cropData: appState.cropData, videos: appState.capturedVideos });
                 }
             });
         } 
@@ -363,6 +393,8 @@ window.eventBus.on('app:init', (appState) => {
                 appState.newlyCapturedPhotos.push(b);
             } else {
                 appState.capturedPhotos.push(b); 
+                appState.originalPhotos.push(b);
+                appState.cropData.push(null);
             }
             const t = document.createElement('img'); 
             t.src = URL.createObjectURL(b); 

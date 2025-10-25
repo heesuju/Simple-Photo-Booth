@@ -77,7 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const appState = {
         templateInfo: null,
         selectedTemplate: { element: null, data: null },
-            capturedPhotos: [],
+        capturedPhotos: [],
+        originalPhotos: [],
+        cropData: [],
             photoAssignments: [],
             videoAssignments: [],        selectedHole: { element: null, index: -1 },
         placedStickers: [],

@@ -214,26 +214,39 @@ window.eventBus.on('app:init', (appState) => {
             const noneStyleItem = document.createElement('button');
             noneStyleItem.className = 'style-strip-item';
             noneStyleItem.textContent = 'None';
-            noneStyleItem.addEventListener('click', () => {
+            noneStyleItem.addEventListener('click', async () => {
                 if (appState.selectedForStylizing.length === 0) {
                     alert('Please select a photo to apply the style to.');
                     return;
                 }
                 for (const pIdx of appState.selectedForStylizing) {
-                    const originalBlob = appState.originalCapturedPhotos[pIdx];
+                    let imageToAssign = appState.originalPhotos[pIdx];
+                    const currentCropData = appState.cropData[pIdx];
+
+                    if (currentCropData) {
+                        const templateHole = appState.templateInfo.holes[pIdx];
+                        const targetAspectRatio = templateHole.w / templateHole.h;
+                        const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentCropData);
+                        if (result) {
+                            imageToAssign = result.croppedBlob;
+                        }
+                    }
+
                     const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
 
-                    appState.capturedPhotos[pIdx] = originalBlob;
+                    appState.capturedPhotos[pIdx] = imageToAssign;
 
                     if (assignmentIndex !== -1) {
-                        appState.photoAssignments[assignmentIndex] = originalBlob;
+                        appState.photoAssignments[assignmentIndex] = imageToAssign;
                     }
+
+                    appState.isStylized[pIdx] = false;
 
                     const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
                     if (thumbContainer) {
                         const thumb = thumbContainer.querySelector('.photostrip-item');
                         if (thumb) {
-                            thumb.src = URL.createObjectURL(originalBlob);
+                            thumb.src = URL.createObjectURL(imageToAssign);
                         }
                     }
                 }
@@ -306,6 +319,77 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
+    async function processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex) {
+        const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
+        const wrapper = photoWrappers[assignmentIndex];
+        let imageToAssign = imageBlob;
+
+        try {
+            if (wrapper) {
+                wrapper.classList.add('loading');
+            }
+
+            const formData = new FormData();
+            formData.append('prompt', prompt);
+            formData.append('file', imageBlob, 'photo.png');
+
+            const response = await fetch('/process_and_stylize_image', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Stylization failed: ${errorText}`);
+            }
+
+            const newImageBlob = await response.blob();
+            appState.stylizedImagesCache[cacheKey] = newImageBlob;
+            imageToAssign = newImageBlob;
+
+            let currentStylizedCropData = appState.stylizedCropData[pIdx];
+            const templateHole = appState.templateInfo.holes[pIdx];
+            const targetAspectRatio = templateHole.w / templateHole.h;
+
+            if (!currentStylizedCropData) {
+                // Calculate default crop data if none exists
+                currentStylizedCropData = await appState.cropper.getDefaultCropData(newImageBlob, targetAspectRatio);
+                appState.stylizedCropData[pIdx] = currentStylizedCropData; // Save the newly calculated default crop data
+            }
+
+            if (currentStylizedCropData) {
+                const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentStylizedCropData);
+                if (result) {
+                    imageToAssign = result.croppedBlob;
+                }
+            }
+
+            appState.capturedPhotos[pIdx] = imageToAssign;
+
+            if (assignmentIndex !== -1) {
+                appState.photoAssignments[assignmentIndex] = imageToAssign;
+            }
+
+            appState.isStylized[pIdx] = true;
+            appState.selectedStylePrompt = prompt;
+
+            const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+            if (thumbContainer) {
+                const thumb = thumbContainer.querySelector('.photostrip-item');
+                if (thumb) {
+                    thumb.src = URL.createObjectURL(imageToAssign);
+                }
+            }
+        } catch (error) {
+            console.error('Error during stylization:', error);
+            showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
+        } finally {
+            if (wrapper) {
+                wrapper.classList.remove('loading');
+            }
+        }
+    }
+
     async function retryStyle(prompt) {
         if (appState.selectedForStylizing.length === 0) {
             alert('Please select a photo to apply the style to.');
@@ -317,55 +401,9 @@ window.eventBus.on('app:init', (appState) => {
             delete appState.stylizedImagesCache[cacheKey];
 
             const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-            const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
-            const wrapper = photoWrappers[assignmentIndex];
-
-            const imageBlob = appState.originalCapturedPhotos[pIdx];
+            const imageBlob = appState.originalPhotos[pIdx];
             
-            const formData = new FormData();
-            formData.append('prompt', prompt);
-            formData.append('file', imageBlob, 'photo.png');
-
-            try {
-                if (wrapper) {
-                    wrapper.classList.add('loading');
-                }
-
-                const response = await fetch('/process_and_stylize_image', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Stylization failed: ${errorText}`);
-                }
-
-                const newImageBlob = await response.blob();
-                appState.stylizedImagesCache[cacheKey] = newImageBlob;
-                const newImageUrl = URL.createObjectURL(newImageBlob);
-
-                appState.capturedPhotos[pIdx] = newImageBlob;
-
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = newImageBlob;
-                }
-
-                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumbContainer) {
-                    const thumb = thumbContainer.querySelector('.photostrip-item');
-                    if (thumb) {
-                        thumb.src = newImageUrl;
-                    }
-                }
-            } catch (error) {
-                console.error('Error during stylization:', error);
-                showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
-            } finally {
-                if (wrapper) {
-                    wrapper.classList.remove('loading');
-                }
-            }
+            await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
         }
 
         renderPreview();
@@ -408,72 +446,39 @@ window.eventBus.on('app:init', (appState) => {
         for (const pIdx of appState.selectedForStylizing) {
             const cacheKey = `${pIdx}-${prompt}`;
             if (appState.stylizedImagesCache[cacheKey]) {
-                const newImageBlob = appState.stylizedImagesCache[cacheKey];
-                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-                appState.capturedPhotos[pIdx] = newImageBlob;
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = newImageBlob;
+                let imageToAssign = appState.stylizedImagesCache[cacheKey];
+                const currentStylizedCropData = appState.stylizedCropData[pIdx];
+
+                if (currentStylizedCropData) {
+                    const templateHole = appState.templateInfo.holes[pIdx];
+                    const targetAspectRatio = templateHole.w / templateHole.h;
+                    const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentStylizedCropData);
+                    if (result) {
+                        imageToAssign = result.croppedBlob;
+                    }
                 }
+
+                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+                appState.capturedPhotos[pIdx] = imageToAssign;
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = imageToAssign;
+                }
+                appState.isStylized[pIdx] = true;
+                appState.selectedStylePrompt = prompt;
                 const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
                 if (thumbContainer) {
                     const thumb = thumbContainer.querySelector('.photostrip-item');
                     if (thumb) {
-                        thumb.src = URL.createObjectURL(newImageBlob);
+                        thumb.src = URL.createObjectURL(imageToAssign);
                     }
                 }
                 continue;
             }
 
             const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-            const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
-            const wrapper = photoWrappers[assignmentIndex];
-
-            const imageBlob = appState.originalCapturedPhotos[pIdx];
+            const imageBlob = appState.originalPhotos[pIdx];
             
-            const formData = new FormData();
-            formData.append('prompt', prompt);
-            formData.append('file', imageBlob, 'photo.png');
-
-            try {
-                if (wrapper) {
-                    wrapper.classList.add('loading');
-                }
-
-                const response = await fetch('/process_and_stylize_image', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Stylization failed: ${errorText}`);
-                }
-
-                const newImageBlob = await response.blob();
-                appState.stylizedImagesCache[cacheKey] = newImageBlob;
-                const newImageUrl = URL.createObjectURL(newImageBlob);
-
-                appState.capturedPhotos[pIdx] = newImageBlob;
-
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = newImageBlob;
-                }
-
-                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumbContainer) {
-                    const thumb = thumbContainer.querySelector('.photostrip-item');
-                    if (thumb) {
-                        thumb.src = newImageUrl;
-                    }
-                }
-            } catch (error) {
-                console.error('Error during stylization:', error);
-                showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
-            } finally {
-                if (wrapper) {
-                    wrapper.classList.remove('loading');
-                }
-            }
+            await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
         }
 
         renderPreview();
@@ -642,7 +647,7 @@ window.eventBus.on('app:init', (appState) => {
         applyPhotoFilters(); // Apply CSS filters for instant preview
 
         for (const pIdx of appState.selectedForRetake) {
-            const imageBlob = appState.originalCapturedPhotos[pIdx];
+            const imageBlob = appState.originalPhotos[pIdx];
             const formData = new FormData();
             formData.append('file', imageBlob, 'photo.png');
             formData.append('filters', JSON.stringify(values));
@@ -784,7 +789,8 @@ window.eventBus.on('app:init', (appState) => {
 
     window.eventBus.on('photo-taking:complete', (data) => {
         appState.capturedPhotos = data.photos;
-        appState.originalCapturedPhotos = [...data.photos];
+        appState.originalPhotos = data.originalPhotos;
+        appState.cropData = data.cropData;
         appState.capturedVideos = data.videos;
         window.eventBus.dispatch('screen:show', 'review-screen');
         showReviewScreen(false); // false = this is the first time, so reset edits
@@ -809,6 +815,8 @@ window.eventBus.on('app:init', (appState) => {
             appState.activeText = { element: null, data: null, action: null }; 
             appState.removeBackground = false;
             appState.stylizedImagesCache = {};
+            appState.stylizedCropData = {};
+            appState.isStylized = new Array(appState.capturedPhotos.length).fill(false);
             appState.bgRemovedPhotos = {};
             document.getElementById('remove-bg-checkbox').checked = false;
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
@@ -1154,18 +1162,38 @@ window.eventBus.on('app:init', (appState) => {
             cropButton.title = 'Crop Photo';
             cropButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const blob = appState.capturedPhotos[i];
                 const templateHole = appState.templateInfo.holes[i];
                 const targetAspectRatio = templateHole.w / templateHole.h;
-                appState.cropper.show(blob, targetAspectRatio).then(croppedBlob => {
-                    if (croppedBlob) {
-                        const originalBlob = appState.capturedPhotos[i];
-                        appState.capturedPhotos[i] = croppedBlob;
-                        appState.originalCapturedPhotos[i] = croppedBlob;
 
-                        const assignmentIndex = appState.photoAssignments.indexOf(originalBlob);
+                let imageToCrop;
+                let currentCropData;
+                let cacheKey;
+
+                if (appState.isStylized[i]) {
+                    // If stylized, use the uncropped stylized image from cache
+                    cacheKey = `${i}-${appState.selectedStylePrompt || ''}`;
+                    imageToCrop = appState.stylizedImagesCache[cacheKey] || appState.originalPhotos[i];
+                    currentCropData = appState.stylizedCropData[i];
+                } else {
+                    // If original, use the original photo
+                    imageToCrop = appState.originalPhotos[i];
+                    currentCropData = appState.cropData[i];
+                }
+
+                appState.cropper.show(imageToCrop, targetAspectRatio, currentCropData).then(result => {
+                    if (result) {
+                        const oldBlob = appState.capturedPhotos[i];
+                        appState.capturedPhotos[i] = result.croppedBlob;
+
+                        if (appState.isStylized[i]) {
+                            appState.stylizedCropData[i] = result.cropData;
+                        } else {
+                            appState.cropData[i] = result.cropData;
+                        }
+
+                        const assignmentIndex = appState.photoAssignments.indexOf(oldBlob);
                         if (assignmentIndex !== -1) {
-                            appState.photoAssignments[assignmentIndex] = croppedBlob;
+                            appState.photoAssignments[assignmentIndex] = result.croppedBlob;
                         }
 
                         renderReviewThumbnails();

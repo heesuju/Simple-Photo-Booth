@@ -13,7 +13,7 @@ window.initCropper = function(appState) {
     let startX, startY, startWidth, startHeight, startLeft, startTop;
     let resolvePromise;
 
-    function show(imageBlob, aspectRatio) {
+    function show(imageBlob, aspectRatio, initialCropData = null) {
         return new Promise((resolve) => {
             resolvePromise = resolve;
             cropImage.src = URL.createObjectURL(imageBlob);
@@ -40,16 +40,25 @@ window.initCropper = function(appState) {
 
                 let rectWidth, rectHeight, rectX, rectY;
 
-                if (imageAspectRatio > aspectRatio) {
-                    rectHeight = imgDisplayHeight;
-                    rectWidth = rectHeight * aspectRatio;
-                    rectY = imgDisplayY;
-                    rectX = (imgDisplayWidth - rectWidth) / 2 + imgDisplayX;
+                if (initialCropData) {
+                    const scaleX = imgDisplayWidth / cropImage.naturalWidth;
+                    const scaleY = imgDisplayHeight / cropImage.naturalHeight;
+                    rectWidth = initialCropData.width * scaleX;
+                    rectHeight = initialCropData.height * scaleY;
+                    rectX = initialCropData.x * scaleX + imgDisplayX;
+                    rectY = initialCropData.y * scaleY + imgDisplayY;
                 } else {
-                    rectWidth = imgDisplayWidth;
-                    rectHeight = rectWidth / aspectRatio;
-                    rectX = imgDisplayX;
-                    rectY = (imgDisplayHeight - rectHeight) / 2 + imgDisplayY;
+                    if (imageAspectRatio > aspectRatio) {
+                        rectHeight = imgDisplayHeight;
+                        rectWidth = rectHeight * aspectRatio;
+                        rectY = imgDisplayY;
+                        rectX = (imgDisplayWidth - rectWidth) / 2 + imgDisplayX;
+                    } else {
+                        rectWidth = imgDisplayWidth;
+                        rectHeight = rectWidth / aspectRatio;
+                        rectX = imgDisplayX;
+                        rectY = (imgDisplayHeight - rectHeight) / 2 + imgDisplayY;
+                    }
                 }
 
                 cropRectangle.style.width = `${rectWidth}px`;
@@ -272,7 +281,7 @@ window.initCropper = function(appState) {
 
             canvas.toBlob(blob => {
                 if (resolvePromise) {
-                    resolvePromise(blob);
+                    resolvePromise({ croppedBlob: blob, cropData: cropData });
                 }
                 croppingModal.className = 'modal-hidden';
             }, 'image/jpeg');
@@ -281,5 +290,67 @@ window.initCropper = function(appState) {
 
     cropCancelBtn.addEventListener('click', hide);
 
-    return { show };
+    async function crop(imageBlob, targetAspectRatio, cropData) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = URL.createObjectURL(imageBlob);
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = cropData.width;
+                canvas.height = cropData.height;
+                const ctx = canvas.getContext('2d');
+
+                ctx.drawImage(
+                    img,
+                    cropData.x,
+                    cropData.y,
+                    cropData.width,
+                    cropData.height,
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height
+                );
+
+                canvas.toBlob(blob => {
+                    resolve({ croppedBlob: blob, cropData: cropData });
+                }, 'image/jpeg');
+            };
+        });
+    }
+
+    async function getDefaultCropData(imageBlob, targetAspectRatio) {
+        const img = new Image();
+        img.src = URL.createObjectURL(imageBlob);
+        await new Promise(resolve => img.onload = resolve); // Ensure image is loaded to get natural dimensions
+
+        const imageNaturalWidth = img.naturalWidth;
+        const imageNaturalHeight = img.naturalHeight;
+        const imageAspectRatio = imageNaturalWidth / imageNaturalHeight;
+
+        let cropWidth, cropHeight, cropX, cropY;
+
+        if (imageAspectRatio > targetAspectRatio) {
+            // Image is wider than the target aspect ratio, crop height
+            cropHeight = imageNaturalHeight;
+            cropWidth = imageNaturalHeight * targetAspectRatio;
+            cropX = (imageNaturalWidth - cropWidth) / 2;
+            cropY = 0;
+        } else {
+            // Image is taller than the target aspect ratio, crop width
+            cropWidth = imageNaturalWidth;
+            cropHeight = imageNaturalWidth / targetAspectRatio;
+            cropX = 0;
+            cropY = (imageNaturalHeight - cropHeight) / 2;
+        }
+
+        return {
+            x: cropX,
+            y: cropY,
+            width: cropWidth,
+            height: cropHeight
+        };
+    }
+
+    return { show, crop, getDefaultCropData };
 };
