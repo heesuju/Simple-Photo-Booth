@@ -90,6 +90,7 @@
         border-left: none;
         border-top: 1px solid #333;
         order: 1; /* Place at the bottom */
+        flex-shrink: 0; /* Prevent the sidebar from shrinking */
     }
 
     #review-toolbar {
@@ -98,8 +99,8 @@
     }
 
     #strip-container {
-        height: 150px; /* Or whatever height you prefer */
-        min-height: 150px;
+        height: 260px;
+        min-height: 260px;
     }
 
     .strip-panel {
@@ -226,26 +227,7 @@
     transform: scale(1.03);
 }
 
-.stylize-btn {
-    position: absolute;
-    top: 50%;                
-    right: 6px;              
-    transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    padding: 6px 8px;
-    font-size: 16px;
-    line-height: 1;
-    transition: background 0.2s ease-in-out, transform 0.2s ease-in-out;
-}
 
-.stylize-btn:hover {
-    background: rgba(255, 215, 0, 0.8); /* golden highlight */
-    transform: translateY(-50%) scale(1.1); /* keep centered while enlarging */
-}
 
 #review-photos-container {
     position: absolute;

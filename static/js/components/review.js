@@ -229,9 +229,12 @@ window.eventBus.on('app:init', (appState) => {
                         appState.photoAssignments[assignmentIndex] = originalBlob;
                     }
 
-                    const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                    if (thumb) {
-                        thumb.src = URL.createObjectURL(originalBlob);
+                    const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+                    if (thumbContainer) {
+                        const thumb = thumbContainer.querySelector('.photostrip-item');
+                        if (thumb) {
+                            thumb.src = URL.createObjectURL(originalBlob);
+                        }
                     }
                 }
                 renderPreview();
@@ -241,45 +244,50 @@ window.eventBus.on('app:init', (appState) => {
 
             styles.forEach(style => {
                 const container = document.createElement('div');
-                container.className = 'style-item-container';
+                container.className = 'strip-item';
+
+                const content = document.createElement('div');
+                content.className = 'strip-item-content';
 
                 const styleItem = document.createElement('button');
                 styleItem.className = 'style-strip-item';
                 styleItem.textContent = style.name;
                 styleItem.addEventListener('click', () => applyStyle(style.prompt));
+                content.appendChild(styleItem);
 
-                const hoverButtons = document.createElement('div');
-                hoverButtons.className = 'style-item-hover-buttons';
+                const actions = document.createElement('div');
+                actions.className = 'strip-item-actions';
 
                 const editButton = document.createElement('button');
-                editButton.className = 'edit-btn';
-                editButton.textContent = 'Edit';
+                editButton.textContent = 'E';
+                editButton.title = 'Edit';
                 editButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     openEditStyleModal(style);
                 });
 
                 const removeButton = document.createElement('button');
-                removeButton.className = 'remove-btn';
-                removeButton.textContent = 'Remove';
+                removeButton.textContent = 'R';
+                removeButton.title = 'Remove';
                 removeButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     removeStyle(style.id);
                 });
 
                 const retryButton = document.createElement('button');
-                retryButton.className = 'retry-btn';
-                retryButton.textContent = 'Retry';
+                retryButton.textContent = 'R';
+                retryButton.title = 'Retry';
                 retryButton.addEventListener('click', (e) => {
                     e.stopPropagation();
                     retryStyle(style.prompt);
                 });
 
-                hoverButtons.appendChild(editButton);
-                hoverButtons.appendChild(removeButton);
-                hoverButtons.appendChild(retryButton);
-                container.appendChild(styleItem);
-                container.appendChild(hoverButtons);
+                actions.appendChild(editButton);
+                actions.appendChild(removeButton);
+                actions.appendChild(retryButton);
+
+                container.appendChild(content);
+                container.appendChild(actions);
                 styleStripPanel.appendChild(container);
             });
 
@@ -343,9 +351,12 @@ window.eventBus.on('app:init', (appState) => {
                     appState.photoAssignments[assignmentIndex] = newImageBlob;
                 }
 
-                const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumb) {
-                    thumb.src = newImageUrl;
+                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumbContainer) {
+                    const thumb = thumbContainer.querySelector('.photostrip-item');
+                    if (thumb) {
+                        thumb.src = newImageUrl;
+                    }
                 }
             } catch (error) {
                 console.error('Error during stylization:', error);
@@ -403,9 +414,12 @@ window.eventBus.on('app:init', (appState) => {
                 if (assignmentIndex !== -1) {
                     appState.photoAssignments[assignmentIndex] = newImageBlob;
                 }
-                const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumb) {
-                    thumb.src = URL.createObjectURL(newImageBlob);
+                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumbContainer) {
+                    const thumb = thumbContainer.querySelector('.photostrip-item');
+                    if (thumb) {
+                        thumb.src = URL.createObjectURL(newImageBlob);
+                    }
                 }
                 continue;
             }
@@ -445,9 +459,12 @@ window.eventBus.on('app:init', (appState) => {
                     appState.photoAssignments[assignmentIndex] = newImageBlob;
                 }
 
-                const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumb) {
-                    thumb.src = newImageUrl;
+                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumbContainer) {
+                    const thumb = thumbContainer.querySelector('.photostrip-item');
+                    if (thumb) {
+                        thumb.src = newImageUrl;
+                    }
                 }
             } catch (error) {
                 console.error('Error during stylization:', error);
@@ -1109,32 +1126,33 @@ window.eventBus.on('app:init', (appState) => {
         appState.capturedPhotos.forEach((b, i) => { 
             // Create a container for the image and button
             const itemContainer = document.createElement('div');
-            itemContainer.className = 'photostrip-item-container';
+            itemContainer.className = 'strip-item';
 
-            // Create the image element
-            const t = document.createElement('img'); 
-            t.src = URL.createObjectURL(b); 
-            t.className = 'photostrip-item'; 
-            t.draggable = false; 
-            t.addEventListener('click', (e) => handlePhotoSelection(i, e.currentTarget)); 
+            const content = document.createElement('div');
+            content.className = 'strip-item-content';
 
-            // Append the image to the container
-            itemContainer.appendChild(t);
+            const t = document.createElement('img');
+            t.src = URL.createObjectURL(b);
+            t.className = 'photostrip-item';
+            t.draggable = false;
+            t.addEventListener('click', (e) => handlePhotoSelection(i, e.currentTarget));
+            content.appendChild(t);
 
-            // Create the "Stylize" magic wand button
+            const actions = document.createElement('div');
+            actions.className = 'strip-item-actions';
+
             const stylizeButton = document.createElement('button');
-            stylizeButton.className = 'stylize-btn';
-            stylizeButton.textContent = '🪄'; // magic wand emoji
+            stylizeButton.textContent = '🪄';
             stylizeButton.title = 'Stylize Photo';
             stylizeButton.addEventListener('click', (e) => {
-                e.stopPropagation(); // prevent triggering the photo selection
-                handleStylizeButtonClick(i, t); // define this function to open a stylize/edit UI
+                e.stopPropagation();
+                handleStylizeButtonClick(i, t);
             });
+            actions.appendChild(stylizeButton);
 
-            // Append the button to the container
-            itemContainer.appendChild(stylizeButton);
+            itemContainer.appendChild(content);
+            itemContainer.appendChild(actions);
 
-            // Append the full container to the main strip
             c.appendChild(itemContainer); 
         }); 
     }
@@ -1149,7 +1167,10 @@ window.eventBus.on('app:init', (appState) => {
             c.innerHTML = ''; 
             d.forEach(t => { 
                 const itemContainer = document.createElement('div');
-                itemContainer.className = 'template-item-container';
+                itemContainer.className = 'strip-item';
+
+                const content = document.createElement('div');
+                content.className = 'strip-item-content';
 
                 const i = document.createElement('div'); 
                 i.className = 'template-item'; 
@@ -1158,26 +1179,27 @@ window.eventBus.on('app:init', (appState) => {
                 i.appendChild(m); 
                 i.addEventListener('click', () => handleTemplateChange(t));
 
-                // Highlight the currently selected template
-                // It checks the original path or the base path if it's a colored template
                 const currentBasePath = appState.templateInfo.original_path || appState.templateInfo.template_path;
-
                 if (t.template_path === currentBasePath) {
                     i.classList.add('selected');
                 }
+                content.appendChild(i);
 
-                itemContainer.appendChild(i);
+                const actions = document.createElement('div');
+                actions.className = 'strip-item-actions';
 
                 if (t.is_default) {
                     const colorButton = document.createElement('button');
-                    colorButton.className = 'color-palette-btn';
                     colorButton.textContent = '🎨';
                     colorButton.addEventListener('click', (e) => {
                         e.stopPropagation();
                         showColorPalettePanel(t);
                     });
-                    itemContainer.appendChild(colorButton);
+                    actions.appendChild(colorButton);
                 }
+
+                itemContainer.appendChild(content);
+                itemContainer.appendChild(actions);
 
                 c.appendChild(itemContainer); 
             }); 
