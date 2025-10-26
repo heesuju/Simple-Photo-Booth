@@ -1370,15 +1370,6 @@ window.eventBus.on('app:init', (appState) => {
         addButton.textContent = '+';
         addButton.addEventListener('click', () => {
             setupAndShowColorModal(async (newColor) => {
-                try {
-                    await fetch('/add_color', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ hex_code: newColor })
-                    });
-                } catch (e) {
-                    console.error("Failed to save color:", e);
-                }
                 recolorTemplateAndApply(template, newColor);
                 stripBackBtn.click();
             });
@@ -1390,7 +1381,9 @@ window.eventBus.on('app:init', (appState) => {
 
     function setupAndShowColorModal(onConfirm) {
         const modal = document.getElementById('color-picker-modal');
+        const saveColorPresetCheckbox = document.getElementById('save-color-preset');
         modal.className = 'modal-visible';
+        saveColorPresetCheckbox.checked = false; // Reset checkbox state
 
         if (!colorPicker) {
             colorPicker = new iro.ColorPicker('#color-picker-container', {
@@ -1417,8 +1410,20 @@ window.eventBus.on('app:init', (appState) => {
         const newConfirmBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
-        newConfirmBtn.addEventListener('click', () => {
+        newConfirmBtn.addEventListener('click', async () => {
             const newColor = colorPicker.color.hexString;
+            
+            if (saveColorPresetCheckbox.checked) {
+                try {
+                    await fetch('/add_color', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ hex_code: newColor })
+                    });
+                } catch (e) {
+                    console.error("Failed to save color:", e);
+                }
+            }
             onConfirm(newColor);
             modal.className = 'modal-hidden';
         });
