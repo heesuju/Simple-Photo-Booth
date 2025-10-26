@@ -29,6 +29,7 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     padding: 1rem;
+    background-color: #f8f9fa;
 }
 
 #strip-container {
@@ -36,6 +37,8 @@
     background-color: #f8f9fa;
     min-height: 0;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .strip-panel {
@@ -96,6 +99,7 @@
     #review-toolbar {
         flex-direction: row;
         padding: 0.5rem;
+        flex-shrink: 0;
     }
 
     #strip-container {
@@ -108,6 +112,7 @@
         overflow-x: auto;
         overflow-y: hidden;
         height: 100%;
+        flex-grow: 1;
     }
 
     .toolbar-btn {
@@ -311,4 +316,10 @@
     to {
         transform: rotate(360deg);
     }
+}
+
+#color-palette-panel,
+#style-strip-panel,
+#filter-preset-strip {
+    overflow: auto;
 }
