@@ -778,6 +778,8 @@ window.eventBus.on('app:init', (appState) => {
         handleTextMouseUp(e);
     });
 
+    window.addEventListener('resize', renderPreview);
+
     document.addEventListener('click', (e) => {
         if (appState.activeText.element && !appState.activeText.element.contains(e.target)) {
             const textBox = appState.activeText.element.querySelector('.editable-text');
