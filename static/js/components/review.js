@@ -33,12 +33,13 @@ window.eventBus.on('app:init', (appState) => {
     const textInputConfirmBtn = document.getElementById('text-input-confirm-btn');
     const textInputCancelBtn = document.getElementById('text-input-cancel-btn');
 
-    let colorPicker = null; // To hold the iro.js instance
     let isAddingNewStyle = false;
     let selectedStylePrompt = '';
 
     let isPanelDragging = false;
     let startY, startHeight;
+
+    const colorPicker = window.initColorPicker(appState);
     
     appState.selectedForStylizing = [];
 
@@ -1368,73 +1369,27 @@ window.eventBus.on('app:init', (appState) => {
         const addButton = document.createElement('button');
         addButton.className = 'palette-add-btn';
         addButton.textContent = '+';
-        addButton.addEventListener('click', () => {
-            setupAndShowColorModal(async (newColor) => {
-                recolorTemplateAndApply(template, newColor);
+        addButton.addEventListener('click', async () => {
+            const result = await colorPicker.show();
+            if (result) {
+                recolorTemplateAndApply(template, result.color);
                 stripBackBtn.click();
-            });
+            }
         });
         colorPanel.appendChild(addButton);
 
         colorPanel.classList.add('show');
     }
 
-    function setupAndShowColorModal(onConfirm) {
-        const modal = document.getElementById('color-picker-modal');
-        const saveColorPresetCheckbox = document.getElementById('save-color-preset');
-        modal.className = 'modal-visible';
-        saveColorPresetCheckbox.checked = false; // Reset checkbox state
+    
 
-        if (!colorPicker) {
-            colorPicker = new iro.ColorPicker('#color-picker-container', {
-                width: 250,
-                color: "#fff"
-            });
-
-            const hexInput = document.getElementById('color-hex-input');
-            colorPicker.on('color:change', function(color) {
-                hexInput.value = color.hexString;
-            });
-            hexInput.addEventListener('change', function() {
-                try {
-                    colorPicker.color.hexString = this.value;
-                } catch (e) {}
-            });
-
-            document.getElementById('color-picker-cancel-btn').addEventListener('click', () => {
-                modal.className = 'modal-hidden';
-            });
-        }
-
-        const confirmBtn = document.getElementById('color-picker-confirm-btn');
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-
-        newConfirmBtn.addEventListener('click', async () => {
-            const newColor = colorPicker.color.hexString;
-            
-            if (saveColorPresetCheckbox.checked) {
-                try {
-                    await fetch('/add_color', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ hex_code: newColor })
-                    });
-                } catch (e) {
-                    console.error("Failed to save color:", e);
-                }
-            }
-            onConfirm(newColor);
-            modal.className = 'modal-hidden';
-        });
-    }
-
-    function openTextColorPicker() {
+    async function openTextColorPicker() {
         if (!appState.activeText.data) return;
-        setupAndShowColorModal((newColor) => {
-            appState.activeText.data.color = newColor;
+        const result = await colorPicker.show(appState.activeText.data.color);
+        if (result) {
+            appState.activeText.data.color = result.color;
             renderPlacedTexts();
-        });
+        }
     }
 
     function renderPreview() { 
