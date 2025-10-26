@@ -149,10 +149,7 @@ window.initTextEdit = function(appState, colorPicker) {
             };
 
             const keydownHandler = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    confirmHandler();
-                } else if (e.key === 'Escape') {
+                if (e.key === 'Escape') {
                     cancelHandler();
                 }
             };
