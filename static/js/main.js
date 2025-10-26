@@ -18,7 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'result-screen', url: '/static/components/result_screen.html', css: '/static/css/result_screen.css' },
             { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' },
             { id: 'crop-modal-container', url: '/static/components/shared/crop_modal.html' },
-            { id: 'color-picker-modal-container', url: '/static/components/shared/color_picker_modal.html' }
+            { id: 'color-picker-modal-container', url: '/static/components/shared/color_picker_modal.html' },
+            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit_modal.html' }
         ];
 
         for (const component of components) {

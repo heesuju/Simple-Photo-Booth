@@ -1,0 +1,110 @@
+/* --- Text Input Modal --- */
+#text-input-modal .modal-content {
+    width: 90vw;
+    max-width: 500px;
+    background: #111;
+    color: #fff;
+    border-radius: 10px;
+}
+
+.text-controls-container {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 1rem;
+    gap: 1rem;
+}
+
+#text-input-field {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    padding: 0.5rem;
+    box-sizing: border-box;
+}
+
+#text-preview {
+    min-height: 50px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+    color: #333;
+    font-size: 24px;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.font-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+#text-font-select {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    flex-grow: 1;
+}
+
+.color-palette-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.side-scrolling-palette {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 0.5rem;
+    padding-bottom: 8px; /* For scrollbar */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#text-input-modal .palette-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+}
+
+#text-input-modal .palette-swatch.selected {
+    border-color: #007bff;
+}
+
+.text-justification-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.justification-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.justification-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.justification-btn.selected {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
