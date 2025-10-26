@@ -140,4 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initApp();
+
+    window.addEventListener('beforeunload', function (e) {
+        // Modern browsers ignore custom messages
+        e.preventDefault();
+        e.returnValue = ''; // Shows the default confirmation dialog
+    });
 });
