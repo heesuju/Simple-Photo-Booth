@@ -947,6 +947,24 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compose image: {e}")
 
+@app.get("/recent_results")
+async def get_recent_results():
+    results_files = []
+    for filename in os.listdir(RESULTS_DIR):
+        if filename.endswith(".png") and 'qr' not in filename:
+            file_path = os.path.join(RESULTS_DIR, filename)
+            if os.path.isfile(file_path):
+                mod_time = os.path.getmtime(file_path)
+                results_files.append({"path": f"/{file_path}", "mod_time": mod_time})
+    
+    # Sort by modification time, newest first
+    results_files.sort(key=lambda x: x["mod_time"], reverse=True)
+    
+    # Get the most recent 5 files
+    recent_five = [file["path"] for file in results_files[:5]]
+    
+    return JSONResponse(content=recent_five)
+
 @app.post("/upload_video_chunk")
 async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
     try:

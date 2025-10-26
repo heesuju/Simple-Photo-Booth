@@ -58,16 +58,17 @@
     background: white;
     top: 28px;
     border: 3px solid #ddd;
+    border-color: black;
     border-radius: 8px;
     box-shadow: 0 8px 15px rgba(0,0,0,0.15);
     overflow: hidden;
     transform-origin: top center;
-    max-width: 120px; /* smaller photos for two rows */
+    max-width: auto;
 }
 
 .photo-frame img {
-    width: 100%;
-    height: auto;
+    width: auto;
+    height: 300px;
     object-fit: contain;
     display: block;
     user-select: none;

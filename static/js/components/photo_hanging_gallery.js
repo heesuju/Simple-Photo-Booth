@@ -1,15 +1,18 @@
-window.eventBus.on('app:init', (appState) => {
+window.eventBus.on('app:init', async (appState) => {
     const galleryContainer = document.getElementById('photo-gallery');
     if (!galleryContainer) return;
 
-    const imageList = [
-        '/static/results/3ded0d48-92db-43bb-851c-c19ff6bdbff6.png',
-        '/static/results/1ea58747-88cf-4f4c-8fb5-a03c498e7b8e.png',
-        '/static/results/3ded0d48-92db-43bb-851c-c19ff6bdbff6.png',
-        '/static/results/1ea58747-88cf-4f4c-8fb5-a03c498e7b8e.png',
-        '/static/results/3ded0d48-92db-43bb-851c-c19ff6bdbff6.png'
-        // add more if you want, but max 5 for one line
-    ];
+    let imageList = [];
+    try {
+        const response = await fetch('/recent_results');
+        if (response.ok) {
+            imageList = await response.json();
+        } else {
+            console.error('Failed to fetch recent results:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error fetching recent results:', error);
+    }
 
     const maxItems = 5; // limit number of items to display
     const photosToRender = imageList.slice(0, maxItems);
