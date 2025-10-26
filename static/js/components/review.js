@@ -5,10 +5,7 @@ window.eventBus.on('app:init', (appState) => {
     const filterControls = document.getElementById('filter-controls');
     const stickerUploadInput = document.getElementById('sticker-upload-input');
     const reviewToolbar = document.getElementById('review-toolbar');
-    const reviewPanel = document.getElementById('review-panel');
-    const panelSelector = document.getElementById('panel-selector');
-    const panelHandle = document.getElementById('panel-handle');
-    const panelContent = document.getElementById('review-panel-content');
+
     const stripContainer = document.getElementById('strip-container');
     const stripBackBtn = document.getElementById('strip-back-btn');
     let panelHistory = [];
@@ -59,57 +56,7 @@ window.eventBus.on('app:init', (appState) => {
         retakeBtn.style.display = 'none';
     });
 
-    panelSelector.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('panel-selector-btn')) {
-            const panelType = e.target.dataset.panel;
-            const currentActiveBtn = panelSelector.querySelector('.active');
 
-            if (currentActiveBtn) {
-                currentActiveBtn.classList.remove('active');
-            }
-            e.target.classList.add('active');
-
-            panelContent.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
-            const targetPanel = panelContent.querySelector(`.panel-section[data-panel="${panelType}"]`);
-            if (targetPanel) {
-                targetPanel.classList.add('active');
-            }
-
-            addFontBtn.style.display = panelType === 'text' ? 'block' : 'none';
-
-            if (panelType === 'text') {
-                textEdit.show(null).then(result => {
-                    if (result) {
-                        const { scale, renderedWidth } = getPreviewScaling();
-                        if (scale === 1) return;
-
-                        const templateNaturalWidth = renderedWidth / scale;
-                        const textNaturalWidth = templateNaturalWidth * 0.6;
-                        const template = document.querySelector('#review-preview .preview-template-img');
-                        const imageNaturalWidth = template.naturalWidth;
-                        const imageNaturalHeight = template.naturalHeight;
-                        const imageX = (imageNaturalWidth - textNaturalWidth) / 2;
-                        const imageY = (imageNaturalHeight - 50) / 2;
-
-                        appState.placedTexts.push({
-                            id: Date.now(),
-                            text: result.text,
-                            font: result.font,
-                            color: result.color,
-                            x: Math.round(imageX),
-                            y: Math.round(imageY),
-                            width: Math.round(textNaturalWidth),
-                            height: 50,
-                            rotation: 0,
-                            fontSize: 40,
-                            justify: result.justify
-                        });
-                        renderPlacedTexts();
-                    }
-                });
-            }
-        }
-    });
 
     addFontBtn.addEventListener('click', () => {
         fontUploadInput.click();
@@ -560,10 +507,8 @@ window.eventBus.on('app:init', (appState) => {
             // If clicking the same button, close its panel and clear selections
             if (currentActiveBtn === e.target) {
                 e.target.classList.remove('active');
-                reviewPanel.classList.remove('show');
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
                 sidebar.classList.remove('strip-active');
-                reviewPanel.style.height = '50vh'; // Reset height
                 clearSelections();
                 stripBackBtn.style.display = 'none';
                 panelHistory = [];
@@ -578,43 +523,29 @@ window.eventBus.on('app:init', (appState) => {
                 panelHistory.push(currentOpenPanel.dataset.panel);
             }
 
-
             // Deactivate current active button and all panels
             if (currentActiveBtn) {
                 currentActiveBtn.classList.remove('active');
             }
-            reviewPanel.classList.remove('show');
             stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
             sidebar.classList.remove('strip-active');
 
             // Activate the new button and its corresponding panel
             e.target.classList.add('active');
 
-            if (panelType === 'photos' || panelType === 'templates' || panelType === 'filters' || panelType === 'colors' || panelType === 'styles') {
-                const targetStrip = stripContainer.querySelector(`.strip-panel[data-panel="${panelType}"]`);
-                if (targetStrip) {
-                    targetStrip.classList.add('show');
-                    sidebar.classList.add('strip-active');
-                    stripBackBtn.style.display = 'block';
-                }
-                if (panelType === 'filters') {
-                    loadFilterPresets();
-                    addPresetBtn.style.display = 'block';
-                } else {
-                    addPresetBtn.style.display = 'none';
-                }
-            } else {
-                const targetPanel = panelContent.querySelector(`.panel-section[data-panel="${panelType}"]`);
-                panelContent.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
-                if (targetPanel) {
-                    targetPanel.classList.add('active');
-                }
-                reviewPanel.classList.add('show');
-                addPresetBtn.style.display = 'none';
-                stripBackBtn.style.display = 'none';
-                panelHistory = [];
+            const targetStrip = stripContainer.querySelector(`.strip-panel[data-panel="${panelType}"]`);
+            if (targetStrip) {
+                targetStrip.classList.add('show');
+                sidebar.classList.add('strip-active');
+                stripBackBtn.style.display = 'block';
             }
-        }
+
+            if (panelType === 'filters') {
+                loadFilterPresets();
+                addPresetBtn.style.display = 'block';
+            } else {
+                addPresetBtn.style.display = 'none';
+            }        }
     });
 
     stripBackBtn.addEventListener('click', () => {
@@ -744,14 +675,17 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     reviewScreenContainer.addEventListener('click', (e) => {
-        if (reviewPanel.classList.contains('show')) {
-            if (!reviewPanel.contains(e.target) && !reviewToolbar.contains(e.target)) {
-                reviewPanel.classList.remove('show');
+        const sidebar = document.getElementById('review-sidebar');
+        if (sidebar.classList.contains('strip-active')) {
+            if (!stripContainer.contains(e.target) && !reviewToolbar.contains(e.target)) {
+                stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
+                sidebar.classList.remove('strip-active');
                 const currentActiveBtn = reviewToolbar.querySelector('.active');
                 if (currentActiveBtn) {
                     currentActiveBtn.classList.remove('active');
                 }
-                reviewPanel.style.height = '50vh'; // Reset height
+                stripBackBtn.style.display = 'none';
+                panelHistory = [];
             }
         }
     });
@@ -781,58 +715,16 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    panelHandle.addEventListener('mousedown', (e) => {
-        isPanelDragging = true;
-        startY = e.clientY;
-        startHeight = reviewPanel.offsetHeight;
-        reviewPanel.style.transition = 'none'; // Disable transition during drag
-    });
 
-    panelHandle.addEventListener('click', (e) => {
-        if (isPanelDragging) return; // Don't fire click during drag
-
-        if (reviewPanel.classList.contains('show')) {
-            if (reviewPanel.offsetHeight > window.innerHeight * 0.7) {
-                reviewPanel.style.height = '50vh';
-            } else {
-                reviewPanel.style.height = '80vh';
-            }
-        }
-    });
 
     stickerUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_sticker', loadStickerGallery));
 
     window.addEventListener('mousemove', (e) => {
-        if (isPanelDragging) {
-            const deltaY = startY - e.clientY;
-            let newHeight = startHeight + deltaY;
-            const maxHeight = window.innerHeight * 0.9;
-            const closeThreshold = window.innerHeight * 0.2;
-
-            if (newHeight < closeThreshold) {
-                reviewPanel.classList.remove('show');
-                const currentActiveBtn = reviewToolbar.querySelector('.active');
-                if (currentActiveBtn) {
-                    currentActiveBtn.classList.remove('active');
-                }
-                isPanelDragging = false;
-                reviewPanel.style.height = '50vh'; // Reset to default height
-                return;
-            }
-
-            if (newHeight > maxHeight) newHeight = maxHeight;
-            reviewPanel.style.height = `${newHeight}px`;
-        } else {
-            handleStickerMove(e);
-            handleTextMove(e);
-        }
+        handleStickerMove(e);
+        handleTextMove(e);
     });
 
     window.addEventListener('mouseup', (e) => {
-        if (isPanelDragging) {
-            isPanelDragging = false;
-            reviewPanel.style.transition = 'bottom 0.3s ease-in-out, height 0.3s ease-in-out'; // Re-enable transition
-        }
         handleStickerMouseUp(e);
         handleTextMouseUp(e);
     });
