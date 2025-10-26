@@ -750,12 +750,22 @@ def draw_texts(image, texts_data, db_manager):
         font_size = int(text_info.get('fontSize', 40))
         x = int(text_info.get('x', 0))
         y = int(text_info.get('y', 0))
+        justify = text_info.get('justify', 'left') # Get justification
         
         try:
             font = ImageFont.truetype(font_path, font_size)
         except IOError:
             print(f"Failed to load font '{font_path}'. Skipping text.")
             continue
+
+        # Calculate text width for justification
+        bbox = draw.textbbox((0, 0), text, font=font) # Get bounding box
+        text_width = bbox[2] - bbox[0]
+
+        if justify == 'center':
+            x = x + (text_info.get('width', text_width) - text_width) // 2
+        elif justify == 'right':
+            x = x + (text_info.get('width', text_width) - text_width)
 
         draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))
 
@@ -1031,6 +1041,7 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
                 font_size = int(text_info.get('fontSize', 40))
                 pos_x = int(text_info.get('x', 0))
                 pos_y = int(text_info.get('y', 0))
+                justify = text_info.get('justify', 'left') # Get justification
 
                 # Create a transparent image with the text
                 try:
@@ -1043,6 +1054,12 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
                 bbox = font.getbbox(text)
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
+
+                # Adjust pos_x based on justification
+                if justify == 'center':
+                    pos_x = pos_x + (text_info.get('width', text_width) - text_width) // 2
+                elif justify == 'right':
+                    pos_x = pos_x + (text_info.get('width', text_width) - text_width)
 
                 # Create a transparent image to draw the text on
                 text_img = Image.new('RGBA', (text_width, text_height), (255, 255, 255, 0))

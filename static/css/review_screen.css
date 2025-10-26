@@ -372,3 +372,30 @@
 #text-input-modal .palette-swatch.selected {
     border-color: #007bff;
 }
+
+.text-justification-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.justification-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.justification-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.justification-btn.selected {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}

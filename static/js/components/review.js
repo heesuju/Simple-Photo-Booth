@@ -898,9 +898,11 @@ window.eventBus.on('app:init', (appState) => {
     function showTextInputModal(existingTextData) {
         const fontSelect = document.getElementById('text-font-select');
         const colorPalette = document.getElementById('text-color-palette');
+        const justificationButtons = document.querySelectorAll('.justification-btn');
 
         let selectedFont = existingTextData ? existingTextData.font : null;
         let selectedColor = existingTextData ? existingTextData.color : '#000000';
+        let selectedJustification = existingTextData ? existingTextData.justify : 'left';
 
         textInputModal.className = 'modal-visible';
         textInputField.value = existingTextData ? existingTextData.text : '텍스트 입력';
@@ -955,6 +957,19 @@ window.eventBus.on('app:init', (appState) => {
             });
         });
 
+        // 3. Setup Justification Buttons
+        justificationButtons.forEach(button => {
+            button.classList.remove('selected');
+            if (button.dataset.justify === selectedJustification) {
+                button.classList.add('selected');
+            }
+            button.addEventListener('click', () => {
+                selectedJustification = button.dataset.justify;
+                justificationButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+        });
+
         const confirmHandler = () => {
             const newText = textInputField.value;
             selectedFont = fontSelect.value; // Get latest value on confirm
@@ -963,6 +978,7 @@ window.eventBus.on('app:init', (appState) => {
                 existingTextData.text = newText;
                 existingTextData.font = selectedFont;
                 existingTextData.color = selectedColor;
+                existingTextData.justify = selectedJustification;
             } else {
                 const { scale, renderedWidth } = getPreviewScaling();
                 if (scale === 1) return;
@@ -985,7 +1001,8 @@ window.eventBus.on('app:init', (appState) => {
                     width: Math.round(textNaturalWidth),
                     height: 50,
                     rotation: 0,
-                    fontSize: 40
+                    fontSize: 40,
+                    justify: selectedJustification
                 });
             }
             renderPlacedTexts();
@@ -1010,6 +1027,13 @@ window.eventBus.on('app:init', (appState) => {
             textInputConfirmBtn.removeEventListener('click', confirmHandler);
             textInputCancelBtn.removeEventListener('click', cancelHandler);
             textInputField.removeEventListener('keydown', keydownHandler);
+            justificationButtons.forEach(button => { // Clean up event listeners
+                button.removeEventListener('click', () => {
+                    selectedJustification = button.dataset.justify;
+                    justificationButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                });
+            });
         };
 
         textInputConfirmBtn.addEventListener('click', confirmHandler);
@@ -1045,6 +1069,7 @@ window.eventBus.on('app:init', (appState) => {
             i.style.color = d.color || '#000000';
             i.innerHTML = d.text.replace(/\n/g, '<br>');
             i.style.whiteSpace = 'pre-wrap';
+            i.style.textAlign = d.justify; // Apply justification
 
             w.style.height = 'auto';
             d.height = i.offsetHeight / scale;
