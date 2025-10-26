@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Loads the HTML for each component into the main index.html file
     async function loadHtmlComponents() {
         const components = [
+            { id: 'photo-hanging-gallery', url: '/static/components/photo_hanging_gallery.html', css: '/static/css/photo_hanging_gallery.css' },
             { id: 'main-menu', url: '/static/components/main_menu.html', css: '/static/css/main_menu.css' },
             { id: 'app-content', url: '/static/components/photo_taking_screen.html', css: '/static/css/photo_taking_screen.css' },
             { id: 'review-screen', url: '/static/components/review_screen.html', css: '/static/css/review_screen.css' },
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dynamically loads all the component JavaScript files
     async function loadJsComponents() {
         const scripts = [
+            '/static/js/components/photo_hanging_gallery.js',
             '/static/js/components/shared.js',
             '/static/js/components/main_menu.js',
             '/static/js/components/photo_taking.js',
@@ -99,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handles showing and hiding the different application screens
     window.eventBus.on('screen:show', (screenId) => {
-        ['main-menu', 'app-content', 'review-screen', 'result-screen', 'template-edit-screen'].forEach(id => {
+        ['main-menu', 'app-content', 'review-screen', 'result-screen', 'template-edit-screen', 'photo-hanging-gallery'].forEach(id => {
             const screenElement = document.getElementById(id);
             if (screenElement) {
                 screenElement.style.display = 'none';
