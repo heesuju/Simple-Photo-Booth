@@ -495,6 +495,10 @@ window.eventBus.on('app:init', (appState) => {
     reviewToolbar.addEventListener('click', (e) => {
         if (e.target.classList.contains('toolbar-btn')) {
             const panelType = e.target.dataset.panel;
+            if (panelType === 'add-text') {
+                showTextInputModal(null);
+                return;
+            }
             const currentActiveBtn = reviewToolbar.querySelector('.active');
             const sidebar = document.getElementById('review-sidebar');
 
@@ -891,51 +895,91 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    function showTextInputModal(existingTextData, font) {
+    function showTextInputModal(existingTextData) {
+        const fontSelect = document.getElementById('text-font-select');
+        const colorPalette = document.getElementById('text-color-palette');
+
+        let selectedFont = existingTextData ? existingTextData.font : null;
+        let selectedColor = existingTextData ? existingTextData.color : '#000000';
+
         textInputModal.className = 'modal-visible';
         textInputField.value = existingTextData ? existingTextData.text : '텍스트 입력';
         textInputField.focus();
 
-        const confirmHandler = async () => {
+        // 1. Populate Fonts
+        fontSelect.innerHTML = '';
+        fetch('/fonts').then(r => r.json()).then(fonts => {
+            if (fonts.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = 'No fonts available';
+                fontSelect.appendChild(option);
+                return;
+            }
+
+            fonts.forEach(font => {
+                const option = document.createElement('option');
+                option.value = font.font_name;
+                option.textContent = font.font_name;
+                option.style.fontFamily = font.font_name;
+                fontSelect.appendChild(option);
+            });
+
+            if (selectedFont) {
+                fontSelect.value = selectedFont;
+            } else {
+                selectedFont = fonts[0].font_name;
+                fontSelect.value = selectedFont;
+            }
+        });
+
+        // 2. Populate Colors
+        colorPalette.innerHTML = '';
+        fetch('/colors').then(r => r.json()).then(colors => {
+            colors.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'palette-swatch';
+                swatch.style.backgroundColor = color.hex_code;
+                if (color.hex_code.toLowerCase() === selectedColor.toLowerCase()) {
+                    swatch.classList.add('selected');
+                }
+                swatch.addEventListener('click', () => {
+                    selectedColor = color.hex_code;
+                    // Update selection UI
+                    const currentSelected = colorPalette.querySelector('.selected');
+                    if (currentSelected) {
+                        currentSelected.classList.remove('selected');
+                    }
+                    swatch.classList.add('selected');
+                });
+                colorPalette.appendChild(swatch);
+            });
+        });
+
+        const confirmHandler = () => {
             const newText = textInputField.value;
+            selectedFont = fontSelect.value; // Get latest value on confirm
+
             if (existingTextData) {
                 existingTextData.text = newText;
+                existingTextData.font = selectedFont;
+                existingTextData.color = selectedColor;
             } else {
-                let selectedFont = font;
-                if (!selectedFont) {
-                    try {
-                        const r = await fetch('/fonts');
-                        const d = await r.json();
-                        if (d.length > 0) {
-                            selectedFont = d[0];
-                        } else {
-                            alert('No fonts available. Please upload a font.');
-                            return;
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        return;
-                    }
-                }
-
                 const { scale, renderedWidth } = getPreviewScaling();
-                const templateNaturalWidth = renderedWidth / scale;
                 if (scale === 1) return;
 
+                const templateNaturalWidth = renderedWidth / scale;
                 const textNaturalWidth = templateNaturalWidth * 0.6;
-
                 const template = document.querySelector('#review-preview .preview-template-img');
                 const imageNaturalWidth = template.naturalWidth;
                 const imageNaturalHeight = template.naturalHeight;
-
                 const imageX = (imageNaturalWidth - textNaturalWidth) / 2;
                 const imageY = (imageNaturalHeight - 50) / 2;
 
                 appState.placedTexts.push({
                     id: Date.now(),
                     text: newText,
-                    font: selectedFont.font_name,
-                    color: '#000000',
+                    font: selectedFont,
+                    color: selectedColor,
                     x: Math.round(imageX),
                     y: Math.round(imageY),
                     width: Math.round(textNaturalWidth),

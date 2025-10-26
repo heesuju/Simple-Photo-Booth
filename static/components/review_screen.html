@@ -12,6 +12,7 @@
             <button class="toolbar-btn" data-panel="templates">템플릿</button>
             <button class="toolbar-btn" data-panel="stickers">스티커</button>
             <button class="toolbar-btn" data-panel="filters">필터</button>
+            <button class="toolbar-btn" data-panel="add-text">텍스트</button>
         </div>
         <div id="strip-container">
             <button id="strip-back-btn" class="strip-back-btn" style="display: none;">&lt;</button>
@@ -151,6 +152,16 @@
         <div class="modal-content">
             <h3>텍스트 입력</h3>
             <textarea id="text-input-field" placeholder="텍스트를 입력하세요..."></textarea>
+            <div class="text-controls-container">
+                <div class="font-selector-container">
+                    <label for="text-font-select">폰트:</label>
+                    <select id="text-font-select"></select>
+                </div>
+                <div class="color-palette-container">
+                    <label>색상:</label>
+                    <div id="text-color-palette" class="side-scrolling-palette"></div>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button id="text-input-confirm-btn">확인</button>
                 <button id="text-input-cancel-btn">취소</button>
