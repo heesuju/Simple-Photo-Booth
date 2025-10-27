@@ -134,34 +134,55 @@ window.eventBus.on('app:init', (appState) => {
     downloadVideoBtn.onclick = async () => {
       try {
         downloadVideoBtn.disabled = true;
-        downloadVideoBtn.textContent = cachedVideoResult ? '다운로드 중...' : '비디오 생성 중...';
+        downloadVideoBtn.textContent = cachedVideoResult
+          ? '다운로드 중...'
+          : '비디오 생성 중...';
 
         let videoResult = cachedVideoResult;
 
+        // Small delay to ensure any file writes have completed
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
         if (!videoResult) {
           const d = new FormData();
+
+          // Template
           if (appState.templateInfo.colored_template_path) {
             const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
             d.append('template_file', blob, 'template.png');
           } else {
             d.append('template_path', appState.templateInfo.template_path);
           }
+
+          // Metadata
           d.append('holes', JSON.stringify(appState.templateInfo.holes));
           d.append('stickers', JSON.stringify(appState.placedStickers));
           d.append('texts', JSON.stringify(appState.placedTexts));
           d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
-          data.videos.forEach((video_path) => d.append('video_paths', video_path));
 
+          // Videos
+          for (const video_path of data.videos) {
+            // Ensure the file exists and has finished uploading
+            if (!video_path) continue;
+            d.append('video_paths', video_path);
+          }
+
+          // Call API
           const r = await fetch('/compose_video', { method: 'POST', body: d });
-          if (!r.ok) throw new Error((await r.json()).detail);
+          if (!r.ok) {
+            const errData = await r.json();
+            throw new Error(errData.detail || '서버 오류');
+          }
+
           videoResult = await r.json();
           cachedVideoResult = videoResult;
         }
 
-        // Only show video, hide image
+        // Show video
         resultDisplay.style.display = 'none';
         videoDisplay.style.display = 'flex';
         videoDisplay.innerHTML = '';
+
         const video = document.createElement('video');
         video.src = videoResult.result_path;
         video.controls = true;
@@ -170,19 +191,20 @@ window.eventBus.on('app:init', (appState) => {
 
         showQr('video');
 
+        // Auto download
         const a = document.createElement('a');
         a.href = videoResult.result_path;
         a.download = 'photobooth_video.mp4';
         a.click();
-
       } catch (err) {
         console.error(err);
-        alert('비디오 생성/다운로드에 실패했습니다.');
+        alert(`비디오 생성/다운로드에 실패했습니다.\n\n오류: ${err.message}`);
       } finally {
         downloadVideoBtn.disabled = false;
         downloadVideoBtn.textContent = '비디오 다운로드';
       }
     };
+
 
     // --- ORIGINAL DOWNLOAD ---
     downloadOriginalBtn.onclick = async () => {
@@ -264,11 +286,13 @@ window.eventBus.on('app:init', (appState) => {
 
     // --- CONTINUE EDITING ---
     continueEditingBtn.onclick = () => {
+      cachedVideoResult = null;
       window.eventBus.dispatch('review:edit-existing');
     };
 
     // --- GO MAIN MENU ---
     goHomeBtn.onclick = () => {
+      cachedVideoResult = null;
       window.eventBus.dispatch('review:home');
     };
   }

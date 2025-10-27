@@ -33,6 +33,26 @@ load_dotenv()
 
 VIDEOS_DIR = "static/videos"
 
+from PIL import Image
+
+def load_image_with_premultiplied_alpha(path, resize_to=None, rotate_deg=0):
+    img = Image.open(path).convert("RGBA")
+
+    # Optional high-quality resize (ensure ints)
+    if resize_to is not None:
+        resize_to = (int(resize_to[0]), int(resize_to[1]))
+        img = img.resize(resize_to, Image.LANCZOS)
+
+    # Optional rotation with anti-aliasing
+    if rotate_deg != 0:
+        img = img.rotate(rotate_deg, resample=Image.BICUBIC, expand=True)
+
+    np_img = np.array(img).astype(float)
+    alpha = np_img[..., 3:4] / 255.0
+    np_img[..., :3] *= alpha
+    np_img = np_img.astype(np.uint8)
+    return np_img
+
 def gcd(a, b):
     while b:
         a, b = b, a % b
@@ -984,105 +1004,181 @@ async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
         return JSONResponse(content={"video_path": f"/{file_path}"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload video chunk: {e}")
-
 @app.post("/compose_video")
-async def compose_video(request: Request, holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), texts: str = Form(None), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
+async def compose_video(
+    request: Request,
+    holes: str = Form(...),
+    video_paths: List[str] = Form(...),
+    stickers: str = Form(...),
+    texts: str = Form(None),
+    transformations: str = Form(...),
+    template_path: str = Form(None),
+    template_file: UploadFile = File(None)
+):
     try:
+        import subprocess
+
+        # --- Handle template file or path ---
         if template_file:
             temp_filename = f"{uuid.uuid4()}.png"
             base_template_path = os.path.join(UPLOAD_DIR, temp_filename)
-            async with aiofiles.open(base_template_path, 'wb') as out_file:
+            async with aiofiles.open(base_template_path, "wb") as out_file:
                 content = await template_file.read()
                 await out_file.write(content)
         elif template_path:
-            base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
+            base_template_path = os.path.join(os.getcwd(), template_path.lstrip("/"))
         else:
             raise HTTPException(status_code=400, detail="No template provided.")
 
+        # --- Parse form data ---
         hole_data = json.loads(holes)
         sticker_data = json.loads(stickers)
         transform_data = json.loads(transformations)
 
-        clips = [mpe.VideoFileClip(os.path.join(os.getcwd(), path.lstrip('/'))) for path in video_paths]
+        def fix_webm_metadata(input_path):
+            """Repair or transcode broken WebM files so MoviePy can read them."""
+            if not input_path.lower().endswith(".webm"):
+                return input_path
+
+            fixed_copy = input_path.replace(".webm", "_fixed.webm")
+            fixed_mp4 = input_path.replace(".webm", "_fixed.mp4")
+
+            # Step 1: try fast lossless rewrap
+            cmd_copy = f'ffmpeg -y -i "{input_path}" -c copy -movflags +faststart "{fixed_copy}"'
+            result = subprocess.run(cmd_copy, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0 and os.path.exists(fixed_copy):
+                return fixed_copy
+
+            # Step 2: fallback to mp4 transcode (slower but reliable)
+            cmd_transcode = f'ffmpeg -y -i "{input_path}" -c:v libx264 -preset ultrafast -pix_fmt yuv420p "{fixed_mp4}"'
+            subprocess.run(cmd_transcode, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return fixed_mp4 if os.path.exists(fixed_mp4) else input_path
+
+        def validate_video(path):
+            """Validate with ffprobe."""
+            cmd = [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                path,
+            ]
+            try:
+                subprocess.run(cmd, capture_output=True, text=True, check=True)
+            except subprocess.CalledProcessError:
+                # If validation fails, try to repair once
+                repaired = fix_webm_metadata(path)
+                # Retry validation silently
+                try:
+                    subprocess.run(cmd, capture_output=True, text=True, check=True)
+                    return repaired
+                except subprocess.CalledProcessError:
+                    raise HTTPException(status_code=400, detail=f"Invalid or corrupted video file: {path}")
+            return path
+
+        # --- Load and validate video clips ---
+        clips = []
+        for path in video_paths:
+            full_path = os.path.join(os.getcwd(), path.lstrip("/"))
+            full_path = fix_webm_metadata(full_path)  # ensure reindexed
+            full_path = validate_video(full_path)
+            clips.append(mpe.VideoFileClip(full_path))
+
         min_duration = min(clip.duration for clip in clips)
         clips = [clip.subclip(clip.duration - min_duration) for clip in clips]
 
-        template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
-        height, width, _ = template_img.shape
-        background_clip = mpe.ColorClip(size=(width, height), color=(0,0,0), duration=min_duration)
+        # --- Template prep ---
+        template_np = load_image_with_premultiplied_alpha(base_template_path)
+        height, width, _ = template_np.shape
+        background_clip = mpe.ColorClip(size=(width, height), color=(0, 0, 0), duration=min_duration)
 
+        # --- Place videos ---
         video_clips = []
         for i, clip in enumerate(clips):
             hole = hole_data[i]
             transform = transform_data[i]
-
-            scale = transform.get('scale', 1)
-            rotation = -transform.get('rotation', 0)
-            new_w = int(hole['w'] * scale)
-            new_h = int(hole['h'] * scale)
+            scale = transform.get("scale", 1)
+            rotation = -transform.get("rotation", 0)
+            new_w = int(hole["w"] * scale)
+            new_h = int(hole["h"] * scale)
 
             resized_clip = clip.resize((new_w, new_h)).rotate(rotation)
-            pos_x = hole['x'] + (hole['w'] - resized_clip.w) // 2
-            pos_y = hole['y'] + (hole['h'] - resized_clip.h) // 2
-
+            pos_x = hole["x"] + (hole["w"] - resized_clip.w) // 2
+            pos_y = hole["y"] + (hole["h"] - resized_clip.h) // 2
             video_clips.append(resized_clip.set_position((pos_x, pos_y)).set_duration(min_duration))
 
-        template_clip = mpe.ImageClip(base_template_path, transparent=True).set_duration(min_duration)
+        # --- Template overlay ---
+        template_clip = mpe.ImageClip(template_np, transparent=True).set_duration(min_duration)
 
+        # --- Stickers (anti-aliased) ---
         sticker_clips = []
         for sticker in sticker_data:
-            sticker_path = os.path.join(os.getcwd(), sticker['path'].lstrip('/'))
-            sticker_img = mpe.ImageClip(sticker_path, transparent=True).set_duration(min_duration)
-            sticker_img = sticker_img.resize((sticker['width'], sticker['height'])).rotate(-sticker.get('rotation', 0))
-            sticker_clips.append(sticker_img.set_position((sticker['x'], sticker['y'])))
+            sticker_path = os.path.join(os.getcwd(), sticker["path"].lstrip("/"))
+            resize_size = (sticker["width"], sticker["height"])
+            rotation = -float(sticker.get("rotation", 0))
 
+            sticker_np = load_image_with_premultiplied_alpha(
+                sticker_path,
+                resize_to=resize_size,
+                rotate_deg=rotation
+            )
+
+            sticker_clip = (
+                mpe.ImageClip(sticker_np, transparent=True)
+                .set_duration(min_duration)
+                .set_position((int(sticker["x"]), int(sticker["y"])))
+            )
+            sticker_clips.append(sticker_clip)
+
+
+        # --- Text rendering ---
         text_clips = []
         if texts:
             texts_data = json.loads(texts)
             db_manager = request.app.state.db_manager
             for text_info in texts_data:
-                font_name = text_info.get('font')
+                font_name = text_info.get("font")
                 font_info = db_manager.get_font_by_name(font_name)
                 if not font_info:
                     continue
-                font_path = os.path.join(os.getcwd(), font_info['font_path'].lstrip('/'))
+                font_path = os.path.join(os.getcwd(), font_info["font_path"].lstrip("/"))
                 if not os.path.exists(font_path):
                     continue
-                
-                text = text_info.get('text', '')
-                font_size = int(text_info.get('fontSize', 40))
-                pos_x = int(text_info.get('x', 0))
-                pos_y = int(text_info.get('y', 0))
-                justify = text_info.get('justify', 'left')
 
-                try:
-                    font = ImageFont.truetype(font_path, font_size)
-                except IOError:
-                    continue
+                text = text_info.get("text", "")
+                font_size = int(text_info.get("fontSize", 40))
+                pos_x = int(text_info.get("x", 0))
+                pos_y = int(text_info.get("y", 0))
+                justify = text_info.get("justify", "left")
 
+                font = ImageFont.truetype(font_path, font_size)
                 bbox = font.getbbox(text)
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
 
-                if justify == 'center':
-                    pos_x = pos_x + (text_info.get('width', text_width) - text_width) // 2
-                elif justify == 'right':
-                    pos_x = pos_x + (text_info.get('width', text_width) - text_width)
+                if justify == "center":
+                    pos_x += (text_info.get("width", text_width) - text_width) // 2
+                elif justify == "right":
+                    pos_x += (text_info.get("width", text_width) - text_width)
 
-                text_img = Image.new('RGBA', (text_width, text_height), (255, 255, 255, 0))
+                text_img = Image.new("RGBA", (text_width, text_height), (255, 255, 255, 0))
                 draw = ImageDraw.Draw(text_img)
                 draw.text((0, 0), text, font=font, fill=(0, 0, 0, 255))
                 text_np = np.array(text_img)
-                text_clip = mpe.ImageClip(text_np).set_duration(min_duration)
-                text_clip = text_clip.set_position((pos_x, pos_y))
+                text_clip = mpe.ImageClip(text_np).set_duration(min_duration).set_position((pos_x, pos_y))
                 text_clips.append(text_clip)
 
-        final_clip = mpe.CompositeVideoClip([background_clip] + video_clips + [template_clip] + sticker_clips + text_clips, size=(width, height))
+        # --- Combine all layers ---
+        final_clip = mpe.CompositeVideoClip(
+            [background_clip] + video_clips + [template_clip] + sticker_clips + text_clips,
+            size=(width, height),
+        )
+
+        # --- Write output ---
         result_filename = f"{uuid.uuid4()}.mp4"
         result_path = os.path.join(RESULTS_DIR, result_filename)
         final_clip.write_videofile(result_path, codec="libx264", fps=24)
 
-        # --- QR code generation ---
+        # --- Generate QR code ---
         ip_address = get_ip_address()
         full_url = f"http://{ip_address}:{PORT}/static/results/{result_filename}"
         qr_img = qrcode.make(full_url)
@@ -1090,13 +1186,16 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
         qr_path = os.path.join(RESULTS_DIR, qr_filename)
         qr_img.save(qr_path)
 
-        return JSONResponse(content={
-            "result_path": f"/static/results/{result_filename}",
-            "qr_code_path": f"/static/results/{qr_filename}"
-        })
+        return JSONResponse(
+            content={
+                "result_path": f"/static/results/{result_filename}",
+                "qr_code_path": f"/static/results/{qr_filename}",
+            }
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compose video: {e}")
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=PORT, reload=False)
