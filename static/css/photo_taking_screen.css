@@ -48,7 +48,24 @@
     display: none !important;
 }
 
-/* Countdown (centered) */
+/* Flash Overlay */
+#flash-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: white;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s ease-in-out;
+    z-index: 50;
+}
+
+#flash-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
 #countdown-display {
     position: absolute;
     top: 50%;
@@ -73,7 +90,8 @@
 
 /* Timer controls and action buttons should be fixed-height rows beneath or above booth */
 #timer-controls,
-#action-buttons {
+#action-buttons,
+#flash-toggle-controls {
     height: 60px;
     min-height: 60px;
     display: flex;
@@ -86,7 +104,7 @@
 
 /* keep buttons compact */
 #action-buttons { justify-content: center; }
-#timer-controls { justify-content: flex-start; }
+#timer-controls, #flash-toggle-controls { justify-content: flex-start; }
 
 /* === SIDEBAR (fixed width, internal scroll only) === */
 .sidebar {

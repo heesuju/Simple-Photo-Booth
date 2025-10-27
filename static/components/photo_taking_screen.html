@@ -12,6 +12,7 @@
             </div>
 
             <video id="camera-stream" autoplay playsinline></video>
+            <div id="flash-overlay"></div>
 
             <div id="upload-area" style="display: none;">
                 <div id="drop-area" class="drop-area-full">
@@ -33,6 +34,11 @@
                 <option value="5">5초</option>
                 <option value="10">10초</option>
             </select>
+        </div>
+
+        <div id="flash-toggle-controls">
+            <label for="flash-toggle">플래시 사용</label>
+            <input type="checkbox" id="flash-toggle" checked>
         </div>
 
         <div id="action-buttons">

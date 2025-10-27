@@ -7,6 +7,10 @@ window.eventBus.on('app:init', (appState) => {
     const dropArea = document.getElementById('drop-area');
     const photoUploadInput = document.getElementById('photo-upload-input');
     const photoUploadBtn = document.getElementById('photo-upload-btn');
+    const flashToggleControls = document.getElementById('flash-toggle-controls');
+    const flashToggle = document.getElementById('flash-toggle');
+
+    appState.useFlash = flashToggle.checked;
 
     // Drag & drop events
     dropArea.addEventListener('dragover', (e) => {
@@ -32,6 +36,7 @@ window.eventBus.on('app:init', (appState) => {
     const uploadArea = document.getElementById('upload-area');
     const countdownDisplay = document.getElementById('countdown-display');
     const thumbnailsContainer = document.getElementById('thumbnails-container');
+    const flashOverlay = document.getElementById('flash-overlay');
 
 
 
@@ -52,6 +57,10 @@ window.eventBus.on('app:init', (appState) => {
     });
     photoUploadBtn.addEventListener('click', () => photoUploadInput.click());
     photoUploadInput.addEventListener('change', handlePhotoUpload);
+
+    flashToggle.addEventListener('change', (e) => {
+        appState.useFlash = e.target.checked;
+    });
 
     window.eventBus.on('main-menu:continue', async (data) => {
         appState.templateInfo = data;
@@ -91,6 +100,7 @@ window.eventBus.on('app:init', (appState) => {
         switchCaptureMode('camera');
         modeSelection.style.display = 'flex';
         timerControls.style.display = 'flex';
+        flashToggleControls.style.display = 'flex';
         startCaptureBtn.style.display = 'block';
         captureBtn.style.display = 'none';
         appState.capturedPhotos = [];
@@ -115,6 +125,7 @@ window.eventBus.on('app:init', (appState) => {
         switchCaptureMode('camera');
         modeSelection.style.display = 'none';
         timerControls.style.display = 'flex';
+        flashToggleControls.style.display = 'flex';
         startCaptureBtn.style.display = 'block';
         captureBtn.style.display = 'none';
         appState.videoUploadPromises = [];
@@ -165,6 +176,7 @@ window.eventBus.on('app:init', (appState) => {
             cameraStream.style.display = 'none';
             uploadArea.style.display = 'block';
             timerControls.style.display = 'none';
+            flashToggleControls.style.display = 'none';
             startCaptureBtn.textContent = '계속';
         }
     }
@@ -263,6 +275,7 @@ window.eventBus.on('app:init', (appState) => {
         appState.isCapturing = true;
         modeSelection.style.display = 'none';
         timerControls.style.display = 'none';
+        flashToggleControls.style.display = 'none';
         startCaptureBtn.style.display = 'none';
 
         if (appState.selectedTimer === 0) {
@@ -294,15 +307,29 @@ window.eventBus.on('app:init', (appState) => {
             if (countdown <= 0) {
                 clearInterval(countdownInterval);
                 countdownDisplay.style.display = 'none';
-                handleCapture();
+                showFlash(handleCapture, 300); // Flash for 300ms before capture
                 setTimeout(runTimerCapture, 1000); // Wait 1 sec before next cycle
             }
         }, 1000);
     }
 
     window.eventBus.on('capture:manual', () => {
-        if (appState.isCapturing) handleCapture();
+        if (appState.isCapturing) {
+            showFlash(handleCapture, 300);
+        }
     });
+
+    function showFlash(callback, duration = 300) {
+        if (!appState.useFlash) {
+            if (callback) callback();
+            return;
+        }
+        flashOverlay.classList.add('active');
+        setTimeout(() => {
+            flashOverlay.classList.remove('active');
+            if (callback) callback();
+        }, duration);
+    }
 
     function updatePhotoStatus() { 
         const isRetake = appState.isRetaking;
