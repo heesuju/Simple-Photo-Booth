@@ -193,6 +193,10 @@ async def lifespan(app: FastAPI):
     populate_default_colors(db_manager)
     db_manager.populate_default_filter_presets()
 
+    # Load initial theme from DB, default to 'light'
+    app.state.current_theme = db_manager.get_setting('theme', 'light')
+    print(f"Initial theme loaded: {app.state.current_theme}")
+
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -989,6 +993,19 @@ async def get_recent_results():
     recent_five = [file["path"] for file in results_files[:5]]
     
     return JSONResponse(content=recent_five)
+
+@app.post("/set_theme")
+async def set_theme(request: Request, theme: str = Form(...)):
+    db_manager = request.app.state.db_manager
+    db_manager.set_setting('theme', theme)
+    request.app.state.current_theme = theme
+    return JSONResponse(content={"message": "Theme updated successfully"})
+
+@app.get("/get_theme")
+async def get_theme(request: Request):
+    db_manager = request.app.state.db_manager
+    theme = db_manager.get_setting('theme', 'light')
+    return JSONResponse(content={"theme": theme})
 
 @app.post("/upload_video_chunk")
 async def upload_video_chunk(request: Request, video: UploadFile = File(...)):

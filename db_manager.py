@@ -71,6 +71,13 @@ class DatabaseManager:
                 )
             ''')
 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            ''')
+
             conn.commit()
 
     def add_filter_preset(self, name, filter_values):
@@ -305,3 +312,18 @@ class DatabaseManager:
             cursor.execute("SELECT * FROM fonts WHERE font_name = ?", (font_name,))
             font = cursor.fetchone()
         return dict(font) if font else None
+
+    def set_setting(self, key, value):
+        """Sets a key-value pair in the settings table."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+            conn.commit()
+
+    def get_setting(self, key, default_value=None):
+        """Retrieves a setting by key, with an optional default value."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+            result = cursor.fetchone()
+        return result[0] if result else default_value

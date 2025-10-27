@@ -138,6 +138,18 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadJsComponents();
         appState.cropper = window.initCropper(appState);
         appState.settingsModal = window.initSettingsModal(appState);
+
+        // Fetch and apply initial theme
+        try {
+            const response = await fetch('/get_theme');
+            const data = await response.json();
+            const initialTheme = data.theme || 'light';
+            document.body.classList.add(`${initialTheme}-theme`);
+        } catch (error) {
+            console.error("Error fetching initial theme:", error);
+            document.body.classList.add('light-theme'); // Fallback to light theme
+        }
+
         window.eventBus.dispatch('app:init', appState);
     }
 

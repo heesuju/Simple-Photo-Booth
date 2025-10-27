@@ -13,14 +13,24 @@ window.initSettingsModal = function(appState) {
 
     settingsModalCloseBtn.addEventListener('click', hide);
 
-    themeSelect.addEventListener('change', (event) => {
+    themeSelect.addEventListener('change', async (event) => {
         const selectedTheme = event.target.value;
         setTheme(selectedTheme);
+        try {
+            await fetch('/set_theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `theme=${selectedTheme}`
+            });
+        } catch (error) {
+            console.error("Error saving theme:", error);
+        }
     });
 
     function setTheme(theme) {
         document.body.classList.remove('light-theme', 'dark-theme', 'halloween-theme');
         document.body.classList.add(`${theme}-theme`);
+        themeSelect.value = theme; // Update dropdown to reflect current theme
     }
 
     // Populate theme dropdown
