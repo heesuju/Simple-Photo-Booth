@@ -68,7 +68,8 @@
 
 .photo-frame img {
     width: auto;
-    height: 300px;
+    max-width: 240px;
+    max-height: 240px;
     object-fit: contain;
     display: block;
     user-select: none;
