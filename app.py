@@ -488,20 +488,25 @@ async def add_filter_preset(request: Request):
 
 @app.post("/zip_originals")
 async def zip_originals(photos: List[UploadFile] = File(...)):
-    zip_buffer = BytesIO()
-    with ZipFile(zip_buffer, 'a') as zf:
+    zip_filename = f"{uuid.uuid4()}.zip"
+    zip_path = os.path.join(RESULTS_DIR, zip_filename)
+
+    with ZipFile(zip_path, 'w') as zf:
         for i, photo_file in enumerate(photos):
             content = await photo_file.read()
-            # Use a generic but unique name for each file in the zip
             zf.writestr(f"photo_{i+1}.jpg", content)
-    
-    zip_buffer.seek(0)
-    
-    headers = {
-        'Content-Disposition': 'attachment; filename="original_photos.zip"'
-    }
-    
-    return StreamingResponse(zip_buffer, media_type="application/x-zip-compressed", headers=headers)
+
+    ip_address = get_ip_address()
+    full_url = f"http://{ip_address}:{PORT}/static/results/{zip_filename}"
+    qr_img = qrcode.make(full_url)
+    qr_filename = f"qr_{uuid.uuid4()}.png"
+    qr_path = os.path.join(RESULTS_DIR, qr_filename)
+    qr_img.save(qr_path)
+
+    return JSONResponse(content={
+        "result_path": f"/static/results/{zip_filename}",
+        "qr_code_path": f"/static/results/{qr_filename}"
+    })
 
 @app.post("/apply_filters_to_image")
 async def apply_filters_to_image(file: UploadFile = File(...), filters: str = Form(...)):
@@ -984,14 +989,12 @@ async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
 async def compose_video(request: Request, holes: str = Form(...), video_paths: List[str] = Form(...), stickers: str = Form(...), texts: str = Form(None), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None)):
     try:
         if template_file:
-            # Save the uploaded colored template
             temp_filename = f"{uuid.uuid4()}.png"
             base_template_path = os.path.join(UPLOAD_DIR, temp_filename)
             async with aiofiles.open(base_template_path, 'wb') as out_file:
                 content = await template_file.read()
                 await out_file.write(content)
         elif template_path:
-            # Use the path from the form
             base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
         else:
             raise HTTPException(status_code=400, detail="No template provided.")
@@ -1004,11 +1007,8 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
         min_duration = min(clip.duration for clip in clips)
         clips = [clip.subclip(clip.duration - min_duration) for clip in clips]
 
-        # Determine the final video dimensions from the template
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
-
-        # Create a black background clip
         background_clip = mpe.ColorClip(size=(width, height), color=(0,0,0), duration=min_duration)
 
         video_clips = []
@@ -1016,23 +1016,17 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
             hole = hole_data[i]
             transform = transform_data[i]
 
-            # Apply transformations
             scale = transform.get('scale', 1)
             rotation = -transform.get('rotation', 0)
-
             new_w = int(hole['w'] * scale)
             new_h = int(hole['h'] * scale)
 
             resized_clip = clip.resize((new_w, new_h)).rotate(rotation)
-            
             pos_x = hole['x'] + (hole['w'] - resized_clip.w) // 2
             pos_y = hole['y'] + (hole['h'] - resized_clip.h) // 2
 
-            print(f"Video {i}: size=({resized_clip.w}, {resized_clip.h}), position=({pos_x}, {pos_y})")
-
             video_clips.append(resized_clip.set_position((pos_x, pos_y)).set_duration(min_duration))
 
-        # Convert template image to a clip
         template_clip = mpe.ImageClip(base_template_path, transparent=True).set_duration(min_duration)
 
         sticker_clips = []
@@ -1059,46 +1053,48 @@ async def compose_video(request: Request, holes: str = Form(...), video_paths: L
                 font_size = int(text_info.get('fontSize', 40))
                 pos_x = int(text_info.get('x', 0))
                 pos_y = int(text_info.get('y', 0))
-                justify = text_info.get('justify', 'left') # Get justification
+                justify = text_info.get('justify', 'left')
 
-                # Create a transparent image with the text
                 try:
                     font = ImageFont.truetype(font_path, font_size)
                 except IOError:
-                    print(f"Failed to load font '{font_path}'. Skipping text.")
                     continue
 
-                # Get text size using textbbox
                 bbox = font.getbbox(text)
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
 
-                # Adjust pos_x based on justification
                 if justify == 'center':
                     pos_x = pos_x + (text_info.get('width', text_width) - text_width) // 2
                 elif justify == 'right':
                     pos_x = pos_x + (text_info.get('width', text_width) - text_width)
 
-                # Create a transparent image to draw the text on
                 text_img = Image.new('RGBA', (text_width, text_height), (255, 255, 255, 0))
                 draw = ImageDraw.Draw(text_img)
-                draw.text((0, 0), text, font=font, fill=(0, 0, 0, 255)) # Black, fully opaque
-
-                # Convert PIL image to numpy array for MoviePy
+                draw.text((0, 0), text, font=font, fill=(0, 0, 0, 255))
                 text_np = np.array(text_img)
-
                 text_clip = mpe.ImageClip(text_np).set_duration(min_duration)
                 text_clip = text_clip.set_position((pos_x, pos_y))
                 text_clips.append(text_clip)
 
         final_clip = mpe.CompositeVideoClip([background_clip] + video_clips + [template_clip] + sticker_clips + text_clips, size=(width, height))
-        
         result_filename = f"{uuid.uuid4()}.mp4"
         result_path = os.path.join(RESULTS_DIR, result_filename)
-        
         final_clip.write_videofile(result_path, codec="libx264", fps=24)
 
-        return JSONResponse(content={"result_path": f"/static/results/{result_filename}"})
+        # --- QR code generation ---
+        ip_address = get_ip_address()
+        full_url = f"http://{ip_address}:{PORT}/static/results/{result_filename}"
+        qr_img = qrcode.make(full_url)
+        qr_filename = f"qr_{uuid.uuid4()}.png"
+        qr_path = os.path.join(RESULTS_DIR, qr_filename)
+        qr_img.save(qr_path)
+
+        return JSONResponse(content={
+            "result_path": f"/static/results/{result_filename}",
+            "qr_code_path": f"/static/results/{qr_filename}"
+        })
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compose video: {e}")
 

@@ -755,7 +755,10 @@ window.eventBus.on('app:init', (appState) => {
         showReviewScreen(true); // true = keep existing edits
     });
 
-
+    window.eventBus.on('review:home', () => {
+        document.getElementById('finalize-btn').disabled = false;
+        window.eventBus.dispatch('screen:show', 'photo-hanging-gallery');
+    }); 
 
     function showReviewScreen(isContinuingEditing = false) { 
         if (!isContinuingEditing) {

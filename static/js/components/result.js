@@ -1,207 +1,275 @@
 window.eventBus.on('app:init', (appState) => {
-    window.eventBus.on('review:finalize', async (data) => {
-            const finalizeBtn = document.getElementById('finalize-btn');
-            finalizeBtn.disabled = true; 
-    
-            const imageComposePromise = (async () => {
-                const d = new FormData();
 
-                // Handle colored template
-                if (appState.templateInfo.colored_template_path) {
-                    const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
-                    d.append('template_file', blob, 'template.png');
-                } else {
-                    d.append('template_path', appState.templateInfo.template_path);
-                }
+  let cachedVideoResult = null; // store composed video after first creation
 
-                d.append('holes', JSON.stringify(appState.templateInfo.holes)); 
-                d.append('stickers', JSON.stringify(appState.placedStickers)); 
-                d.append('texts', JSON.stringify(appState.placedTexts));
-                d.append('filters', JSON.stringify(appState.filters)); 
-                d.append('transformations', JSON.stringify(appState.templateInfo.transformations)); 
-                d.append('remove_background', appState.removeBackground);
-                appState.photoAssignments.forEach((b, i) => { 
-                    d.append('photos', b, `photo_${i}.jpg`); 
-                }); 
-                const r = await fetch('/compose_image', { method: 'POST', body: d }); 
-                if (!r.ok) throw new Error((await r.json()).detail); 
-                return r.json();
-            })();
-    
-                    const videoComposePromise = (async () => {
-                        const d = new FormData();
+  window.eventBus.on('review:finalize', async (data) => {
+    const finalizeBtn = document.getElementById('finalize-btn');
+    if (finalizeBtn) finalizeBtn.disabled = true;
 
-                        // Handle colored template
-                        if (appState.templateInfo.colored_template_path) {
-                            const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
-                            d.append('template_file', blob, 'template.png');
-                        } else {
-                            d.append('template_path', appState.templateInfo.template_path);
-                        }
+    // Compose image immediately
+    const imageComposePromise = (async () => {
+      const d = new FormData();
 
-                        d.append('holes', JSON.stringify(appState.templateInfo.holes));
-                        d.append('stickers', JSON.stringify(appState.placedStickers));
-                        d.append('texts', JSON.stringify(appState.placedTexts));
-                        d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
-                        data.videos.forEach((video_path, i) => {
-                            d.append('video_paths', video_path);
-                        });
-            
-                        const r = await fetch('/compose_video', { 
-                            method: 'POST', 
-                            body: d
-                        });
-                        if (!r.ok) throw new Error((await r.json()).detail);
-                        return r.json();
-                    })();    
-            try {
-                const [imageResult, videoResult] = await Promise.all([imageComposePromise, videoComposePromise]);
-                displayFinalResult(imageResult, videoResult);
-            } catch (e) {
-                console.error(e);
-                finalizeBtn.disabled = false;
-            }
+      if (appState.templateInfo.colored_template_path) {
+        const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
+        d.append('template_file', blob, 'template.png');
+      } else {
+        d.append('template_path', appState.templateInfo.template_path);
+      }
+
+      d.append('holes', JSON.stringify(appState.templateInfo.holes));
+      d.append('stickers', JSON.stringify(appState.placedStickers));
+      d.append('texts', JSON.stringify(appState.placedTexts));
+      d.append('filters', JSON.stringify(appState.filters));
+      d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
+      d.append('remove_background', appState.removeBackground);
+
+      appState.photoAssignments.forEach((b, i) => {
+        d.append('photos', b, `photo_${i}.jpg`);
+      });
+
+      const r = await fetch('/compose_image', { method: 'POST', body: d });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      return r.json();
+    })();
+
+    try {
+      const imageResult = await imageComposePromise;
+      displayFinalResult(imageResult, data, appState);
+    } catch (e) {
+      console.error(e);
+      if (finalizeBtn) finalizeBtn.disabled = false;
+    }
+  });
+
+  function displayFinalResult(imageResult, data, appState) {
+    window.eventBus.dispatch('screen:show', 'result-screen');
+
+    // DOM references
+    const resultTitle = document.getElementById('result-title');
+    const resultStatus = document.getElementById('result-status');
+    const resultDisplay = document.getElementById('result-display');
+    const videoDisplay = document.getElementById('video-result-display');
+    const qrContainer = document.getElementById('qr-container');
+    const qrImage = document.getElementById('qr-image');
+
+    const downloadImageBtn = document.getElementById('download-image-btn');
+    const downloadVideoBtn = document.getElementById('download-video-btn');
+    const downloadOriginalBtn = document.getElementById('download-original-btn');
+    const downloadGeneratedBtn = document.getElementById('download-generated-btn');
+    const continueEditingBtn = document.getElementById('continue-editing-btn');
+    const goHomeBtn = document.getElementById('go-home-btn');
+
+    resultTitle.textContent = '완성!';
+    resultStatus.textContent = '이미지가 성공적으로 생성되었습니다.';
+
+    // Hide generated button if no stylized images
+    if (Object.keys(appState.stylizedImagesCache).length === 0) {
+      downloadGeneratedBtn.style.display = 'none';
+    } else {
+      downloadGeneratedBtn.style.display = 'block';
+    }
+
+    // Reset content
+    resultDisplay.innerHTML = '';
+    videoDisplay.innerHTML = '';
+    qrContainer.style.display = 'none';
+    qrContainer.classList.remove('fade-in');
+
+    // --- DISPLAY IMAGE ---
+    const img = document.createElement('img');
+    img.src = imageResult.result_path;
+    img.alt = 'Final Result';
+    img.classList.add('fade-in');
+
+    // Only show image, hide video
+    resultDisplay.style.display = 'flex';
+    videoDisplay.style.display = 'none';
+    resultDisplay.appendChild(img);
+
+    // --- QR helper ---
+    const showQr = (type) => {
+      let qrPath = '';
+      switch (type) {
+        case 'image':
+          qrPath = imageResult.qr_code_path;
+          break;
+        case 'video':
+          qrPath = cachedVideoResult?.qr_code_path || '/qr/video';
+          break;
+        case 'original':
+          qrPath = '/qr/original';
+          break;
+        case 'generated':
+          qrPath = '/qr/generated';
+          break;
+      }
+
+      if (!qrPath) {
+        qrContainer.style.display = 'none';
+        return;
+      }
+
+      qrImage.src = qrPath;
+      qrContainer.style.display = 'block';
+      qrContainer.classList.remove('fade-in');
+      void qrContainer.offsetWidth; // trigger reflow
+      qrContainer.classList.add('fade-in');
+    };
+
+    // --- IMAGE DOWNLOAD ---
+    downloadImageBtn.onclick = () => {
+      const a = document.createElement('a');
+      a.href = imageResult.result_path;
+      a.download = 'photobooth_result.png';
+      a.click();
+      showQr('image');
+
+      // Ensure only image is visible
+      resultDisplay.style.display = 'flex';
+      videoDisplay.style.display = 'none';
+    };
+
+    // --- VIDEO DOWNLOAD (lazy compose, cached) ---
+    downloadVideoBtn.onclick = async () => {
+      try {
+        downloadVideoBtn.disabled = true;
+        downloadVideoBtn.textContent = cachedVideoResult ? '다운로드 중...' : '비디오 생성 중...';
+
+        let videoResult = cachedVideoResult;
+
+        if (!videoResult) {
+          const d = new FormData();
+          if (appState.templateInfo.colored_template_path) {
+            const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
+            d.append('template_file', blob, 'template.png');
+          } else {
+            d.append('template_path', appState.templateInfo.template_path);
+          }
+          d.append('holes', JSON.stringify(appState.templateInfo.holes));
+          d.append('stickers', JSON.stringify(appState.placedStickers));
+          d.append('texts', JSON.stringify(appState.placedTexts));
+          d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
+          data.videos.forEach((video_path) => d.append('video_paths', video_path));
+
+          const r = await fetch('/compose_video', { method: 'POST', body: d });
+          if (!r.ok) throw new Error((await r.json()).detail);
+          videoResult = await r.json();
+          cachedVideoResult = videoResult;
+        }
+
+        // Only show video, hide image
+        resultDisplay.style.display = 'none';
+        videoDisplay.style.display = 'flex';
+        videoDisplay.innerHTML = '';
+        const video = document.createElement('video');
+        video.src = videoResult.result_path;
+        video.controls = true;
+        video.classList.add('fade-in');
+        videoDisplay.appendChild(video);
+
+        showQr('video');
+
+        const a = document.createElement('a');
+        a.href = videoResult.result_path;
+        a.download = 'photobooth_video.mp4';
+        a.click();
+
+      } catch (err) {
+        console.error(err);
+        alert('비디오 생성/다운로드에 실패했습니다.');
+      } finally {
+        downloadVideoBtn.disabled = false;
+        downloadVideoBtn.textContent = '비디오 다운로드';
+      }
+    };
+
+    // --- ORIGINAL DOWNLOAD ---
+    downloadOriginalBtn.onclick = async () => {
+      try {
+        downloadOriginalBtn.disabled = true;
+        downloadOriginalBtn.textContent = '압축 중...';
+
+        const formData = new FormData();
+        appState.originalPhotos.forEach((photoBlob, i) => {
+          formData.append('photos', photoBlob, `photo_${i}.jpg`);
         });
-    
-        function displayFinalResult(imageResult, videoResult) { 
-            window.eventBus.dispatch('screen:show', 'result-screen');
-            const { result_path, qr_code_path } = imageResult; 
-            document.getElementById('result-title').textContent = '완성!'; 
-            document.getElementById('result-status').textContent = '이미지가 성공적으로 생성되었습니다.'; 
-            const d = document.getElementById('result-display'); 
-            d.innerHTML = ''; 
-            const i = document.createElement('img'); 
-            i.src = result_path; 
-            i.style.maxWidth = '100%'; 
-            d.appendChild(i); 
-            const c = document.createElement('div'); 
-            c.style.marginTop = '20px'; 
-            const a = document.createElement('a'); 
-            a.href = result_path; 
-            a.download = 'photobooth_result.png'; 
-            const b = document.createElement('button'); 
-            b.textContent = 'PC에 다운로드'; 
-            a.appendChild(b); 
-            c.appendChild(a); 
 
-            // Add Download Original button
-            const originalBtn = document.createElement('button');
-            originalBtn.textContent = '원본 다운로드';
-            originalBtn.style.marginLeft = '10px';
-            originalBtn.onclick = async () => {
-                try {
-                    originalBtn.disabled = true;
-                    originalBtn.textContent = '압축 중...';
+        // Upload images and create zip on server
+        const response = await fetch('/zip_originals', { method: 'POST', body: formData });
+        if (!response.ok) throw new Error('Failed to create zip file.');
+        const zipResult = await response.json();
 
-                    const formData = new FormData();
-                    appState.originalCapturedPhotos.forEach((photoBlob, i) => {
-                        formData.append('photos', photoBlob, `photo_${i}.jpg`);
-                    });
+        // Display QR code
+        qrImage.src = zipResult.qr_code_path;
+        qrContainer.style.display = 'block';
+        qrContainer.classList.remove('fade-in');
+        void qrContainer.offsetWidth; // trigger reflow
+        qrContainer.classList.add('fade-in');
 
-                    const response = await fetch('/zip_originals', {
-                        method: 'POST',
-                        body: formData
-                    });
+        // Download the zip automatically
+        const link = document.createElement('a');
+        link.href = zipResult.result_path;
+        link.download = 'original_photos.zip';
+        link.click();
 
-                    if (!response.ok) {
-                        throw new Error('Failed to create zip file.');
-                    }
+      } catch (err) {
+        console.error(err);
+        alert('원본 사진을 다운로드하는 데 실패했습니다.');
+      } finally {
+        downloadOriginalBtn.disabled = false;
+        downloadOriginalBtn.textContent = '원본 다운로드';
+      }
+    };
 
-                    const zipBlob = await response.blob();
-                    const url = window.URL.createObjectURL(zipBlob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', 'original_photos.zip');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
+    // --- GENERATED DOWNLOAD ---
+    downloadGeneratedBtn.onclick = async () => {
+      try {
+        downloadGeneratedBtn.disabled = true;
+        downloadGeneratedBtn.textContent = '압축 중...';
 
-                } catch (err) {
-                    console.error('Failed to download originals:', err);
-                    alert('원본 사진을 다운로드하는 데 실패했습니다.');
-                } finally {
-                    originalBtn.disabled = false;
-                    originalBtn.textContent = '원본 다운로드';
-                }
-            };
-            c.appendChild(originalBtn);
+        const formData = new FormData();
+        for (const key in appState.stylizedImagesCache) {
+          const photoBlob = appState.stylizedImagesCache[key];
+          const [photoIndex, prompt] = key.split('-');
+          const safePrompt = prompt.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
+          formData.append('photos', photoBlob, `photo_${photoIndex}_${safePrompt}.jpg`);
+        }
 
-            // Add Download Generated button
-            const generatedBtn = document.createElement('button');
-            generatedBtn.textContent = '생성된 파일 다운로드';
-            generatedBtn.style.marginLeft = '10px';
-            generatedBtn.onclick = async () => {
-                try {
-                    generatedBtn.disabled = true;
-                    generatedBtn.textContent = '압축 중...';
+        const response = await fetch('/zip_originals', { method: 'POST', body: formData });
+        if (!response.ok) throw new Error('Failed to create zip file.');
+        const zipResult = await response.json();
 
-                    const formData = new FormData();
-                    for (const key in appState.stylizedImagesCache) {
-                        const photoBlob = appState.stylizedImagesCache[key];
-                        const [photoIndex, prompt] = key.split('-');
-                        const safePrompt = prompt.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
-                        formData.append('photos', photoBlob, `photo_${photoIndex}_${safePrompt}.jpg`);
-                    }
+        // Display QR code
+        qrImage.src = zipResult.qr_code_path;
+        qrContainer.style.display = 'block';
+        qrContainer.classList.remove('fade-in');
+        void qrContainer.offsetWidth; // trigger reflow
+        qrContainer.classList.add('fade-in');
 
-                    const response = await fetch('/zip_originals', {
-                        method: 'POST',
-                        body: formData
-                    });
+        // Download the zip automatically
+        const link = document.createElement('a');
+        link.href = zipResult.result_path;
+        link.download = 'generated_photos.zip';
+        link.click();
 
-                    if (!response.ok) {
-                        throw new Error('Failed to create zip file.');
-                    }
+      } catch (err) {
+        console.error(err);
+        alert('생성된 사진을 다운로드하는 데 실패했습니다.');
+      } finally {
+        downloadGeneratedBtn.disabled = false;
+        downloadGeneratedBtn.textContent = '생성된 파일 다운로드';
+      }
+    };
 
-                    const zipBlob = await response.blob();
-                    const url = window.URL.createObjectURL(zipBlob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', 'generated_photos.zip');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
+    // --- CONTINUE EDITING ---
+    continueEditingBtn.onclick = () => {
+      window.eventBus.dispatch('review:edit-existing');
+    };
 
-                } catch (err) {
-                    console.error('Failed to download generated photos:', err);
-                    alert('생성된 사진을 다운로드하는 데 실패했습니다.');
-                } finally {
-                    generatedBtn.disabled = false;
-                    generatedBtn.textContent = '생성된 파일 다운로드';
-                }
-            };
-            c.appendChild(generatedBtn);
-
-            // Add Continue Editing button
-            const editBtn = document.createElement('button');
-            editBtn.textContent = '수정 계속하기';
-            editBtn.style.marginLeft = '10px';
-            editBtn.style.backgroundColor = '#28a745'; // Green
-            editBtn.onclick = () => {
-                window.eventBus.dispatch('review:edit-existing');
-            };
-            c.appendChild(editBtn);
-    
-            if (videoResult && videoResult.result_path) {
-                const videoLink = document.createElement('a');
-                videoLink.href = videoResult.result_path;
-                videoLink.download = 'photobooth_video.mp4';
-                const videoButton = document.createElement('button');
-                videoButton.textContent = '비디오 다운로드';
-                videoLink.appendChild(videoButton);
-                c.appendChild(videoLink);
-            }
-    
-            if (qr_code_path) { 
-                const q = document.createElement('div'); 
-                q.style.marginTop = '10px'; 
-                q.innerHTML = '<p>또는, 모바일에서 QR 코드를 스캔하여 다운로드하세요:</p>'; 
-                const qi = document.createElement('img'); 
-                qi.src = qr_code_path; 
-                qi.style.width = '150px'; 
-                q.appendChild(qi); 
-                c.appendChild(q); 
-            } 
-            d.appendChild(c); 
-        }});
+    // --- GO MAIN MENU ---
+    goHomeBtn.onclick = () => {
+      window.eventBus.dispatch('review:home');
+    };
+  }
+});

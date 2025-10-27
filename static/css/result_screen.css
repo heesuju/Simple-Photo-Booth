@@ -1,23 +1,199 @@
-#result-screen {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
+#result-display,
+#video-result-display {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
-#result-display {
-    flex-grow: 1;
+/* Left section: final photo/video */
+#result-left {
+  flex: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+  overflow: hidden;
+}
+
+/* Ensure images and videos scale correctly */
+#result-display img,
+#video-result-display video {
+  max-height: 100vh;   /* Fit to viewport height */
+  max-width: 100%;
+  object-fit: contain;  /* Maintain aspect ratio */
+}
+
+/* Layout container */
+#result-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #f8f9fa;
+  font-family: "Inter", sans-serif;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Flex layout between image and control panel */
+#result-container {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+  justify-content: space-between;
+  align-items: stretch;
+}
+
+/* Right section: buttons, QR, etc. */
+#result-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 2rem;
+  background-color: #fff;
+  box-shadow: -2px 0 6px rgba(0, 0, 0, 0.1);
+}
+
+#result-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+#result-header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+#download-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+#download-options button {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.2s ease;
+}
+
+#download-options button:hover {
+  background-color: #0056b3;
+}
+
+/* QR Code */
+#qr-container {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+#qr-container img {
+  width: 160px;
+  height: 160px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+/* Bottom action buttons */
+#result-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+#result-actions button {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+#result-actions .secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+#result-actions .primary {
+  background-color: #28a745;
+  color: white;
+}
+
+#result-actions button:hover {
+  opacity: 0.9;
+}
+
+@media (max-width: 900px) {
+  #result-container {
+    flex-direction: column;
+    height: 100vh; /* ensure container fills viewport */
+  }
+
+  #result-left {
+    width: 100%;
+    flex: 1 1 auto; /* take remaining height */
     display: flex;
-    height: 100%;
     justify-content: center;
     align-items: center;
     overflow: hidden;
+  }
+
+  #result-right {
+    width: 100%;
+    flex: 0 0 auto; /* height based on content */
+    padding: 1rem 2rem;
+    box-shadow: none;
+  }
+
+  /* Make image/video fill #result-left */
+  #result-display,
+  #video-result-display {
+    width: 100%;
+    height: 100%; /* fill the #result-left container */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #result-display img,
+  #video-result-display video {
+    max-width: 100%;
+    max-height: 100%; /* fit inside #result-left */
+    object-fit: contain;
+  }
 }
 
-#result-display img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    height: auto;
-    width: auto;
+/* Smooth fade-in animation */
+.fade-in {
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Make QR fade nicely and stay centered */
+#qr-container.fade-in {
+  animation: fadeIn 0.6s ease forwards;
 }
