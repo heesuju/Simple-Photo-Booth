@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' },
             { id: 'crop-modal-container', url: '/static/components/shared/crop_modal.html' },
             { id: 'color-picker-modal-container', url: '/static/components/shared/color_picker_modal.html' },
-            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit_modal.html' }
+            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit_modal.html' },
+            { id: 'settings-modal-container', url: '/static/components/settings_modal.html' }
         ];
 
         for (const component of components) {
@@ -136,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadHtmlComponents();
         await loadJsComponents();
         appState.cropper = window.initCropper(appState);
+        appState.settingsModal = window.initSettingsModal(appState);
         window.eventBus.dispatch('app:init', appState);
     }
 

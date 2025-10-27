@@ -2,8 +2,8 @@
 #text-input-modal .modal-content {
     width: 90vw;
     max-width: 500px;
-    background: #111;
-    color: #fff;
+    background: var(--bg-color);
+    color: var(--text-color);
     border-radius: 10px;
 }
 
@@ -25,12 +25,12 @@
 
 #text-preview {
     min-height: 50px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 5px;
-    background-color: #f0f0f0;
-    color: #333;
+    background-color: var(--bg-color);
+    color: var(--text-color);
     font-size: 24px;
     text-align: center;
     display: flex;
@@ -48,7 +48,7 @@
 #text-font-select {
     padding: 0.5rem;
     border-radius: 4px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     flex-grow: 1;
 }
 
@@ -79,7 +79,7 @@
 }
 
 #text-input-modal .palette-swatch.selected {
-    border-color: #007bff;
+    border-color: var(--button-bg);
 }
 
 .text-justification-container {
@@ -97,14 +97,14 @@
 
 .justification-btn {
     padding: 0.5rem 1rem;
-    border: 1px solid #ccc;
-    background-color: #f0f0f0;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
     cursor: pointer;
     border-radius: 4px;
 }
 
 .justification-btn.selected {
-    background-color: #007bff;
-    color: white;
-    border-color: #007bff;
+    background-color: var(--button-bg);
+    color: var(--text-color);
+    border-color: var(--button-bg);
 }

@@ -14,8 +14,8 @@
 }
 
 #color-picker-modal .modal-content {
-    background: #111;
-    color: #fff;
+    background: var(--bg-color);
+    color: var(--text-color);
     border-radius: 10px;
     overflow: hidden;
     display: flex;
@@ -37,7 +37,7 @@
     width: 150px;
     text-align: center;
     font-size: 1rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 5px;
 }
 

@@ -9,9 +9,93 @@ html, body {
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    background-color: #f0f2f5;
-    color: #fff;
     box-sizing: border-box;
+}
+
+/* Theme Variables */
+/* Light Theme */
+body.light-theme {
+    --bg-color: #f0f2f5;             /* main background */
+    --bg-dark: #e0e3ea;              /* darker background */
+    --text-color: #333;
+    --header-bg: #ffffff;
+    --header-text: #333;
+
+    /* Buttons */
+    --button-bg: #007bff;            /* primary button */
+    --button-hover-bg: #0056b3;
+    --button-secondary-bg: #6c757d;  /* secondary button */
+    --button-secondary-hover-bg: #5a6268;
+    --button-disabled-bg: #c0c0c0;
+
+    --border-color: #ddd;
+}
+
+/* Dark Theme */
+body.dark-theme {
+    --bg-color: #1a1a1a;             /* main background */
+    --bg-dark: #121212;               /* darker background */
+    --text-color: #f0f0f0;
+    --header-bg: #2a2a2a;
+    --header-text: #f0f0f0;
+
+    /* Buttons */
+    --button-bg: #6200ea;            /* primary button */
+    --button-hover-bg: #3700b3;
+    --button-secondary-bg: #444;     /* secondary button */
+    --button-secondary-hover-bg: #555;
+    --button-disabled-bg: #666;
+
+    --border-color: #444;
+}
+
+/* Halloween Theme */
+body.halloween-theme {
+    --bg-color: #2c0a0a;             /* main background */
+    --bg-dark: #1a0505;               /* darker background */
+    --text-color: #ff8c00;
+    --header-bg: #4a1a0a;
+    --header-text: #ff8c00;
+
+    /* Buttons */
+    --button-bg: #ff4500;            /* primary button */
+    --button-hover-bg: #cc3700;
+    --button-secondary-bg: #8b008b;  /* purple secondary */
+    --button-secondary-hover-bg: #a020f0;
+    --button-disabled-bg: #5a2a2a;
+
+    --border-color: #8b4513;
+
+    /* Optional accent */
+    --accent-color: #800080;         /* classic purple */
+}
+
+/* Apply variables */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.app-header {
+    background-color: var(--header-bg);
+    color: var(--header-text);
+    border-bottom: 1px solid var(--border-color);
+}
+
+button {
+    background-color: var(--button-bg);
+    color: var(--text-color);
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 0.5rem;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: var(--button-hover-bg);
 }
 
 .container {
@@ -23,21 +107,6 @@ html, body {
     overflow: hidden; /* important so children control scrolling */
 }
 
-button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 1rem 2rem;
-    border-radius: 5px;
-    font-size: 1rem;
-    cursor: pointer;
-    margin: 0.5rem;
-    transition: background-color 0.3s;
-}
-
-button:hover {
-    background-color: #0056b3;
-}
 
 .gallery-container {
     display: flex;
@@ -56,7 +125,7 @@ button:hover {
     display: flex;
     gap: 10px;
     padding: 1rem;
-    background-color: #f9f9f9;
+    background-color: var(--bg-color);
     flex-grow: 1;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -82,7 +151,7 @@ button:hover {
 }
 
 .modal-content {
-    background-color: white;
+    background-color: var(--bg-color);
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
@@ -101,7 +170,7 @@ button:hover {
 }
 
 .floating-btn:hover {
-    background-color: #0056b3;
+    background-color: var(--button-hover-bg);
 }
 
 .floating-btn-add {
@@ -111,8 +180,8 @@ button:hover {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background-color: #28a745; /* Green */
-    color: white;
+    background-color: var(--button-bg); /* Green */
+    color: var(--text-color);
     border: none;
     font-size: 2rem;
     display: flex;
@@ -124,7 +193,7 @@ button:hover {
 }
 
 .floating-btn-add:hover {
-    background-color: #218838;
+    background-color: var(--button-hover-bg);
 }
 
 /* --- App Content --- */

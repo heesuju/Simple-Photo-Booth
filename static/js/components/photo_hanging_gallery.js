@@ -91,4 +91,11 @@ window.eventBus.on('app:init', async (appState) => {
             window.eventBus.dispatch('screen:show', 'main-menu');
         });
     }
+
+    const configButton = document.getElementById('config-button');
+    if (configButton) {
+        configButton.addEventListener('click', () => {
+            appState.settingsModal.show();
+        });
+    }
 });
