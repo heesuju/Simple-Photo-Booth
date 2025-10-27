@@ -46,10 +46,6 @@ button:hover {
     gap: 20px;
     justify-content: center;
     align-items: flex-start; /* Align items of different heights */
-    padding: 1rem;
-    border: 1px solid #eee;
-    border-radius: 5px;
-    background-color: #f9f9f9;
     overflow-y: auto;
     flex-grow: 1;
     margin-left: auto;
@@ -64,7 +60,7 @@ button:hover {
     flex-grow: 1;
     flex-wrap: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
 }
 
 /* Modal Styles */

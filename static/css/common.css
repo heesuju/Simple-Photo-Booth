@@ -269,15 +269,19 @@
 }
 
 .sticker-item {
-    width: 100px;
-    height: 100px;
-    border: 2px solid #ddd;
-    background-color: white;
-    border-radius: 5px;
+    width: 70px;
+    height: 70px;
+    border: none;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sticker-item:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
 }
 
 .sticker-item img {
