@@ -70,6 +70,12 @@ window.eventBus.on('app:init', (appState) => {
       downloadGeneratedBtn.style.display = 'block';
     }
 
+    if (Object.keys(data.videos).length === 0) {
+      downloadVideoBtn.style.display = 'none';
+    } else {
+      downloadVideoBtn.style.display = 'block';
+    }
+
     // Reset content
     resultDisplay.innerHTML = '';
     videoDisplay.innerHTML = '';
@@ -201,7 +207,7 @@ window.eventBus.on('app:init', (appState) => {
         alert(`비디오 생성/다운로드에 실패했습니다.\n\n오류: ${err.message}`);
       } finally {
         downloadVideoBtn.disabled = false;
-        downloadVideoBtn.textContent = '비디오 다운로드';
+        downloadVideoBtn.textContent = '비디오';
       }
     };
 
@@ -240,7 +246,7 @@ window.eventBus.on('app:init', (appState) => {
         alert('원본 사진을 다운로드하는 데 실패했습니다.');
       } finally {
         downloadOriginalBtn.disabled = false;
-        downloadOriginalBtn.textContent = '원본 다운로드';
+        downloadOriginalBtn.textContent = '원본';
       }
     };
 
@@ -280,7 +286,7 @@ window.eventBus.on('app:init', (appState) => {
         alert('생성된 사진을 다운로드하는 데 실패했습니다.');
       } finally {
         downloadGeneratedBtn.disabled = false;
-        downloadGeneratedBtn.textContent = '생성된 파일 다운로드';
+        downloadGeneratedBtn.textContent = '수정본';
       }
     };
 
