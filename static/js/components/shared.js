@@ -1,3 +1,45 @@
+window.getPreviewScaling = function(previewId = 'review-preview') {
+    const p = document.getElementById(previewId);
+    let t;
+    if (previewId === 'review-preview') {
+        t = p.querySelector('#review-template-overlay');
+    } else if (previewId === 'template-edit-preview') {
+        t = p.querySelector('.preview-template-img');
+    }
+    
+    if (!t || !t.naturalWidth) return { scale: 1, offsetX: 0, offsetY: 0, renderedWidth: 0, renderedHeight: 0 };
+
+    const containerWidth = p.offsetWidth;
+    const containerHeight = p.offsetHeight;
+    const imageNaturalWidth = t.naturalWidth;
+    const imageNaturalHeight = t.naturalHeight;
+
+    const containerRatio = containerWidth / containerHeight;
+    const imageRatio = imageNaturalWidth / imageNaturalHeight;
+
+    let renderedWidth, renderedHeight, offsetX, offsetY;
+
+    if (imageRatio > containerRatio) {
+        renderedWidth = containerWidth;
+        renderedHeight = containerWidth / imageRatio;
+        offsetX = 0;
+        offsetY = (containerHeight - renderedHeight) / 2;
+    } else {
+        renderedHeight = containerHeight;
+        renderedWidth = containerHeight * imageRatio;
+        offsetX = (containerWidth - renderedWidth) / 2;
+        offsetY = 0;
+    }
+
+    return {
+        scale: renderedWidth / imageNaturalWidth,
+        offsetX,
+        offsetY,
+        renderedWidth,
+        renderedHeight
+    };
+};
+
 // A simple debounce function to limit the rate at which a function can fire.
 window.debounce = function(func, wait) {
     let timeout;

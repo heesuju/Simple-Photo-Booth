@@ -882,6 +882,23 @@ window.eventBus.on('app:init', (appState) => {
             });
 
             w.addEventListener('mousedown', (e) => handleTextMouseDown(e, d, w), false);
+            w.addEventListener('dblclick', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const result = await textEdit.show({
+                    text: d.text,
+                    font: d.font,
+                    color: d.color,
+                    justify: d.justify
+                });
+                if (result) {
+                    d.text = result.text;
+                    d.font = result.font;
+                    d.color = result.color;
+                    d.justify = result.justify;
+                    renderPlacedTexts();
+                }
+            });
             w.appendChild(i);
 
             if (appState.activeText.data && appState.activeText.data.id === d.id) {
@@ -1256,40 +1273,7 @@ window.eventBus.on('app:init', (appState) => {
         };
     }
 
-    function getPreviewScaling(previewId = 'review-preview') {
-        const p = document.getElementById(previewId), t = p.querySelector('#review-template-overlay');
-        if (!t || !t.naturalWidth) return { scale: 1, offsetX: 0, offsetY: 0, renderedWidth: 0, renderedHeight: 0 };
 
-        const containerWidth = p.offsetWidth;
-        const containerHeight = p.offsetHeight;
-        const imageNaturalWidth = t.naturalWidth;
-        const imageNaturalHeight = t.naturalHeight;
-
-        const containerRatio = containerWidth / containerHeight;
-        const imageRatio = imageNaturalWidth / imageNaturalHeight;
-
-        let renderedWidth, renderedHeight, offsetX, offsetY;
-
-        if (imageRatio > containerRatio) {
-            renderedWidth = containerWidth;
-            renderedHeight = containerWidth / imageRatio;
-            offsetX = 0;
-            offsetY = (containerHeight - renderedHeight) / 2;
-        } else {
-            renderedHeight = containerHeight;
-            renderedWidth = containerHeight * imageRatio;
-            offsetX = (containerWidth - renderedWidth) / 2;
-            offsetY = 0;
-        }
-
-        return {
-            scale: renderedWidth / imageNaturalWidth,
-            offsetX,
-            offsetY,
-            renderedWidth,
-            renderedHeight
-        };
-    }
 
     function renderPhotoAssignments() { 
         const { scale, offsetX, offsetY } = getPreviewScaling();
@@ -1304,6 +1288,10 @@ window.eventBus.on('app:init', (appState) => {
             wrapper.style.top = `${offsetY + h.y * scale}px`; 
             wrapper.style.width = `${h.w * scale}px`; 
             wrapper.style.height = `${h.h * scale}px`;
+            const transform = appState.templateInfo.transformations[hIdx];
+            if (transform && transform.rotation !== undefined) {
+                wrapper.style.transform = `rotate(${transform.rotation}deg)`;
+            }
 
             const i = document.createElement('img'); 
             i.src = URL.createObjectURL(b); 

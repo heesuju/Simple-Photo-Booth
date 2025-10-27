@@ -4,6 +4,10 @@ window.eventBus.on('app:init', (appState) => {
 
     window.eventBus.on('template-edit:show', (data) => {
         appState.editingTemplate = data;
+        // Ensure transformations array exists and matches the number of holes
+        if (!appState.editingTemplate.transformations || appState.editingTemplate.transformations.length !== appState.editingTemplate.holes.length) {
+            appState.editingTemplate.transformations = appState.editingTemplate.holes.map(() => ({ rotation: 0 }));
+        }
         renderTemplateEditPreview();
     });
 
@@ -38,7 +42,7 @@ window.eventBus.on('app:init', (appState) => {
             w.style.top = `${offsetY + hole.y * scale}px`;
             w.style.width = `${hole.w * scale}px`;
             w.style.height = `${hole.h * scale}px`;
-            w.style.transform = `rotate(${transform.rotation}deg) scale(${transform.scale})`;
+            w.style.transform = `rotate(${transform.rotation}deg)`;
             
             const i = document.createElement('div');
             i.className = 'editable-hole-inner';
@@ -51,33 +55,40 @@ window.eventBus.on('app:init', (appState) => {
                 selectionBox.className = 'selection-box';
                 w.appendChild(selectionBox);
 
-                const handles = ['nw', 'ne', 'sw', 'se'];
-                handles.forEach(handle => {
-                    const handleEl = document.createElement('div');
-                    handleEl.className = `resize-handle ${handle}`;
-                    handleEl.style.transform = `scale(${1 / transform.scale})`; // Counteract parent scale
-                    handleEl.style.transformOrigin = 'center'; // Ensure scaling is centered
-                    handleEl.addEventListener('mousedown', (e) => {
-                        e.stopPropagation();
-                        appState.activeHole.action = `resize-${handle}`;
-                        appState.dragStart = { x: e.clientX, y: e.clientY, initialScale: transform.scale, initialW: hole.w, initialH: hole.h };
-                    });
-                    w.appendChild(handleEl);
-                });
-
-                const rotationHandle = document.createElement('div');
-                rotationHandle.className = 'rotation-handle';
-                rotationHandle.style.transform = `scale(${1 / transform.scale})`; // Counteract parent scale
-                rotationHandle.style.transformOrigin = 'center'; // Ensure scaling is centered
-                rotationHandle.addEventListener('mousedown', (e) => {
+                // Combined Resize/Rotate Handle
+                const resizeRotateHandle = document.createElement('div');
+                resizeRotateHandle.className = 'sticker-handle resize-rotate'; // Using sticker-handle class for consistency
+                resizeRotateHandle.addEventListener('mousedown', (e) => {
                     e.stopPropagation();
-                    appState.activeHole.action = 'rotate';
-                    const holeRect = w.getBoundingClientRect();
-                    const centerX = holeRect.left + holeRect.width / 2;
-                    const centerY = holeRect.top + holeRect.height / 2;
-                    appState.dragStart = { x: e.clientX, y: e.clientY, centerX, centerY, initialRotation: transform.rotation };
+                    appState.activeHole.action = 'resize-rotate';
+                    
+                    const { scale, offsetX, offsetY } = getPreviewScaling('template-edit-preview');
+                    const previewRect = document.getElementById('template-edit-preview').getBoundingClientRect();
+                    
+                    // Original natural dimensions of the hole (before scaling for preview)
+                    const holeNatX = hole.x;
+                    const holeNatY = hole.y;
+                    const holeNatW = hole.w;
+                    const holeNatH = hole.h;
+
+                    const centerX = previewRect.left + offsetX + (holeNatX + holeNatW / 2) * scale;
+                    const centerY = previewRect.top + offsetY + (holeNatY + holeNatH / 2) * scale;
+
+                    appState.dragStart = { 
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        centerX, 
+                        centerY, 
+                        initialWidth: holeNatW,
+                        initialHeight: holeNatH,
+                        initialRotation: transform.rotation,
+                        initialDistance: Math.hypot(e.clientX - centerX, e.clientY - centerY),
+                        initialAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI),
+                        initialX: holeNatX,
+                        initialY: holeNatY
+                    };
                 });
-                w.appendChild(rotationHandle);
+                w.appendChild(resizeRotateHandle);
             }
 
             previewContainer.appendChild(w);
@@ -94,7 +105,7 @@ window.eventBus.on('app:init', (appState) => {
         } else {
             appState.activeHole.action = 'move';
         }
-        appState.dragStart = { x: e.clientX, y: e.clientY, initialScale: transform.scale };
+        appState.dragStart = { x: e.clientX, y: e.clientY, initialX: data.x, initialY: data.y };
     }
 
     function handleHoleMove(e) {
@@ -103,48 +114,49 @@ window.eventBus.on('app:init', (appState) => {
     
         const transform = appState.editingTemplate.transformations[appState.activeHole.index];
     
-        if (appState.activeHole.action === 'rotate') {
+        const { scale: previewScale } = window.getPreviewScaling('template-edit-preview');
+
+        const dX_natural = (e.clientX - appState.dragStart.x) / previewScale;
+        const dY_natural = (e.clientY - appState.dragStart.y) / previewScale;
+
+        if (appState.activeHole.action === 'move') {
+            appState.activeHole.data.x = Math.round(appState.dragStart.initialX + dX_natural);
+            appState.activeHole.data.y = Math.round(appState.dragStart.initialY + dY_natural);
+        } else if (appState.activeHole.action === 'rotate') {
             const angle = Math.atan2(e.clientY - appState.dragStart.centerY, e.clientX - appState.dragStart.centerX) * (180 / Math.PI);
             const startAngle = Math.atan2(appState.dragStart.y - appState.dragStart.centerY, appState.dragStart.x - appState.dragStart.centerX) * (180 / Math.PI);
             transform.rotation = Math.round(appState.dragStart.initialRotation + angle - startAngle);
-        } else if (appState.activeHole.action.startsWith('resize-')) {
-            const { scale: previewScale } = getPreviewScaling('template-edit-preview');
-            if (previewScale === 1) return;
+        } else if (appState.activeHole.action === 'resize-rotate') {
+            const { scale: previewScale, offsetX, offsetY } = getPreviewScaling('template-edit-preview');
+            const centerX = appState.dragStart.centerX;
+            const centerY = appState.dragStart.centerY;
 
-            const dX_natural = (e.clientX - appState.dragStart.x) / previewScale;
-            const dY_natural = (e.clientY - appState.dragStart.y) / previewScale;
+            const mouseVecX = e.clientX - centerX;
+            const mouseVecY = e.clientY - centerY;
 
-            const handle = appState.activeHole.action.split('-')[1];
+            const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
+            const initialAngleRad = Math.atan2(appState.dragStart.y - centerY, appState.dragStart.x - centerX);
             
-            let newW = appState.dragStart.initialW;
-            let newH = appState.dragStart.initialH;
+            // Calculate rotation
+            const rotationChange = (newRotationRad - initialAngleRad) * (180 / Math.PI);
+            transform.rotation = Math.round(appState.dragStart.initialRotation + rotationChange);
 
-            if (handle.includes('e')) {
-                newW = appState.dragStart.initialW + dX_natural;
-            }
-            if (handle.includes('s')) {
-                newH = appState.dragStart.initialH + dY_natural;
-            }
-            if (handle.includes('w')) {
-                newW = appState.dragStart.initialW - dX_natural;
-            }
-            if (handle.includes('n')) {
-                newH = appState.dragStart.initialH - dY_natural;
-            }
+            // Calculate scaling
+            const newDistance = Math.hypot(mouseVecX, mouseVecY);
+            const scaleFactor = newDistance / appState.dragStart.initialDistance;
 
-            const scaleX = newW / appState.dragStart.initialW;
-            const scaleY = newH / appState.dragStart.initialH;
-            let finalScaleFactor;
+            const minSizeNatural = 20 / previewScale; // Minimum size in natural template pixels
 
-            if (handle.length === 2) { // Corner (nw, ne, sw, se)
-                 finalScaleFactor = Math.abs(scaleX - 1) > Math.abs(scaleY - 1) ? scaleX : scaleY;
-            } else if (handle === 'n' || handle === 's') { // Vertical (n, s)
-                finalScaleFactor = scaleY;
-            } else { // Horizontal (w, e)
-                finalScaleFactor = scaleX;
-            }
-            
-            transform.scale = Math.max(0.1, appState.dragStart.initialScale * finalScaleFactor);
+            const newWidth = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);
+            const newHeight = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
+
+            // Update hole dimensions
+            appState.activeHole.data.w = newWidth;
+            appState.activeHole.data.h = newHeight;
+
+            // Adjust x, y to keep center in place during resize
+            appState.activeHole.data.x = appState.dragStart.initialX + (appState.dragStart.initialWidth - newWidth) / 2;
+            appState.activeHole.data.y = appState.dragStart.initialY + (appState.dragStart.initialHeight - newHeight) / 2;
         }
     
         renderTemplateEditPreview();
@@ -152,12 +164,12 @@ window.eventBus.on('app:init', (appState) => {
 
     function handleHoleMouseUp() {
         if (appState.activeHole.action) {
-            if (appState.activeHole.action.startsWith('resize-')) {
-                appState.dragStart.initialScale = appState.editingTemplate.transformations[appState.activeHole.index].scale;
-            }
             appState.activeHole.action = null;
         }
     }
+
+    window.addEventListener('mousemove', handleHoleMove);
+    window.addEventListener('mouseup', handleHoleMouseUp);
 
     window.eventBus.on('template-edit:save', async () => {
         try {
