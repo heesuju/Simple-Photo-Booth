@@ -83,7 +83,7 @@
   border: none;
   border-radius: 8px;
   background-color: var(--button-bg);
-  color: var(--text-color);
+  color: var(--button-text-color);
   cursor: pointer;
   font-size: 0.95rem;
   transition: background 0.2s ease;
@@ -124,12 +124,12 @@
 
 #result-actions .secondary {
   background-color: var(--button-bg);
-  color: var(--text-color);
+  color: var(--button-text-color);
 }
 
 #result-actions .primary {
   background-color: var(--button-bg);
-  color: var(--text-color);
+  color: var(--button-text-color);
 }
 
 #result-actions button:hover {

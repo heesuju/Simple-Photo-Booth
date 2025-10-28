@@ -27,6 +27,7 @@ body.light-theme {
     --button-secondary-bg: #6c757d;  /* secondary button */
     --button-secondary-hover-bg: #5a6268;
     --button-disabled-bg: #c0c0c0;
+    --button-text-color: #FFFFFF;
 
     --border-color: #ddd;
 }
@@ -45,6 +46,7 @@ body.dark-theme {
     --button-secondary-bg: #444;     /* secondary button */
     --button-secondary-hover-bg: #555;
     --button-disabled-bg: #666;
+    --button-text-color: #FFFFFF;
 
     --border-color: #444;
 }
@@ -63,6 +65,7 @@ body.halloween-theme {
     --button-secondary-bg: #8b008b;  /* purple secondary */
     --button-secondary-hover-bg: #a020f0;
     --button-disabled-bg: #5a2a2a;
+    --button-text-color: #FFFFFF;
 
     --border-color: #8b4513;
 
@@ -84,7 +87,7 @@ body {
 
 button {
     background-color: var(--button-bg);
-    color: var(--text-color);
+    color: var(--button-text-color);
     border: none;
     padding: 1rem 2rem;
     border-radius: 5px;
@@ -181,7 +184,7 @@ button:hover {
     height: 60px;
     border-radius: 50%;
     background-color: var(--button-bg); /* Green */
-    color: var(--text-color);
+    color: var(--button-text-color);
     border: none;
     font-size: 2rem;
     display: flex;

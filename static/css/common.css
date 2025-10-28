@@ -215,7 +215,7 @@
 
 .palette-add-btn:hover {
     background-color: var(--button-hover-bg);
-    color: var(--header-text);
+    color: var(--button-text-color);
 }
 
 
@@ -353,7 +353,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-color);
+    color: var(--button-text-color);
     font-weight: bold;
     font-size: 14px;
 }
