@@ -29,9 +29,15 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS stickers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    sticker_path TEXT NOT NULL
+                    sticker_path TEXT NOT NULL,
+                    category TEXT
                 )
             ''')
+
+            cursor.execute("PRAGMA table_info(stickers)")
+            sticker_columns = [column[1] for column in cursor.fetchall()]
+            if 'category' not in sticker_columns:
+                cursor.execute("ALTER TABLE stickers ADD COLUMN category TEXT")
 
             # Check if columns exist and add them if they don't
             cursor.execute("PRAGMA table_info(templates)")
@@ -234,13 +240,13 @@ class DatabaseManager:
             stickers = [dict(row) for row in cursor.fetchall()]
         return stickers
 
-    def add_sticker(self, sticker_path):
+    def add_sticker(self, sticker_path, category=None):
         """Adds a new sticker record to the database."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO stickers (sticker_path) VALUES (?)",
-                (sticker_path,)
+                "INSERT INTO stickers (sticker_path, category) VALUES (?, ?)",
+                (sticker_path, category)
             )
             conn.commit()
 

@@ -51,11 +51,14 @@ window.debounce = function(func, wait) {
 }
 
 // Handles file uploads for both templates and stickers
-window.handleFileUpload = async function(event, endpoint, callback) { 
+window.handleFileUpload = async function(event, endpoint, callback, category = null) { 
     const f = event.target.files[0]; 
     if (!f) return; 
     const d = new FormData(); 
     d.append('file', f); 
+    if (category) {
+        d.append('category', category);
+    }
     try { 
         const r = await fetch(endpoint, { method: 'POST', body: d }); 
         if (!r.ok) throw new Error((await r.json()).detail); 

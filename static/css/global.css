@@ -119,7 +119,6 @@ button:hover {
     justify-content: center;
     align-items: flex-start; /* Align items of different heights */
     overflow-y: auto;
-    flex-grow: 1;
     margin-left: auto;
     margin-right: auto;
 }

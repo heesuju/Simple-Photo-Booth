@@ -549,6 +549,14 @@ window.eventBus.on('app:init', (appState) => {
     });
 
     stripBackBtn.addEventListener('click', () => {
+        const stickerGallery = document.getElementById('sticker-gallery');
+        const categoryGallery = document.getElementById('sticker-category-gallery');
+
+        if (stickerGallery.style.display === 'flex') {
+            loadStickerGallery();
+            return;
+        }
+
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
         if (currentOpenPanel) {
             currentOpenPanel.classList.remove('show');
@@ -717,7 +725,10 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    stickerUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_sticker', loadStickerGallery));
+    stickerUploadInput.addEventListener('change', (e) => {
+        const currentCategory = document.getElementById('sticker-category-gallery').dataset.category;
+        window.handleFileUpload(e, '/upload_sticker', loadStickerGallery, currentCategory);
+    });
 
     window.addEventListener('mousemove', (e) => {
         handleStickerMove(e);
@@ -790,22 +801,64 @@ window.eventBus.on('app:init', (appState) => {
         loadSimilarTemplates();
     }
 
-    async function loadStickerGallery() { 
+    async function loadStickerGallery(selectedCategory = null) { 
         try { 
             const r = await fetch('/stickers'); 
-            const d = await r.json(); 
-            const c = document.getElementById('sticker-gallery'); 
-            c.innerHTML = ''; 
-            d.forEach(s => { 
-                const i = document.createElement('div'); 
-                i.className = 'sticker-item'; 
-                const m = document.createElement('img'); 
-                m.src = s.sticker_path; 
-                m.draggable = false;
-                i.addEventListener('click', () => addStickerToCenter(s));
-                i.appendChild(m); 
-                c.appendChild(i); 
-            }); 
+            const stickers = await r.json(); 
+            const stickerGallery = document.getElementById('sticker-gallery'); 
+            const categoryGallery = document.getElementById('sticker-category-gallery');
+            const stickerUploadInput = document.getElementById('sticker-upload-input');
+                        
+            stickerGallery.innerHTML = ''; 
+            categoryGallery.innerHTML = '';
+
+            if (selectedCategory) {
+                categoryGallery.style.display = 'none';
+                stickerGallery.style.display = 'flex';
+                categoryGallery.dataset.category = selectedCategory;
+
+                stickers.filter(s => s.category === selectedCategory).forEach(s => { 
+                    const i = document.createElement('div'); 
+                    i.className = 'sticker-item'; 
+                    const m = document.createElement('img'); 
+                    m.src = s.sticker_path; 
+                    m.draggable = false;
+                    i.addEventListener('click', () => addStickerToCenter(s));
+                    i.appendChild(m); 
+                    stickerGallery.appendChild(i); 
+                });
+
+                const uploadButton = document.createElement('button');
+                uploadButton.className = 'palette-add-btn';
+                uploadButton.textContent = '+';
+                uploadButton.onclick = () => stickerUploadInput.click();
+                stickerGallery.appendChild(uploadButton);
+
+            } else {
+                categoryGallery.style.display = 'flex';
+                stickerGallery.style.display = 'none';
+                delete categoryGallery.dataset.category;
+
+                const categories = [...new Set(stickers.map(s => s.category).filter(Boolean))];
+                categories.forEach(category => {
+                    const categoryButton = document.createElement('button');
+                    categoryButton.className = 'style-strip-item';
+                    categoryButton.textContent = category;
+                    categoryButton.onclick = () => loadStickerGallery(category);
+                    categoryGallery.appendChild(categoryButton);
+                });
+
+                stickers.filter(s => !s.category).forEach(s => { 
+                    const i = document.createElement('div'); 
+                    i.className = 'sticker-item'; 
+                    const m = document.createElement('img'); 
+                    m.src = s.sticker_path; 
+                    m.draggable = false;
+                    i.addEventListener('click', () => addStickerToCenter(s));
+                    i.appendChild(m); 
+                    categoryGallery.appendChild(i); 
+                });
+            }
         } catch (e) { 
             console.error(e); 
         } 

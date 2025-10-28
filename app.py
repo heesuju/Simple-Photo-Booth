@@ -174,12 +174,15 @@ async def lifespan(app: FastAPI):
     generate_default_templates(db_manager)
 
     existing_stickers = {s['sticker_path'] for s in db_manager.get_all_stickers()}
-    
-    for filename in os.listdir(STICKERS_DIR):
-        sticker_path = f"/{STICKERS_DIR}/{filename}"
-        if sticker_path not in existing_stickers:
-            db_manager.add_sticker(sticker_path)
-            print(f"Added new sticker to DB: {sticker_path}")
+
+    for root, dirs, files in os.walk(STICKERS_DIR):
+        for filename in files:
+            cat = root.replace('\\', '/')
+            sticker_path = f"/{cat}/{filename}"
+            if sticker_path not in existing_stickers:
+                category = os.path.basename(root) if root != STICKERS_DIR else None
+                db_manager.add_sticker(sticker_path, category)
+                print(f"Added new sticker to DB: {sticker_path} with category: {category}")
 
     # --- Sync Fonts with DB ---
     existing_fonts = {f['font_path'] for f in db_manager.get_all_fonts()}
@@ -552,13 +555,19 @@ async def get_stickers(request: Request):
     return JSONResponse(content=request.app.state.db_manager.get_all_stickers())
 
 @app.post("/upload_sticker")
-async def upload_sticker(request: Request, file: UploadFile = File(...)):
+async def upload_sticker(request: Request, file: UploadFile = File(...), category: str = Form(None)):
     if not file.content_type in ['image/png', 'image/jpeg']:
         raise HTTPException(status_code=400, detail="Please upload a PNG or JPG image.")
 
+    if category:
+        sticker_dir = os.path.join(STICKERS_DIR, category)
+        os.makedirs(sticker_dir, exist_ok=True)
+    else:
+        sticker_dir = STICKERS_DIR
+
     file_extension = os.path.splitext(file.filename)[1]
     unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(STICKERS_DIR, unique_filename)
+    file_path = os.path.join(sticker_dir, unique_filename)
 
     try:
         async with aiofiles.open(file_path, 'wb') as out_file:
@@ -566,8 +575,10 @@ async def upload_sticker(request: Request, file: UploadFile = File(...)):
             await out_file.write(content)
         
         db_manager = request.app.state.db_manager
-        db_manager.add_sticker(f"/{file_path}")
-        return JSONResponse(content={"sticker_path": f"/{file_path}"}, status_code=201)
+        cat = file_path.replace('\\', '/')
+        sticker_path_for_db = f"/{cat}"
+        db_manager.add_sticker(sticker_path_for_db, category)
+        return JSONResponse(content={"sticker_path": sticker_path_for_db}, status_code=201)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading sticker: {e}")
 

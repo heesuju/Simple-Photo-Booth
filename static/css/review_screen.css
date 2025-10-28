@@ -243,6 +243,18 @@
     }
 }
 
+#sticker-category-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#sticker-gallery {
+    display: none; /* Initially hidden */
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 #color-palette-panel,
 #style-strip-panel,
 #filter-preset-strip {
