@@ -594,10 +594,25 @@ window.eventBus.on('app:init', (appState) => {
             const firstPhoto = appState.capturedPhotos[0];
             const firstPhotoUrl = firstPhoto ? URL.createObjectURL(firstPhoto) : '';
 
-            const nonePresetItem = document.createElement('button');
+            const nonePresetContainer = document.createElement('div');
+            nonePresetContainer.className = 'filter-preset-container';
+
+            const nonePresetItem = document.createElement('div');
             nonePresetItem.className = 'style-strip-item';
-            nonePresetItem.textContent = 'None';
-            nonePresetItem.addEventListener('click', () => {
+
+            const noneThumbnail = document.createElement('img');
+            noneThumbnail.className = 'filter-preset-thumbnail';
+            noneThumbnail.src = firstPhotoUrl;
+
+            const noneName = document.createElement('div');
+            noneName.className = 'filter-preset-label';
+            noneName.textContent = 'None';
+
+            nonePresetItem.appendChild(noneThumbnail);
+            nonePresetContainer.appendChild(nonePresetItem);
+            nonePresetContainer.appendChild(noneName);
+
+            nonePresetContainer.addEventListener('click', () => {
                 appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
                 for (const filter in appState.filters) {
                     const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
@@ -607,9 +622,12 @@ window.eventBus.on('app:init', (appState) => {
                 }
                 applyPhotoFilters();
             });
-            presetStrip.appendChild(nonePresetItem);
+            presetStrip.appendChild(nonePresetContainer);
 
             presets.forEach(preset => {
+                const presetContainer = document.createElement('div');
+                presetContainer.className = 'filter-preset-container';
+
                 const presetItem = document.createElement('div');
                 presetItem.className = 'style-strip-item';
 
@@ -620,14 +638,15 @@ window.eventBus.on('app:init', (appState) => {
                 thumbnail.style.filter = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
 
                 const name = document.createElement('div');
-                name.className = 'filter-preset-name';
+                name.className = 'filter-preset-label';
                 name.textContent = preset.name;
 
                 presetItem.appendChild(thumbnail);
-                presetItem.appendChild(name);
+                presetContainer.appendChild(presetItem);
+                presetContainer.appendChild(name);
 
-                presetItem.addEventListener('click', () => applyFilterPreset(preset.values));
-                presetStrip.appendChild(presetItem);
+                presetContainer.addEventListener('click', () => applyFilterPreset(preset.values));
+                presetStrip.appendChild(presetContainer);
             });
         } catch (e) {
             console.error("Failed to load filter presets:", e);
