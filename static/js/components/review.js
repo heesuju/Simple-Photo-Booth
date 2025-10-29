@@ -917,7 +917,8 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    
+    let lastClickTime = 0;
+    const DOUBLE_CLICK_DELAY = 250; // ms
 
     function renderPlacedTexts() {
         document.querySelectorAll('.placed-text-wrapper').forEach(w => w.remove());
@@ -1027,6 +1028,13 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function handleTextMouseDown(e, data, el) {
+        const now = Date.now();
+        const timeSinceLast = now - lastClickTime;
+        lastClickTime = now;
+        if (timeSinceLast < DOUBLE_CLICK_DELAY) {
+            return
+        }
+        
         if (el.querySelector('.editable-text').isContentEditable) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1043,7 +1051,7 @@ window.eventBus.on('app:init', (appState) => {
     function handleTextMove(e) {
         if (!appState.activeText.action) return;
         e.preventDefault();
-        
+
         const { scale } = getPreviewScaling();
         if (scale === 1) return;
 
