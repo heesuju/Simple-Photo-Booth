@@ -1104,6 +1104,14 @@ async def get_theme(request: Request):
     theme = db_manager.get_setting('theme', 'light')
     return JSONResponse(content={"theme": theme})
 
+@app.get("/ghosts")
+async def get_ghosts():
+    ghost_dir = "static/ghost"
+    if not os.path.exists(ghost_dir):
+        return JSONResponse(content=[])
+    ghosts = [f"/{ghost_dir}/{f}" for f in os.listdir(ghost_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+    return JSONResponse(content=ghosts)
+
 @app.post("/upload_video_chunk")
 async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
     try:

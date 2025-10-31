@@ -10,6 +10,15 @@ window.eventBus.on('app:init', (appState) => {
     const flashToggleControls = document.getElementById('flash-toggle-controls');
     const flashToggle = document.getElementById('flash-toggle');
 
+    const ghostOverlay = document.getElementById('ghost-overlay');
+    let ghostImages = [];
+
+    fetch('/ghosts')
+        .then(response => response.json())
+        .then(data => {
+            ghostImages = data;
+        });
+
     appState.useFlash = flashToggle.checked;
 
     // Drag & drop events
@@ -324,11 +333,23 @@ window.eventBus.on('app:init', (appState) => {
             if (callback) callback();
             return;
         }
-        flashOverlay.classList.add('active');
-        setTimeout(() => {
-            flashOverlay.classList.remove('active');
-            if (callback) callback();
-        }, duration);
+
+        // 25% chance to show a ghost
+        if (Math.random() < 0.25 && ghostImages.length > 0) {
+            const randomGhost = ghostImages[Math.floor(Math.random() * ghostImages.length)];
+            ghostOverlay.src = randomGhost;
+            ghostOverlay.classList.add('active');
+            setTimeout(() => {
+                ghostOverlay.classList.remove('active');
+                if (callback) callback();
+            }, duration);
+        } else {
+            flashOverlay.classList.add('active');
+            setTimeout(() => {
+                flashOverlay.classList.remove('active');
+                if (callback) callback();
+            }, duration);
+        }
     }
 
     function updatePhotoStatus() { 
