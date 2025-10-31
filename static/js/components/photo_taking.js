@@ -9,6 +9,7 @@ window.eventBus.on('app:init', (appState) => {
     const photoUploadBtn = document.getElementById('photo-upload-btn');
     const flashToggleControls = document.getElementById('flash-toggle-controls');
     const flashToggle = document.getElementById('flash-toggle');
+    const flipCameraBtn = document.getElementById('flip-camera-btn');
 
     const ghostOverlay = document.getElementById('ghost-overlay');
     let ghostImages = [];
@@ -71,6 +72,14 @@ window.eventBus.on('app:init', (appState) => {
         appState.useFlash = e.target.checked;
     });
 
+    flipCameraBtn.addEventListener('click', () => {
+        if (cameraStream.style.transform === 'scaleX(-1)') {
+            cameraStream.style.transform = 'scaleX(1)';
+        } else {
+            cameraStream.style.transform = 'scaleX(-1)';
+        }
+    });
+
     window.eventBus.on('main-menu:continue', async (data) => {
         appState.templateInfo = data;
         const h = data.holes[0];
@@ -120,6 +129,7 @@ window.eventBus.on('app:init', (appState) => {
         thumbnailsContainer.innerHTML = '';
 
         cameraStream.srcObject = appState.stream;
+        cameraStream.style.transform = 'scaleX(-1)';
         cameraStream.play();
 
         updatePhotoStatus(); 
@@ -147,6 +157,7 @@ window.eventBus.on('app:init', (appState) => {
                 .then(stream => {
                     appState.stream = stream;
                     cameraStream.srcObject = stream;
+                    cameraStream.style.transform = 'scaleX(-1)';
                     cameraStream.play();
                     updatePhotoStatus();
                 })
@@ -156,6 +167,7 @@ window.eventBus.on('app:init', (appState) => {
                         .then(stream => {
                             appState.stream = stream;
                             cameraStream.srcObject = stream;
+                            cameraStream.style.transform = 'scaleX(-1)';
                             cameraStream.play();
                             updatePhotoStatus();
                         })
@@ -166,6 +178,7 @@ window.eventBus.on('app:init', (appState) => {
                 });
         } else {
             cameraStream.srcObject = appState.stream;
+            cameraStream.style.transform = 'scaleX(-1)';
             cameraStream.play();
             updatePhotoStatus();
         }
@@ -435,7 +448,15 @@ window.eventBus.on('app:init', (appState) => {
               x = c.getContext('2d'); 
         c.width = v.videoWidth; 
         c.height = v.videoHeight; 
+
+        x.save();
+        if (v.style.transform === 'scaleX(-1)') {
+            x.translate(c.width, 0);
+            x.scale(-1, 1);
+        }
         x.drawImage(v, 0, 0, c.width, c.height); 
+        x.restore();
+
         c.toBlob(b => { 
             if (appState.isRetaking) {
                 appState.newlyCapturedPhotos.push(b);
