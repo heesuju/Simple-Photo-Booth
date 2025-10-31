@@ -48,7 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
             '/static/js/components/photo_taking.js',
             '/static/js/components/review.js',
             '/static/js/components/result.js',
-            '/static/js/components/template_edit.js'
+            '/static/js/components/template_edit.js',
+            '/static/js/components/shared/text_edit_modal.js'
         ];
 
         for (const script of scripts) {
@@ -138,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadJsComponents();
         appState.cropper = window.initCropper(appState);
         appState.settingsModal = window.initSettingsModal(appState);
+        appState.textEditModal = window.initTextEditModal(appState);
 
         // Fetch and apply initial theme
         try {

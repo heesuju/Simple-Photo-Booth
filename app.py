@@ -69,6 +69,10 @@ RESULTS_DIR = "static/results"
 GENERATED_TEMPLATES_DIR = "static/generated_templates"
 
 
+def hex_to_rgba(hex_color, alpha=255):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
+
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -595,23 +599,29 @@ async def upload_font(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload a valid font file.")
 
     db_manager = request.app.state.db_manager
-    font_name = os.path.splitext(file.filename)[0]
-    if db_manager.get_font_by_name(font_name):
-        raise HTTPException(status_code=409, detail=f"Font with name '{font_name}' already exists.")
+    
+    # Sanitize font name to prevent path traversal and ensure valid filename
+    original_font_name = os.path.splitext(file.filename)[0]
+    sanitized_font_name = "".join(c for c in original_font_name if c.isalnum() or c in (' ', '.', '_')).rstrip()
+    
+    if not sanitized_font_name:
+        raise HTTPException(status_code=400, detail="Invalid font filename.")
 
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(FONTS_DIR, unique_filename)
+    # Check if font with the sanitized name already exists
+    if db_manager.get_font_by_name(sanitized_font_name):
+        raise HTTPException(status_code=409, detail=f"Font with name '{sanitized_font_name}' already exists.")
+
+    # Use the sanitized font name for the filename
+    final_filename = f"{sanitized_font_name}{file_extension}"
+    file_path = os.path.join(FONTS_DIR, final_filename)
 
     try:
         async with aiofiles.open(file_path, 'wb') as out_file:
             content = await file.read()
             await out_file.write(content)
         
-        db_manager = request.app.state.db_manager
-        font_name = os.path.splitext(file.filename)[0]
-        db_manager.add_font(font_name, f"/{file_path}")
-        return JSONResponse(content={"font_path": f"/{file_path}"}, status_code=201)
+        db_manager.add_font(sanitized_font_name, f"/{file_path}")
+        return JSONResponse(content={"font_name": sanitized_font_name, "font_path": f"/{file_path}"}, status_code=201)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading font: {e}")
 
@@ -791,6 +801,8 @@ def draw_texts(image, texts_data, db_manager):
         x = int(text_info.get('x', 0))
         y = int(text_info.get('y', 0))
         justify = text_info.get('justify', 'left') # Get justification
+        color = text_info.get('color', '#000000')
+        fill_color = hex_to_rgba(color)
         
         try:
             font = ImageFont.truetype(font_path, font_size)
@@ -807,7 +819,7 @@ def draw_texts(image, texts_data, db_manager):
         elif justify == 'right':
             x = x + (text_info.get('width', text_width) - text_width)
 
-        draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))
+        draw.text((x, y), text, font=font, fill=fill_color)
 
     return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGBA2BGRA)
 
@@ -1177,6 +1189,8 @@ async def compose_video(
                 pos_x = int(text_info.get("x", 0))
                 pos_y = int(text_info.get("y", 0))
                 justify = text_info.get("justify", "left")
+                color = text_info.get('color', '#000000')
+                fill_color = hex_to_rgba(color)
 
                 font = ImageFont.truetype(font_path, font_size)
                 bbox = font.getbbox(text)
@@ -1190,7 +1204,7 @@ async def compose_video(
 
                 text_img = Image.new("RGBA", (text_width, text_height), (255, 255, 255, 0))
                 draw = ImageDraw.Draw(text_img)
-                draw.text((0, 0), text, font=font, fill=(0, 0, 0, 255))
+                draw.text((0, 0), text, font=font, fill=fill_color)
                 text_np = np.array(text_img)
                 text_clip = mpe.ImageClip(text_np).set_duration(min_duration).set_position((pos_x, pos_y))
                 text_clips.append(text_clip)
