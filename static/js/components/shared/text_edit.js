@@ -26,7 +26,7 @@ window.initTextEdit = function(appState, colorPicker) {
             }
 
             textInputModal.className = 'modal-visible';
-            textInputField.value = existingTextData ? existingTextData.text : '텍스트 입력';
+            textInputField.value = existingTextData ? existingTextData.text : '';
             textInputField.focus();
             textInputField.addEventListener('input', updatePreview);
 

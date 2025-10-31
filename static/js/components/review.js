@@ -6,6 +6,60 @@ window.eventBus.on('app:init', (appState) => {
     const stickerUploadInput = document.getElementById('sticker-upload-input');
     const reviewToolbar = document.getElementById('review-toolbar');
 
+    const reviewThumbnails = document.getElementById('review-thumbnails');
+    let draggedItem = null;
+    let dragStartIndex = -1;
+
+    // mousedown listener is now in renderReviewThumbnails
+
+    window.addEventListener('mousemove', (e) => {
+        if (!draggedItem) return;
+
+        const thumbnailsContainer = reviewThumbnails;
+        const items = [...thumbnailsContainer.querySelectorAll('.strip-item:not(.dragging)')];
+        
+        const nextItem = items.find(item => {
+            const rect = item.getBoundingClientRect();
+            const isHorizontal = window.innerWidth <= 900;
+            if (isHorizontal) {
+                return e.clientX < rect.left + rect.width / 2;
+            } else {
+                return e.clientY < rect.top + rect.height / 2;
+            }
+        });
+
+        if (nextItem) {
+            thumbnailsContainer.insertBefore(draggedItem, nextItem);
+        } else {
+            thumbnailsContainer.appendChild(draggedItem);
+        }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (!draggedItem) return;
+
+        const dragEndIndex = [...reviewThumbnails.children].indexOf(draggedItem);
+        draggedItem.classList.remove('dragging');
+        draggedItem = null;
+
+        if (dragEndIndex !== dragStartIndex) {
+            const [reorderedPhoto] = appState.capturedPhotos.splice(dragStartIndex, 1);
+            appState.capturedPhotos.splice(dragEndIndex, 0, reorderedPhoto);
+
+            const [reorderedVideo] = appState.capturedVideos.splice(dragStartIndex, 1);
+            appState.capturedVideos.splice(dragEndIndex, 0, reorderedVideo);
+            
+            const [reorderedOriginalPhoto] = appState.originalPhotos.splice(dragStartIndex, 1);
+            appState.originalPhotos.splice(dragEndIndex, 0, reorderedOriginalPhoto);
+
+            appState.photoAssignments = [...appState.capturedPhotos];
+            appState.videoAssignments = [...appState.capturedVideos];
+
+            renderReviewThumbnails();
+            renderPreview();
+        }
+    });
+
     const stripContainer = document.getElementById('strip-container');
     const stripBackBtn = document.getElementById('strip-back-btn');
     let panelHistory = [];
@@ -1122,9 +1176,20 @@ window.eventBus.on('app:init', (appState) => {
         c.innerHTML = ''; 
 
         appState.capturedPhotos.forEach((b, i) => { 
-            // Create a container for the image and button
             const itemContainer = document.createElement('div');
             itemContainer.className = 'strip-item';
+            itemContainer.dataset.index = i;
+
+            const handle = document.createElement('div');
+            handle.className = 'drag-handle';
+            handle.innerHTML = '&#9776;'; // Hamburger icon
+            handle.addEventListener('mousedown', (e) => {
+                draggedItem = itemContainer;
+                dragStartIndex = i;
+                draggedItem.classList.add('dragging');
+                e.preventDefault();
+            });
+            itemContainer.appendChild(handle);
 
             const content = document.createElement('div');
             content.className = 'strip-item-content';

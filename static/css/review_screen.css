@@ -260,3 +260,30 @@
 #filter-preset-strip {
     overflow: auto;
 }
+
+/* Drag and Drop for Photo Thumbnails */
+#review-thumbnails .strip-item {
+    display: flex;
+    align-items: center;
+}
+
+.drag-handle {
+    cursor: grab;
+    padding: 0 10px;
+    color: var(--text-color);
+    font-size: 20px;
+    opacity: 0.5;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+}
+
+.strip-item.dragging {
+    opacity: 0.5;
+    transform: scale(1.05);
+}
+
+.drag-over {
+    background-color: var(--button-hover-bg);
+}
