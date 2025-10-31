@@ -475,13 +475,21 @@ window.eventBus.on('app:init', (appState) => {
                         const { scale, renderedWidth } = getPreviewScaling();
                         if (scale === 1) return;
 
-                        const templateNaturalWidth = renderedWidth / scale;
-                        const textNaturalWidth = templateNaturalWidth * 0.6;
+                        const tempSpan = document.createElement('span');
+                        tempSpan.style.fontFamily = result.font;
+                        tempSpan.style.fontSize = '40px';
+                        tempSpan.style.whiteSpace = 'pre';
+                        tempSpan.innerHTML = result.text.replace(/\n/g, '<br>');
+                        document.body.appendChild(tempSpan);
+                        const textNaturalWidth = tempSpan.offsetWidth;
+                        const textNaturalHeight = tempSpan.offsetHeight;
+                        document.body.removeChild(tempSpan);
+
                         const template = document.querySelector('#review-preview .preview-template-img');
                         const imageNaturalWidth = template.naturalWidth;
                         const imageNaturalHeight = template.naturalHeight;
                         const imageX = (imageNaturalWidth - textNaturalWidth) / 2;
-                        const imageY = (imageNaturalHeight - 50) / 2;
+                        const imageY = (imageNaturalHeight - textNaturalHeight) / 2;
 
                         appState.placedTexts.push({
                             id: Date.now(),
@@ -491,7 +499,7 @@ window.eventBus.on('app:init', (appState) => {
                             x: Math.round(imageX),
                             y: Math.round(imageY),
                             width: Math.round(textNaturalWidth),
-                            height: 50,
+                            height: Math.round(textNaturalHeight),
                             rotation: 0,
                             fontSize: 40,
                             justify: result.justify
@@ -947,7 +955,7 @@ window.eventBus.on('app:init', (appState) => {
             i.style.fontSize = `${d.fontSize * scale}px`;
             i.style.color = d.color || '#000000';
             i.innerHTML = d.text.replace(/\n/g, '<br>');
-            i.style.whiteSpace = 'pre-wrap';
+            i.style.whiteSpace = 'pre'; // Apply justification
             i.style.textAlign = d.justify; // Apply justification
 
             w.style.height = 'auto';
@@ -1079,10 +1087,18 @@ window.eventBus.on('app:init', (appState) => {
             const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
             const scaleFactor = newDiagScreen / (localDiag * scale);
 
-            const minSizeNatural = 20 / scale;
-            text.width = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);
-            text.height = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
             text.fontSize = Math.max(10, appState.dragStart.initialFontSize * scaleFactor);
+
+            // Recalculate width and height based on new font size
+            const tempSpan = document.createElement('span');
+            tempSpan.style.fontFamily = text.font;
+            tempSpan.style.fontSize = text.fontSize + 'px';
+            tempSpan.style.whiteSpace = 'pre';
+            tempSpan.innerHTML = text.text.replace(/\n/g, '<br>');
+            document.body.appendChild(tempSpan);
+            text.width = tempSpan.offsetWidth;
+            text.height = tempSpan.offsetHeight;
+            document.body.removeChild(tempSpan);
 
             const previewRect = document.getElementById('review-preview').getBoundingClientRect();
             const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
