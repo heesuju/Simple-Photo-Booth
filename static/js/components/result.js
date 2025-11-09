@@ -165,6 +165,7 @@ window.eventBus.on('app:init', (appState) => {
           d.append('stickers', JSON.stringify(appState.placedStickers));
           d.append('texts', JSON.stringify(appState.placedTexts));
           d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
+          d.append('is_inverted', appState.isStreamInverted);
 
           // Videos
           for (const video_path of data.videos) {

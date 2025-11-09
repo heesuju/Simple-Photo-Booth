@@ -130,6 +130,7 @@ window.eventBus.on('app:init', (appState) => {
 
         cameraStream.srcObject = appState.stream;
         cameraStream.style.transform = 'scaleX(-1)';
+        appState.isStreamInverted = cameraStream.style.transform === 'scaleX(-1)';
         cameraStream.play();
 
         updatePhotoStatus(); 
@@ -158,6 +159,7 @@ window.eventBus.on('app:init', (appState) => {
                     appState.stream = stream;
                     cameraStream.srcObject = stream;
                     cameraStream.style.transform = 'scaleX(-1)';
+                    appState.isStreamInverted = cameraStream.style.transform === 'scaleX(-1)';
                     cameraStream.play();
                     updatePhotoStatus();
                 })

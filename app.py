@@ -1135,7 +1135,8 @@ async def compose_video(
     texts: str = Form(None),
     transformations: str = Form(...),
     template_path: str = Form(None),
-    template_file: UploadFile = File(None)
+    template_file: UploadFile = File(None),
+    is_inverted: bool = Form(False)
 ):
     try:
         import subprocess
@@ -1224,6 +1225,8 @@ async def compose_video(
             new_h = int(hole["h"] * scale)
 
             resized_clip = clip.resize((new_w, new_h)).rotate(rotation)
+            if is_inverted:
+                resized_clip = resized_clip.fx(mpe.vfx.mirror_x)
             pos_x = hole["x"] + (hole["w"] - resized_clip.w) // 2
             pos_y = hole["y"] + (hole["h"] - resized_clip.h) // 2
             video_clips.append(resized_clip.set_position((pos_x, pos_y)).set_duration(min_duration))
