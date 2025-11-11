@@ -35,6 +35,7 @@ window.initSettingsModal = function(appState) {
         document.body.classList.remove('light-theme', 'dark-theme', 'halloween-theme', 'christmas-theme', 'valentines-theme');
         document.body.classList.add(`${theme}-theme`);
         themeSelect.value = theme; // Update dropdown to reflect current theme
+        window.eventBus.dispatch('theme:changed', theme);
     }
 
     // Populate theme dropdown

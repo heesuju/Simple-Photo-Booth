@@ -141,11 +141,12 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.settingsModal = window.initSettingsModal(appState);
         appState.textEditModal = window.initTextEditModal(appState);
 
+        let initialTheme = 'light';
         // Fetch and apply initial theme
         try {
             const response = await fetch('/get_theme');
             const data = await response.json();
-            const initialTheme = data.theme || 'light';
+            initialTheme = data.theme || 'light';
             document.body.classList.add(`${initialTheme}-theme`);
         } catch (error) {
             console.error("Error fetching initial theme:", error);
@@ -153,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.eventBus.dispatch('app:init', appState);
+        window.eventBus.dispatch('app:theme-ready', initialTheme);
     }
 
     initApp();

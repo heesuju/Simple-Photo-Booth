@@ -73,8 +73,8 @@ body.halloween-theme {
 
 /* Christmas Theme */
 body.christmas-theme {
-    --bg-color: #f0f8ff; /* AliceBlue, like snow */
-    --bg-dark: #e6f2ff;
+    --bg-color: #5cb85c;
+    --bg-dark: #2f4f4f;
     --text-color: #2f4f4f; /* DarkSlateGray */
     --overlay-text-color: #2f4f4f;
     --header-bg: #5cb85c; /* Festive Green */

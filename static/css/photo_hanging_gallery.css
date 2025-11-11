@@ -33,7 +33,7 @@
     height: 2px;
     background: var(--border-color);
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    z-index: 0;
+    z-index: 1;
 }
 
 .photo-gallery-container {
@@ -47,7 +47,7 @@
     align-items: flex-start;
     flex-wrap: wrap; /* allow multiple lines */
     width: 90%;
-    z-index: 1;
+    z-index: 2;
 }
 
 .hanging-photo {
@@ -114,4 +114,27 @@
 
 .enter-button:hover {
     background-color: var(--button-hover-bg);
+}
+
+@keyframes pan-vertical {
+    0% {
+        transform: translateY(-50%);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+.photo-hanging-gallery.panning-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 200%; /* Twice the height to allow for seamless panning */
+    background-image: var(--panning-bg-image);
+    background-repeat: repeat-x; /* Repeat horizontally to fill the width */
+    background-size: contain;
+    animation: pan-vertical 60s linear infinite;
+    z-index: 0;
 }
