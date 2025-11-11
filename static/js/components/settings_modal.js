@@ -4,6 +4,10 @@ window.initSettingsModal = function(appState) {
     const themeSelect = document.getElementById('theme-select');
 
     function show() {
+        const currentTheme = Array.from(document.body.classList).find(c => c.endsWith('-theme'));
+        if (currentTheme) {
+            themeSelect.value = currentTheme.replace('-theme', '');
+        }
         settingsModal.classList.add('modal-visible');
     }
 
