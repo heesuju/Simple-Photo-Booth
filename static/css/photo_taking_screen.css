@@ -90,7 +90,7 @@
     left: 50%;
     transform: translate(-50%, -50%);
     font-size: 5rem;
-    color: var(--text-color);
+    color: var(--overlay-text-color);
     pointer-events: none;
     z-index: 40;
     display: none; /* toggle visibility in JS */

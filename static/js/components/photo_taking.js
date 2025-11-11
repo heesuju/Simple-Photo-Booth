@@ -313,7 +313,10 @@ window.eventBus.on('app:init', (appState) => {
     });
 
     function runTimerCapture() {
-        if (appState.capturedPhotos.length >= appState.templateInfo.hole_count) {
+        const totalToCapture = appState.isRetaking ? appState.photosToRetake.length : appState.templateInfo.hole_count;
+        const currentCaptureCount = appState.isRetaking ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
+
+        if (currentCaptureCount >= totalToCapture) {
             appState.isCapturing = false;
             if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();

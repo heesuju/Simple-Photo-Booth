@@ -28,13 +28,13 @@ window.initSettingsModal = function(appState) {
     });
 
     function setTheme(theme) {
-        document.body.classList.remove('light-theme', 'dark-theme', 'halloween-theme');
+        document.body.classList.remove('light-theme', 'dark-theme', 'halloween-theme', 'christmas-theme', 'valentines-theme');
         document.body.classList.add(`${theme}-theme`);
         themeSelect.value = theme; // Update dropdown to reflect current theme
     }
 
     // Populate theme dropdown
-    const themes = ['light', 'dark', 'halloween'];
+    const themes = ['light', 'dark', 'halloween', 'christmas', 'valentines'];
     themes.forEach(theme => {
         const option = document.createElement('option');
         option.value = theme;

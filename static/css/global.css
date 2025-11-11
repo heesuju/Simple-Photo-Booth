@@ -4,7 +4,7 @@ html, body {
     width: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Prevent page scrolling */
+    overflow: hidden;
     font-family: sans-serif;
     -webkit-user-select: none;
     -ms-user-select: none;
@@ -15,16 +15,16 @@ html, body {
 /* Theme Variables */
 /* Light Theme */
 body.light-theme {
-    --bg-color: #f0f2f5;             /* main background */
-    --bg-dark: #e0e3ea;              /* darker background */
+    --bg-color: #f0f2f5;
+    --bg-dark: #e0e3ea;
     --text-color: #333;
+    --overlay-text-color: #f0f0f0;
     --header-bg: #ffffff;
     --header-text: #333;
 
-    /* Buttons */
-    --button-bg: #007bff;            /* primary button */
+    --button-bg: #007bff;
     --button-hover-bg: #0056b3;
-    --button-secondary-bg: #6c757d;  /* secondary button */
+    --button-secondary-bg: #6c757d;
     --button-secondary-hover-bg: #5a6268;
     --button-disabled-bg: #c0c0c0;
     --button-text-color: #FFFFFF;
@@ -34,16 +34,16 @@ body.light-theme {
 
 /* Dark Theme */
 body.dark-theme {
-    --bg-color: #1a1a1a;             /* main background */
-    --bg-dark: #121212;               /* darker background */
+    --bg-color: #1a1a1a;
+    --bg-dark: #121212;
     --text-color: #f0f0f0;
+    --overlay-text-color: #f0f0f0;
     --header-bg: #2a2a2a;
     --header-text: #f0f0f0;
 
-    /* Buttons */
-    --button-bg: #6200ea;            /* primary button */
+    --button-bg: #6200ea;
     --button-hover-bg: #3700b3;
-    --button-secondary-bg: #444;     /* secondary button */
+    --button-secondary-bg: #444;
     --button-secondary-hover-bg: #555;
     --button-disabled-bg: #666;
     --button-text-color: #FFFFFF;
@@ -53,24 +53,62 @@ body.dark-theme {
 
 /* Halloween Theme */
 body.halloween-theme {
-    --bg-color: #2c0a0a;             /* main background */
-    --bg-dark: #1a0505;               /* darker background */
+    --bg-color: #2c0a0a;
+    --bg-dark: #1a0505;
     --text-color: #ff8c00;
+    --overlay-text-color: #ff8c00;
     --header-bg: #4a1a0a;
     --header-text: #ff8c00;
 
-    /* Buttons */
-    --button-bg: #ff4500;            /* primary button */
+    --button-bg: #ff4500;
     --button-hover-bg: #cc3700;
-    --button-secondary-bg: #8b008b;  /* purple secondary */
+    --button-secondary-bg: #8b008b;
     --button-secondary-hover-bg: #a020f0;
     --button-disabled-bg: #5a2a2a;
     --button-text-color: #FFFFFF;
 
     --border-color: #8b4513;
+    --accent-color: #800080;
+}
 
-    /* Optional accent */
-    --accent-color: #800080;         /* classic purple */
+/* Christmas Theme */
+body.christmas-theme {
+    --bg-color: #f0f8ff; /* AliceBlue, like snow */
+    --bg-dark: #e6f2ff;
+    --text-color: #2f4f4f; /* DarkSlateGray */
+    --overlay-text-color: #2f4f4f;
+    --header-bg: #5cb85c; /* Festive Green */
+    --header-text: #ffffff;
+
+    --button-bg: #d9534f; /* Festive Red */
+    --button-hover-bg: #c9302c;
+    --button-secondary-bg: #5cb85c; /* Festive Green */
+    --button-secondary-hover-bg: #449d44;
+    --button-disabled-bg: #b2b2b2;
+    --button-text-color: #ffffff;
+
+    --border-color: #b30000; /* Darker Red */
+    --accent-color: #ffd700; /* Gold */
+}
+
+/* Valentines Theme */
+body.valentines-theme {
+    --bg-color: #fefefe; /* Very light almost white pink */
+    --bg-dark: #fce4ec; /* Lighter MistyRose */
+    --text-color: #4a235a; /* Softer dark purple */
+    --overlay-text-color: #4a235a;
+    --header-bg: #f8bbd0; /* Lighter, pastel pink */
+    --header-text: #ffffff;
+
+    --button-bg: #f48fb1; /* Pastel pink */
+    --button-hover-bg: #ec407a; /* Slightly deeper pastel pink */
+    --button-secondary-bg: #ce93d8; /* Pastel lavender */
+    --button-secondary-hover-bg: #ba68c8;
+    --button-disabled-bg: #e1bee7; /* Lighter pastel lavender */
+    --button-text-color: #ffffff;
+
+    --border-color: #f06292; /* Medium pastel pink */
+    --accent-color: #e0b0ff; /* Lighter plum/lavender */
 }
 
 /* Apply variables */
