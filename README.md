@@ -34,6 +34,7 @@ This is a web-based photobooth application built with FastAPI and vanilla JavaSc
 │   │       ├── result.js
 │   │       ├── review.js
 │   │       ├── shared.js
+│   │       ├── transformable.js # Handles move/rotate/scale logic for items
 │   │       └── template_edit.js
 │   ├── generated_templates/ # Default templates generated on startup
 │   ├── layouts/            # Thumbnails for different layouts
@@ -64,6 +65,7 @@ The application is a single-page application (SPA) where different "screens" are
 2.  **Frontend (`static/js/`)**:
     *   Written in **vanilla JavaScript**, organized into components.
     *   A simple **Event Bus** (`main.js`) is used for communication between components, avoiding tight coupling.
+    *   **`transformable.js`**: A generic component that handles the logic for moving, rotating, and scaling elements (like stickers and text) on the preview canvas. This centralizes the transformation code to reduce redundancy.
     *   **Main Menu (`main_menu.js`)**: Fetches available layouts from the backend and displays them. Allows users to upload their own custom templates.
     *   **Photo Taking (`photo_taking.js`)**:
         *   Accesses the user's webcam using `navigator.mediaDevices.getUserMedia`.
@@ -73,7 +75,8 @@ The application is a single-page application (SPA) where different "screens" are
     *   **Review & Edit (`review.js`)**:
         *   Displays a live preview of the final image.
         *   Allows users to drag-and-drop to swap photos between slots.
-        *   Fetches and displays available stickers, allowing them to be added, moved, resized, and rotated on the canvas.
+        *   Fetches and displays available stickers and allows adding text.
+        *   Uses `transformable.js` to handle moving, resizing, and rotating stickers and text on the canvas.
         *   Applies CSS and SVG filters in real-time to the photo previews.
     *   **Result (`result.js`)**:
         *   On finalization, it sends all the data (photos, template info, sticker placements, filter values, video clips) to the backend's `/compose_image` and `/compose_video` endpoints.
