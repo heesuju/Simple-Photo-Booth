@@ -90,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
             videoAssignments: [],        selectedHole: { element: null, index: -1 },
         placedStickers: [],
         stream: null,
-        activeSticker: { element: null, data: null, action: null },
         editingTemplate: null,
         activeHole: { element: null, data: null, index: -1, action: null },
         dragStart: { x: 0, y: 0, initialX: 0, initialY: 0 },

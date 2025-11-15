@@ -89,6 +89,14 @@ window.eventBus.on('app:init', (appState) => {
 
     const colorPicker = window.initColorPicker(appState);
     const textEdit = window.initTextEdit(appState, colorPicker);
+    const transformableHandler = window.initTransformable({
+        appState,
+        getPreviewScaling: window.getPreviewScaling,
+        updateSnapLine,
+        renderTexts: renderPlacedTexts,
+        renderStickers: renderPlacedStickers,
+    });
+    
     
     appState.selectedForStylizing = [];
 
@@ -811,24 +819,22 @@ window.eventBus.on('app:init', (appState) => {
         window.handleFileUpload(e, '/upload_sticker', loadStickerGallery, currentCategory);
     });
 
-    window.addEventListener('mousemove', (e) => {
-        handleStickerMove(e);
-        handleTextMove(e);
-    });
-
-    window.addEventListener('mouseup', (e) => {
-        handleStickerMouseUp(e);
-        handleTextMouseUp(e);
-    });
-
     window.addEventListener('resize', renderPreview);
 
     document.addEventListener('click', (e) => {
-        if (appState.activeText.element && !appState.activeText.element.contains(e.target)) {
-            const textBox = appState.activeText.element.querySelector('.editable-text');
-            textBox.contentEditable = false;
-            appState.activeText = { element: null, data: null, action: null };
+        if (appState.activeTransformable && appState.activeTransformable.element && !appState.activeTransformable.element.contains(e.target)) {
+            // Check if the click was on another transformable. If so, the mousedown handler has already taken care of it.
+            if (e.target.closest('.placed-sticker-wrapper, .placed-text-wrapper')) {
+                return;
+            }
+
+            if (appState.activeTransformable.type === 'text') {
+                const textBox = appState.activeTransformable.element.querySelector('.editable-text');
+                textBox.contentEditable = false;
+            }
+            appState.activeTransformable = null;
             renderPlacedTexts();
+            renderPlacedStickers();
         }
     });
 
@@ -860,7 +866,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.disabledThumbnailIndex = -1;
             appState.placedStickers = [];
             appState.placedTexts = [];
-            appState.activeText = { element: null, data: null, action: null }; 
+            appState.activeTransformable = null; 
             appState.removeBackground = false;
             appState.stylizedImagesCache = {};
             appState.stylizedCropData = {};
@@ -979,10 +985,6 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    let lastClickTime = 0;
-    const DOUBLE_CLICK_DELAY = 250; // ms
-    const SNAP_THRESHOLD = 5; // degrees
-
     function renderPlacedTexts() {
         document.querySelectorAll('.placed-text-wrapper').forEach(w => w.remove());
         const { scale, offsetX, offsetY } = getPreviewScaling();
@@ -992,7 +994,7 @@ window.eventBus.on('app:init', (appState) => {
         appState.placedTexts.forEach(d => {
             const w = document.createElement('div');
             w.className = 'placed-text-wrapper';
-            if (appState.activeText.data && appState.activeText.data.id === d.id) {
+            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
                 w.classList.add('active');
             }
             w.style.position = 'absolute';
@@ -1020,7 +1022,7 @@ window.eventBus.on('app:init', (appState) => {
                 d.text = e.target.innerText;
             });
 
-            w.addEventListener('mousedown', (e) => handleTextMouseDown(e, d, w), false);
+            w.addEventListener('mousedown', (e) => transformableHandler.handleMouseDown(e, d, w, 'text'), false);
             w.addEventListener('dblclick', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1040,35 +1042,14 @@ window.eventBus.on('app:init', (appState) => {
             });
             w.appendChild(i);
 
-            if (appState.activeText.data && appState.activeText.data.id === d.id) {
+            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
                 const selectionBox = document.createElement('div');
                 selectionBox.className = 'selection-box';
                 w.appendChild(selectionBox);
 
                 const resizeRotateHandle = document.createElement('div');
                 resizeRotateHandle.className = 'sticker-handle resize-rotate';
-                resizeRotateHandle.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                    appState.activeText.action = 'resize-rotate';
-                    
-                    const { scale, offsetX, offsetY } = getPreviewScaling();
-                    const previewRect = document.getElementById('review-preview').getBoundingClientRect();
-                    const centerX = previewRect.left + offsetX + (d.x + d.width / 2) * scale;
-                    const centerY = previewRect.top + offsetY + (d.y + w.offsetHeight / 2) * scale;
-
-                    appState.dragStart = { 
-                        x: e.clientX, 
-                        y: e.clientY, 
-                        centerX, 
-                        centerY, 
-                        initialWidth: d.width,
-                        initialHeight: w.offsetHeight / scale,
-                        initialRotation: d.rotation,
-                        initialFontSize: d.fontSize,
-                        initialDistance: Math.hypot(e.clientX - centerX, e.clientY - centerY),
-                        initialAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
-                    };
-                });
+                resizeRotateHandle.addEventListener('mousedown', (e) => transformableHandler.handleResizeRotateMouseDown(e, d, w, 'text'));
                 w.appendChild(resizeRotateHandle);
 
                 const closeHandle = document.createElement('div');
@@ -1080,7 +1061,7 @@ window.eventBus.on('app:init', (appState) => {
                     if (index > -1) {
                         appState.placedTexts.splice(index, 1);
                     }
-                    appState.activeText = { element: null, data: null, action: null };
+                    appState.activeTransformable = null;
                     renderPlacedTexts();
                 });
                 w.appendChild(closeHandle);
@@ -1090,98 +1071,7 @@ window.eventBus.on('app:init', (appState) => {
         });
     }
 
-    function handleTextMouseDown(e, data, el) {
-        const now = Date.now();
-        const timeSinceLast = now - lastClickTime;
-        lastClickTime = now;
-        if (timeSinceLast < DOUBLE_CLICK_DELAY) {
-            return
-        }
-        
-        if (el.querySelector('.editable-text').isContentEditable) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (appState.activeText.action) return;
-        if (!appState.activeText.data || appState.activeText.data.id !== data.id) {
-            appState.activeText = { element: el, data: data, action: 'move' };
-            renderPlacedTexts();
-        } else {
-            appState.activeText.action = 'move';
-        }
-        appState.dragStart = { x: e.clientX, y: e.clientY, initialX: data.x, initialY: data.y };
-    }
 
-    function handleTextMove(e) {
-        if (!appState.activeText.action) return;
-        e.preventDefault();
-
-        const { scale } = getPreviewScaling();
-        if (scale === 1) return;
-
-        const dX_natural = (e.clientX - appState.dragStart.x) / scale;
-        const dY_natural = (e.clientY - appState.dragStart.y) / scale;
-
-        const text = appState.activeText.data;
-
-        if (appState.activeText.action === 'move') {
-            text.x = Math.round(appState.dragStart.initialX + dX_natural);
-            text.y = Math.round(appState.dragStart.initialY + dY_natural);
-        } else if (appState.activeText.action === 'resize-rotate') {
-            const { scale, offsetX, offsetY } = getPreviewScaling();
-            const centerX = appState.dragStart.centerX;
-            const centerY = appState.dragStart.centerY;
-
-            const mouseVecX = e.clientX - centerX;
-            const mouseVecY = e.clientY - centerY;
-
-            const localAngleRad = Math.atan2(appState.dragStart.initialHeight / 2, appState.dragStart.initialWidth / 2);
-            const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
-            let newRotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
-
-            let isSnapping = false;
-            // Snap to 0 degrees if within threshold
-            if (Math.abs(newRotation) < SNAP_THRESHOLD || Math.abs(newRotation - 360) < SNAP_THRESHOLD || Math.abs(newRotation + 360) < SNAP_THRESHOLD) {
-                text.rotation = 0;
-                isSnapping = true;
-            } else {
-                text.rotation = newRotation;
-            }
-            updateSnapLine(isSnapping, appState.dragStart.centerY);
-
-            const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
-            const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
-            const scaleFactor = newDiagScreen / (localDiag * scale);
-
-            text.fontSize = Math.max(10, appState.dragStart.initialFontSize * scaleFactor);
-
-            // Recalculate width and height based on new font size
-            const tempSpan = document.createElement('span');
-            tempSpan.style.fontFamily = text.font;
-            tempSpan.style.fontSize = text.fontSize + 'px';
-            tempSpan.style.whiteSpace = 'pre';
-            tempSpan.innerHTML = text.text.replace(/\n/g, '<br>');
-            document.body.appendChild(tempSpan);
-            text.width = tempSpan.offsetWidth;
-            text.height = tempSpan.offsetHeight;
-            document.body.removeChild(tempSpan);
-
-            const previewRect = document.getElementById('review-preview').getBoundingClientRect();
-            const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
-            const new_center_natural_y = (centerY - (previewRect.top + offsetY)) / scale;
-
-            text.x = new_center_natural_x - text.width / 2;
-            text.y = new_center_natural_y - text.height / 2;
-        } 
-
-        renderPlacedTexts();
-    }
-
-    function handleTextMouseUp(e) {
-        if (appState.activeText.action) {
-            appState.activeText.action = null;
-        }
-        updateSnapLine(false);
-    }
 
     function renderReviewThumbnails() { 
         const c = document.getElementById('review-thumbnails'); 
@@ -1379,10 +1269,10 @@ window.eventBus.on('app:init', (appState) => {
     
 
     async function openTextColorPicker() {
-        if (!appState.activeText.data) return;
-        const result = await colorPicker.show(appState.activeText.data.color);
+        if (!appState.activeTransformable || appState.activeTransformable.type !== 'text') return;
+        const result = await colorPicker.show(appState.activeTransformable.data.color);
         if (result) {
-            appState.activeText.data.color = result.color;
+            appState.activeTransformable.data.color = result.color;
             renderPlacedTexts();
         }
     }
@@ -1527,7 +1417,7 @@ window.eventBus.on('app:init', (appState) => {
         appState.placedStickers.forEach(d => {
             const w = document.createElement('div');
             w.className = 'placed-sticker-wrapper';
-            if (appState.activeSticker.data && appState.activeSticker.data.id === d.id) {
+            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
                 w.classList.add('active');
             }
             w.style.position = 'absolute';
@@ -1540,10 +1430,10 @@ window.eventBus.on('app:init', (appState) => {
             i.src = d.path;
             i.style.width = '100%';
             i.style.height = '100%';
-            w.addEventListener('mousedown', (e) => handleStickerMouseDown(e, d, w), false);
+            w.addEventListener('mousedown', (e) => transformableHandler.handleMouseDown(e, d, w, 'sticker'), false);
             w.appendChild(i);
 
-            if (appState.activeSticker.data && appState.activeSticker.data.id === d.id) {
+            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
                 const selectionBox = document.createElement('div');
                 selectionBox.className = 'selection-box';
                 w.appendChild(selectionBox);
@@ -1551,27 +1441,7 @@ window.eventBus.on('app:init', (appState) => {
                 // Combined Resize/Rotate Handle
                 const resizeRotateHandle = document.createElement('div');
                 resizeRotateHandle.className = 'sticker-handle resize-rotate';
-                resizeRotateHandle.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                    appState.activeSticker.action = 'resize-rotate';
-                    
-                    const { scale, offsetX, offsetY } = getPreviewScaling();
-                    const previewRect = document.getElementById('review-preview').getBoundingClientRect();
-                    const centerX = previewRect.left + offsetX + (d.x + d.width / 2) * scale;
-                    const centerY = previewRect.top + offsetY + (d.y + d.height / 2) * scale;
-
-                    appState.dragStart = { 
-                        x: e.clientX, 
-                        y: e.clientY, 
-                        centerX, 
-                        centerY, 
-                        initialWidth: d.width,
-                        initialHeight: d.height,
-                        initialRotation: d.rotation,
-                        initialDistance: Math.hypot(e.clientX - centerX, e.clientY - centerY),
-                        initialAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
-                    };
-                });
+                resizeRotateHandle.addEventListener('mousedown', (e) => transformableHandler.handleResizeRotateMouseDown(e, d, w, 'sticker'));
                 w.appendChild(resizeRotateHandle);
 
                 // Close Handle
@@ -1584,7 +1454,7 @@ window.eventBus.on('app:init', (appState) => {
                     if (index > -1) {
                         appState.placedStickers.splice(index, 1);
                     }
-                    appState.activeSticker = { element: null, data: null, action: null };
+                    appState.activeTransformable = null;
                     renderPlacedStickers();
                 });
                 w.appendChild(closeHandle);
@@ -1760,82 +1630,6 @@ window.eventBus.on('app:init', (appState) => {
                 wrapper.classList.remove('grain-effect');
             }
         });
-    }
-
-    function handleStickerMouseDown(e, data, el) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (appState.activeSticker.action) return; // Don't start a new sticker drag if one is already active
-        if (!appState.activeSticker.data || appState.activeSticker.data.id !== data.id) {
-            appState.activeSticker = { element: el, data: data, action: 'move' };
-            renderPlacedStickers();
-        } else {
-            appState.activeSticker.action = 'move';
-        }
-        appState.dragStart = { x: e.clientX, y: e.clientY, initialX: data.x, initialY: data.y };
-    }
-
-    function handleStickerMove(e) {
-        if (!appState.activeSticker.action) return;
-        e.preventDefault();
-        
-        const { scale } = getPreviewScaling();
-        if (scale === 1) return;
-
-        const dX_natural = (e.clientX - appState.dragStart.x) / scale;
-        const dY_natural = (e.clientY - appState.dragStart.y) / scale;
-
-        const sticker = appState.activeSticker.data;
-
-        if (appState.activeSticker.action === 'move') {
-            sticker.x = Math.round(appState.dragStart.initialX + dX_natural);
-            sticker.y = Math.round(appState.dragStart.initialY + dY_natural);
-        } else if (appState.activeSticker.action === 'resize-rotate') {
-            const { scale, offsetX, offsetY } = getPreviewScaling();
-            const centerX = appState.dragStart.centerX;
-            const centerY = appState.dragStart.centerY;
-
-            const mouseVecX = e.clientX - centerX;
-            const mouseVecY = e.clientY - centerY;
-
-            const localAngleRad = Math.atan2(appState.dragStart.initialHeight / 2, appState.dragStart.initialWidth / 2);
-            const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
-            let newRotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
-
-            let isSnapping = false;
-            // Snap to 0 degrees if within threshold
-            if (Math.abs(newRotation) < SNAP_THRESHOLD || Math.abs(newRotation - 360) < SNAP_THRESHOLD || Math.abs(newRotation + 360) < SNAP_THRESHOLD) {
-                sticker.rotation = 0;
-                isSnapping = true;
-            } else {
-                sticker.rotation = newRotation;
-            }
-            updateSnapLine(isSnapping, appState.dragStart.centerY);
-
-            const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
-            const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
-            const scaleFactor = newDiagScreen / (localDiag * scale);
-
-            const minSizeNatural = 20 / scale;
-            sticker.width = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);
-            sticker.height = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
-
-            const previewRect = document.getElementById('review-preview').getBoundingClientRect();
-            const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
-            const new_center_natural_y = (centerY - (previewRect.top + offsetY)) / scale;
-
-            sticker.x = new_center_natural_x - sticker.width / 2;
-            sticker.y = new_center_natural_y - sticker.height / 2;
-        } 
-
-        renderPlacedStickers();
-    }
-
-    function handleStickerMouseUp(e) {
-        if (appState.activeSticker.action) {
-            appState.activeSticker.action = null;
-        }
-        updateSnapLine(false);
     }
 
     function updateSnapLine(isSnapping, yPosition) {
