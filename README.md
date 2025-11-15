@@ -33,9 +33,12 @@ This is a web-based photobooth application built with FastAPI and vanilla JavaSc
 │   │       ├── photo_taking.js
 │   │       ├── result.js
 │   │       ├── review.js
-│   │       ├── shared.js
 │   │       ├── transformable.js # Handles move/rotate/scale logic for items
-│   │       └── template_edit.js
+│   │       ├── template_edit.js
+│   │       └── shared/
+│   │           ├── color_picker.js
+│   │           ├── crop.js
+│   │           └── text_edit.js
 │   ├── generated_templates/ # Default templates generated on startup
 │   ├── layouts/            # Thumbnails for different layouts
 │   ├── placeholder/        # Placeholder images for layout thumbnails
@@ -81,6 +84,11 @@ The application is a single-page application (SPA) where different "screens" are
     *   **Result (`result.js`)**:
         *   On finalization, it sends all the data (photos, template info, sticker placements, filter values, video clips) to the backend's `/compose_image` and `/compose_video` endpoints.
         *   Displays the final generated image, a download button, and the QR code provided by the backend.
+
+    *   **Shared Components (`static/js/components/shared/`)**: These are reusable modals that provide common functionality needed across different screens.
+        *   **Color Picker (`color_picker.js`)**: A modal that uses the `iro.js` library to provide a color selection wheel. It can be initialized with a default color and returns the user's selection. It also allows users to save a chosen color as a preset, which sends the new color to the backend to be saved for future use.
+        *   **Cropping Modal (`crop.js`)**: A tool for cropping images to a specific aspect ratio. It displays a modal with the image and a draggable, resizable crop overlay. It handles the logic for maintaining the aspect ratio and returns the final cropped image data as a Blob, which can then be used for previews or sent to the server.
+        *   **Text Edit Modal (`text_edit.js`)**: A comprehensive modal for adding and editing text elements. It allows users to input text, select from available fonts (loaded from the server), choose a color from a palette (which integrates the `color_picker.js` for adding new colors), and set text justification (left, center, right). It also provides a live preview of the text as the user makes changes.
 
 3.  **CSS (`static/css/`)**:
     *   **`global.css`**: Contains base styles for the entire application, such as `html`, `body`, and container styles.
