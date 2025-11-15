@@ -93,6 +93,7 @@ window.eventBus.on('app:init', (appState) => {
         appState,
         getPreviewScaling: window.getPreviewScaling,
         updateSnapLine,
+        updateVerticalSnapLine,
         renderTexts: renderPlacedTexts,
         renderStickers: renderPlacedStickers,
     });
@@ -1649,6 +1650,33 @@ window.eventBus.on('app:init', (appState) => {
             }
             const previewRect = previewContainer.getBoundingClientRect();
             snapLine.style.top = `${yPosition - previewRect.top}px`;
+            snapLine.style.display = 'block';
+        } else {
+            if (snapLine) {
+                snapLine.style.display = 'none';
+            }
+        }
+    }
+
+
+
+function updateVerticalSnapLine(isSnapping, xPosition) {
+        const previewContainer = document.getElementById('review-preview');
+        let snapLine = document.getElementById('vertical-snap-line');
+        if (isSnapping) {
+            if (!snapLine) {
+                snapLine = document.createElement('div');
+                snapLine.id = 'vertical-snap-line';
+                snapLine.style.position = 'absolute';
+                snapLine.style.width = '2px';
+                snapLine.style.height = '100%';
+                snapLine.style.backgroundColor = '#4CAF50';
+                snapLine.style.top = '0';
+                snapLine.style.zIndex = '10000';
+                previewContainer.appendChild(snapLine);
+            }
+            const previewRect = previewContainer.getBoundingClientRect();
+            snapLine.style.left = `${xPosition - previewRect.left}px`;
             snapLine.style.display = 'block';
         } else {
             if (snapLine) {

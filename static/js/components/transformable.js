@@ -1,7 +1,7 @@
 window.initTransformable = (options) => {
-    const { appState, getPreviewScaling, updateSnapLine, renderTexts, renderStickers, } = options;
+    const { appState, getPreviewScaling, updateSnapLine, updateVerticalSnapLine, renderTexts, renderStickers, } = options;
 
-    const SNAP_THRESHOLD = 5; // degrees
+    const SNAP_THRESHOLD = 5; // degrees for rotation, pixels for position
 
     function handleMouseDown(e, data, el, type) {
         // This is for move action
@@ -55,18 +55,32 @@ window.initTransformable = (options) => {
         if (!appState.activeTransformable || !appState.activeTransformable.action) return;
         e.preventDefault();
 
-        const { scale } = getPreviewScaling();
+        const { scale, offsetX, offsetY } = getPreviewScaling();
         if (scale === 1) return;
 
         const item = appState.activeTransformable.data;
+        const previewContainer = document.getElementById('review-preview');
+        const previewRect = previewContainer.getBoundingClientRect();
 
         if (appState.activeTransformable.action === 'move') {
             const dX_natural = (e.clientX - appState.dragStart.x) / scale;
             const dY_natural = (e.clientY - appState.dragStart.y) / scale;
             item.x = Math.round(appState.dragStart.initialX + dX_natural);
             item.y = Math.round(appState.dragStart.initialY + dY_natural);
+
+            const itemCenterScreenX = previewRect.left + offsetX + (item.x + item.width / 2) * scale;
+            const canvasCenterScreenX = previewRect.left + previewRect.width / 2;
+
+            if (Math.abs(itemCenterScreenX - canvasCenterScreenX) < SNAP_THRESHOLD) {
+                const template = document.querySelector('#review-preview .preview-template-img');
+                const imageNaturalWidth = template.naturalWidth;
+                item.x = (imageNaturalWidth - item.width) / 2;
+                updateVerticalSnapLine(true, canvasCenterScreenX);
+            } else {
+                updateVerticalSnapLine(false);
+            }
+
         } else if (appState.activeTransformable.action === 'resize-rotate') {
-            const { scale, offsetX, offsetY } = getPreviewScaling();
             const centerX = appState.dragStart.centerX;
             const centerY = appState.dragStart.centerY;
 
@@ -108,7 +122,6 @@ window.initTransformable = (options) => {
                 item.height = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
             }
 
-            const previewRect = document.getElementById('review-preview').getBoundingClientRect();
             const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
             const new_center_natural_y = (centerY - (previewRect.top + offsetY)) / scale;
 
@@ -128,6 +141,7 @@ window.initTransformable = (options) => {
             appState.activeTransformable.action = null;
         }
         updateSnapLine(false);
+        updateVerticalSnapLine(false);
     }
 
     window.addEventListener('mousemove', handleMouseMove);
