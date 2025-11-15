@@ -7,22 +7,121 @@ window.initTextEdit = function(appState, colorPicker) {
     const colorPalette = document.getElementById('text-color-palette');
     const justificationButtons = document.querySelectorAll('.justification-btn');
     const textPreview = document.getElementById('text-preview');
+    const uploadFontBtn = document.getElementById('upload-font-btn');
+    const fontUploadInput = document.getElementById('font-upload-input');
 
     let resolvePromise;
 
+    // Function to load fonts from the server and populate the select dropdown
+    async function loadFonts(selectedFont) {
+        try {
+            const response = await fetch('/fonts');
+            const fonts = await response.json();
+
+            fontSelect.innerHTML = '';
+
+            if (fonts.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = 'No fonts available';
+                fontSelect.appendChild(option);
+                return;
+            }
+
+            fonts.forEach(font => {
+                const option = document.createElement('option');
+                option.value = font.font_name;
+                option.textContent = font.font_name;
+                option.style.fontFamily = font.font_name;
+                fontSelect.appendChild(option);
+            });
+
+            if (selectedFont && fonts.some(f => f.font_name === selectedFont)) {
+                fontSelect.value = selectedFont;
+            }
+
+            applyFontToPreview();
+
+        } catch (error) {
+            console.error('Error loading fonts:', error);
+        }
+    }
+
+    // Function to apply the selected font to the text preview
+    function applyFontToPreview() {
+        const selectedFontName = fontSelect.value;
+        if (selectedFontName) {
+            // Assuming font files are served from /static/fonts/
+            // And font_name in DB matches the filename without extension
+            textPreview.style.fontFamily = `'${selectedFontName}', sans-serif`;
+            // Dynamically load the font if not already loaded
+            const fontPath = `/static/fonts/${selectedFontName}.ttf`; // Assuming .ttf, might need to be dynamic
+            const fontFace = new FontFace(selectedFontName, `url(${fontPath})`);
+            fontFace.load().then(function(loaded_face) {
+                document.fonts.add(loaded_face);
+                console.log(`Font '${selectedFontName}' loaded.`);
+            }).catch(function(error) {
+                console.error(`Failed to load font '${selectedFontName}':`, error);
+            });
+        } else {
+            textPreview.style.fontFamily = 'sans-serif'; // Default fallback
+        }
+    }
+
+    uploadFontBtn.addEventListener('click', () => {
+        fontUploadInput.click();
+    });
+
+    fontUploadInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload_font', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    await loadFonts(result.font_name); // Reload fonts and select the new one
+                    // Manually trigger change to update preview
+                    fontSelect.dispatchEvent(new Event('change'));
+                    applyFontToPreview();
+                } else {
+                    const errorData = await response.json();
+                    alert(`Error uploading font: ${errorData.detail}`);
+                }
+            } catch (error) {
+                alert('Network error during font upload.');
+            } finally {
+                fontUploadInput.value = '';
+            }
+        }
+    });
+
+
     function show(existingTextData) {
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             resolvePromise = resolve;
 
             let selectedFont = existingTextData ? existingTextData.font : null;
             let selectedColor = existingTextData ? existingTextData.color : '#000000';
             let selectedJustification = existingTextData ? existingTextData.justify : 'left';
 
+            await loadFonts(selectedFont);
+            if (!selectedFont) {
+                selectedFont = fontSelect.value;
+            }
+
+
             function updatePreview() {
                 textPreview.textContent = textInputField.value;
                 textPreview.style.fontFamily = selectedFont;
                 textPreview.style.color = selectedColor;
                 textPreview.style.textAlign = selectedJustification;
+                applyFontToPreview();
             }
 
             textInputModal.className = 'modal-visible';
@@ -30,40 +129,13 @@ window.initTextEdit = function(appState, colorPicker) {
             textInputField.focus();
             textInputField.addEventListener('input', updatePreview);
 
-            // 1. Populate Fonts
-            fontSelect.innerHTML = '';
-            fetch('/fonts').then(r => r.json()).then(fonts => {
-                if (fonts.length === 0) {
-                    const option = document.createElement('option');
-                    option.textContent = 'No fonts available';
-                    fontSelect.appendChild(option);
-                    updatePreview();
-                    return;
-                }
-
-                fonts.forEach(font => {
-                    const option = document.createElement('option');
-                    option.value = font.font_name;
-                    option.textContent = font.font_name;
-                    option.style.fontFamily = font.font_name;
-                    fontSelect.appendChild(option);
-                });
-
-                if (selectedFont) {
-                    fontSelect.value = selectedFont;
-                } else {
-                    selectedFont = fonts[0].font_name;
-                    fontSelect.value = selectedFont;
-                }
-                updatePreview();
-            });
 
             fontSelect.addEventListener('change', () => {
                 selectedFont = fontSelect.value;
                 updatePreview();
             });
 
-            // 2. Populate Colors
+            // Populate Colors
             colorPalette.innerHTML = '';
             fetch('/colors').then(r => r.json()).then(colors => {
                 colors.forEach(color => {
@@ -85,7 +157,6 @@ window.initTextEdit = function(appState, colorPicker) {
                     colorPalette.appendChild(swatch);
                 });
 
-                // Add custom color button
                 const addColorBtn = document.createElement('div');
                 addColorBtn.id = 'add-color-btn';
                 addColorBtn.className = 'palette-swatch';

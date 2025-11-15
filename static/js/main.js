@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' },
             { id: 'crop-modal-container', url: '/static/components/shared/crop_modal.html' },
             { id: 'color-picker-modal-container', url: '/static/components/shared/color_picker_modal.html' },
-            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit_modal.html' },
+            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit.html' },
             { id: 'settings-modal-container', url: '/static/components/settings_modal.html' }
         ];
 
@@ -49,7 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
             '/static/js/components/review.js',
             '/static/js/components/result.js',
             '/static/js/components/template_edit.js',
-            '/static/js/components/shared/text_edit_modal.js'
+            '/static/js/components/shared/text_edit.js',
+            '/static/js/components/shared/color_picker.js',
+            '/static/js/components/shared/crop.js'
         ];
 
         for (const script of scripts) {
@@ -138,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadJsComponents();
         appState.cropper = window.initCropper(appState);
         appState.settingsModal = window.initSettingsModal(appState);
-        appState.textEditModal = window.initTextEditModal(appState);
 
         let initialTheme = 'light';
         // Fetch and apply initial theme
