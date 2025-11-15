@@ -981,6 +981,7 @@ window.eventBus.on('app:init', (appState) => {
 
     let lastClickTime = 0;
     const DOUBLE_CLICK_DELAY = 250; // ms
+    const SNAP_THRESHOLD = 5; // degrees
 
     function renderPlacedTexts() {
         document.querySelectorAll('.placed-text-wrapper').forEach(w => w.remove());
@@ -1135,7 +1136,17 @@ window.eventBus.on('app:init', (appState) => {
 
             const localAngleRad = Math.atan2(appState.dragStart.initialHeight / 2, appState.dragStart.initialWidth / 2);
             const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
-            text.rotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
+            let newRotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
+
+            let isSnapping = false;
+            // Snap to 0 degrees if within threshold
+            if (Math.abs(newRotation) < SNAP_THRESHOLD || Math.abs(newRotation - 360) < SNAP_THRESHOLD || Math.abs(newRotation + 360) < SNAP_THRESHOLD) {
+                text.rotation = 0;
+                isSnapping = true;
+            } else {
+                text.rotation = newRotation;
+            }
+            updateSnapLine(isSnapping, appState.dragStart.centerY);
 
             const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
             const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
@@ -1169,6 +1180,7 @@ window.eventBus.on('app:init', (appState) => {
         if (appState.activeText.action) {
             appState.activeText.action = null;
         }
+        updateSnapLine(false);
     }
 
     function renderReviewThumbnails() { 
@@ -1788,7 +1800,17 @@ window.eventBus.on('app:init', (appState) => {
 
             const localAngleRad = Math.atan2(appState.dragStart.initialHeight / 2, appState.dragStart.initialWidth / 2);
             const newRotationRad = Math.atan2(mouseVecY, mouseVecX);
-            sticker.rotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
+            let newRotation = (newRotationRad - localAngleRad) * (180 / Math.PI);
+
+            let isSnapping = false;
+            // Snap to 0 degrees if within threshold
+            if (Math.abs(newRotation) < SNAP_THRESHOLD || Math.abs(newRotation - 360) < SNAP_THRESHOLD || Math.abs(newRotation + 360) < SNAP_THRESHOLD) {
+                sticker.rotation = 0;
+                isSnapping = true;
+            } else {
+                sticker.rotation = newRotation;
+            }
+            updateSnapLine(isSnapping, appState.dragStart.centerY);
 
             const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
             const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
@@ -1813,7 +1835,34 @@ window.eventBus.on('app:init', (appState) => {
         if (appState.activeSticker.action) {
             appState.activeSticker.action = null;
         }
+        updateSnapLine(false);
     }
+
+    function updateSnapLine(isSnapping, yPosition) {
+        const previewContainer = document.getElementById('review-preview');
+        let snapLine = document.getElementById('snap-line');
+        if (isSnapping) {
+            if (!snapLine) {
+                snapLine = document.createElement('div');
+                snapLine.id = 'snap-line';
+                snapLine.style.position = 'absolute';
+                snapLine.style.width = '100%';
+                snapLine.style.height = '2px';
+                snapLine.style.backgroundColor = '#4CAF50';
+                snapLine.style.left = '0';
+                snapLine.style.zIndex = '10000';
+                previewContainer.appendChild(snapLine);
+            }
+            const previewRect = previewContainer.getBoundingClientRect();
+            snapLine.style.top = `${yPosition - previewRect.top}px`;
+            snapLine.style.display = 'block';
+        } else {
+            if (snapLine) {
+                snapLine.style.display = 'none';
+            }
+        }
+    }
+
 
 
     async function applyBackgroundRemovalPreview() {
