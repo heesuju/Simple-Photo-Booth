@@ -1,7 +1,8 @@
-window.initColorPicker = function(appState) {
+window.initColorPicker = function (appState) {
     const colorPickerModal = document.getElementById('color-picker-modal');
     const colorPickerContainer = document.getElementById('color-picker-container');
     const colorHexInput = document.getElementById('color-hex-input');
+    const colorPreviewBox = document.getElementById('color-preview-box'); // NEW
     const saveColorPresetCheckbox = document.getElementById('save-color-preset');
     const colorPickerConfirmBtn = document.getElementById('color-picker-confirm-btn');
     const colorPickerCancelBtn = document.getElementById('color-picker-cancel-btn');
@@ -15,23 +16,38 @@ window.initColorPicker = function(appState) {
             colorPickerModal.className = 'modal-visible';
             saveColorPresetCheckbox.checked = false;
 
+            if (colorPreviewBox) {
+                colorPreviewBox.style.backgroundColor = initialColor;
+            }
+
             if (!colorPicker) {
                 colorPicker = new iro.ColorPicker(colorPickerContainer, {
                     width: 250,
                     color: initialColor
                 });
 
-                colorPicker.on('color:change', function(color) {
+                colorPicker.on('color:change', function (color) {
                     colorHexInput.value = color.hexString;
+                    if (colorPreviewBox) {
+                        colorPreviewBox.style.backgroundColor = color.hexString;
+                    }
                 });
 
-                colorHexInput.addEventListener('change', function() {
+                colorHexInput.addEventListener('change', function () {
                     try {
                         colorPicker.color.hexString = this.value;
-                    } catch (e) {}
+                        // update preview is handled by color:change event which fires on set?
+                        // Usually yes. If not, we might need manual update.
+                        // Iro.js documentation says it should fire.
+                    } catch (e) { }
                 });
             } else {
                 colorPicker.color.hexString = initialColor;
+                // Force update input and preview just in case
+                colorHexInput.value = initialColor;
+                if (colorPreviewBox) {
+                    colorPreviewBox.style.backgroundColor = initialColor;
+                }
             }
         });
     }

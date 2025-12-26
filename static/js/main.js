@@ -18,10 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 'review-screen', url: '/static/components/review_screen.html', css: '/static/css/review_screen.css' },
             { id: 'result-screen', url: '/static/components/result_screen.html', css: '/static/css/result_screen.css' },
             { id: 'template-edit-screen', url: '/static/components/template_edit_screen.html', css: '/static/css/template_edit_screen.css' },
-            { id: 'crop-modal-container', url: '/static/components/shared/crop_modal.html' },
-            { id: 'color-picker-modal-container', url: '/static/components/shared/color_picker_modal.html' },
-            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit.html' },
-            { id: 'settings-modal-container', url: '/static/components/settings_modal.html' }
+            { id: 'crop-modal-container', url: '/static/components/shared/crop_modal.html', css: '/static/css/shared/crop_modal.css' },
+            { id: 'color-picker-modal-container', url: '/static/components/shared/color_picker_modal.html', css: '/static/css/shared/color_picker_modal.css' },
+            { id: 'text-edit-modal-container', url: '/static/components/shared/text_edit.html', css: '/static/css/shared/text_edit.css' },
+            { id: 'settings-modal-container', url: '/static/components/settings_modal.html', css: '/static/css/settings_modal.css' }
         ];
 
         for (const component of components) {
@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
         capturedPhotos: [],
         originalPhotos: [],
         cropData: [],
-            photoAssignments: [],
-            videoAssignments: [],        selectedHole: { element: null, index: -1 },
+        photoAssignments: [],
+        videoAssignments: [], selectedHole: { element: null, index: -1 },
         placedStickers: [],
         stream: null,
         editingTemplate: null,

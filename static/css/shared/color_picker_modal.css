@@ -1,12 +1,13 @@
 /* === COLOR PICKER MODAL: hidden by default, visible when .modal-visible added === */
 #color-picker-modal {
-    display: none; /* hidden by default */
+    display: none;
+    /* hidden by default */
     position: fixed;
     inset: 0;
     z-index: 3000;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.75);
+    background: rgba(0, 0, 0, 0.75);
 }
 
 #color-picker-modal.modal-visible {
@@ -32,13 +33,24 @@
 }
 
 #color-hex-input {
-    margin-top: 10px;
+    margin: 10px auto;
     padding: 8px;
     width: 150px;
     text-align: center;
     font-size: 1rem;
     border: 1px solid var(--border-color);
     border-radius: 5px;
+}
+
+#color-preview-box {
+    width: 150px;
+    height: 40px;
+    margin: 0 auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: #ffffff;
+    /* Default */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .save-preset-checkbox {
