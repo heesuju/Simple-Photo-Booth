@@ -193,8 +193,9 @@ window.eventBus.on('app:init', (appState) => {
                         // But the generic add button shouldn't necessarily close the panel. 
                         // existing 'recolorTemplateAndApply' updates preview.
                         // User might want to try multiple colors.
+                        // User might want to try multiple colors.
                         // But if we want to follow 'swatch click' behavior:
-                        stripBackBtn.click();
+                        // stripBackBtn.click();
                     }
                 }
             });
@@ -831,7 +832,7 @@ window.eventBus.on('app:init', (appState) => {
     reviewScreenContainer.addEventListener('click', (e) => {
         const sidebar = document.getElementById('review-sidebar');
         if (sidebar.classList.contains('strip-active')) {
-            if (!stripContainer.contains(e.target) && !reviewToolbar.contains(e.target)) {
+            if (!sidebar.contains(e.target) && !e.target.closest('.modal-content') && !e.target.closest('.modal-dialog')) {
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
                 sidebar.classList.remove('strip-active');
                 const currentActiveBtn = reviewToolbar.querySelector('.active');
@@ -1316,7 +1317,7 @@ window.eventBus.on('app:init', (appState) => {
                 swatch.style.backgroundColor = colorObj.hex_code;
                 swatch.addEventListener('click', () => {
                     recolorTemplateAndApply(template, colorObj.hex_code);
-                    stripBackBtn.click();
+                    // stripBackBtn.click(); // Keep panel open
                 });
                 colorPanel.appendChild(swatch);
             });
