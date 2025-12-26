@@ -109,16 +109,17 @@ window.eventBus.on('app:init', (appState) => {
         startRetakeSession();
     });
 
-    function startPhotoSession() { 
+    function startPhotoSession() {
         appState.isRetaking = false;
         appState.photosToRetake = [];
         appState.newlyCapturedPhotos = [];
         appState.newlyCapturedVideos = [];
-        document.getElementById('app-title').textContent = '사진 촬영'; 
+        document.getElementById('app-title').textContent = '사진 촬영';
         switchCaptureMode('camera');
         modeSelection.style.display = 'flex';
         timerControls.style.display = 'flex';
         flashToggleControls.style.display = 'flex';
+        flipCameraBtn.style.display = 'block';
         startCaptureBtn.style.display = 'block';
         captureBtn.style.display = 'none';
         appState.capturedPhotos = [];
@@ -133,7 +134,7 @@ window.eventBus.on('app:init', (appState) => {
         appState.isStreamInverted = cameraStream.style.transform === 'scaleX(-1)';
         cameraStream.play();
 
-        updatePhotoStatus(); 
+        updatePhotoStatus();
     }
 
     function startRetakeSession() {
@@ -146,6 +147,7 @@ window.eventBus.on('app:init', (appState) => {
         modeSelection.style.display = 'none';
         timerControls.style.display = 'flex';
         flashToggleControls.style.display = 'flex';
+        flipCameraBtn.style.display = 'block';
         startCaptureBtn.style.display = 'block';
         captureBtn.style.display = 'none';
         appState.videoUploadPromises = [];
@@ -208,7 +210,7 @@ window.eventBus.on('app:init', (appState) => {
     async function handlePhotoUpload(event) { // Made async
         const files = event.target.files;
         const requiredPhotos = appState.templateInfo.hole_count;
-        
+
         const filesArray = Array.from(files);
         const imageFiles = filesArray.filter(file => file.type.startsWith('image/'));
 
@@ -222,13 +224,13 @@ window.eventBus.on('app:init', (appState) => {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     const originalBlob = new Blob([e.target.result], { type: file.type });
-                    
+
                     // Calculate the index based on current appState.capturedPhotos.length + current file's position in imageFiles
-                    const actualIndex = appState.capturedPhotos.length + i; 
+                    const actualIndex = appState.capturedPhotos.length + i;
 
                     const templateHole = appState.templateInfo.holes[actualIndex];
                     const targetAspectRatio = templateHole.w / templateHole.h;
-                    
+
                     const defaultCropData = await appState.cropper.getDefaultCropData(originalBlob, targetAspectRatio);
                     const croppedResult = await appState.cropper.crop(originalBlob, targetAspectRatio, defaultCropData);
 
@@ -247,7 +249,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.capturedPhotos.push(item.croppedBlob);
             appState.originalPhotos.push(item.originalBlob);
             appState.cropData.push(item.cropData);
-            
+
             const t = document.createElement('img');
             t.src = URL.createObjectURL(item.croppedBlob);
             t.classList.add('thumbnail', 'upload-thumbnail');
@@ -300,6 +302,7 @@ window.eventBus.on('app:init', (appState) => {
         modeSelection.style.display = 'none';
         timerControls.style.display = 'none';
         flashToggleControls.style.display = 'none';
+        flipCameraBtn.style.display = 'none';
         startCaptureBtn.style.display = 'none';
 
         if (appState.selectedTimer === 0) {
@@ -370,17 +373,17 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    function updatePhotoStatus() { 
+    function updatePhotoStatus() {
         const isRetake = appState.isRetaking;
-        const n = isRetake ? appState.photosToRetake.length : appState.templateInfo.hole_count; 
+        const n = isRetake ? appState.photosToRetake.length : appState.templateInfo.hole_count;
         const t = isRetake ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
-        document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`; 
-        
+        document.getElementById('app-status').textContent = `${t} / ${n}장 촬영됨`;
+
         if (t >= n && appState.captureMode === 'upload') {
             startCaptureBtn.textContent = '계속';
             startCaptureBtn.style.display = 'block';
-        } else if (t >= n) { 
-            if (appState.stream) appState.stream.getTracks().forEach(tr => tr.stop()); 
+        } else if (t >= n) {
+            if (appState.stream) appState.stream.getTracks().forEach(tr => tr.stop());
             Promise.all(appState.videoUploadPromises).then(() => {
                 if (isRetake) {
                     appState.photosToRetake.forEach((originalIndex, i) => {
@@ -404,7 +407,8 @@ window.eventBus.on('app:init', (appState) => {
                             if (key.startsWith(originalIndex + '-')) {
                                 delete appState.stylizedImagesCache[key];
                             }
-                        }                    });
+                        }
+                    });
                     appState.isRetaking = false;
                     appState.photosToRetake = [];
                     appState.newlyCapturedPhotos = [];
@@ -414,7 +418,7 @@ window.eventBus.on('app:init', (appState) => {
                     window.eventBus.dispatch('photo-taking:complete', { photos: appState.capturedPhotos, originalPhotos: appState.originalPhotos, cropData: appState.cropData, videos: appState.capturedVideos });
                 }
             });
-        } 
+        }
     }
 
     function startRecording() {
@@ -443,39 +447,39 @@ window.eventBus.on('app:init', (appState) => {
         console.log('Recording started');
     }
 
-    function handleCapture() { 
+    function handleCapture() {
         if (mediaRecorder && mediaRecorder.state === "recording") {
             mediaRecorder.stop();
         }
 
-        const v = document.getElementById('camera-stream'), 
-              c = document.getElementById('capture-canvas'), 
-              x = c.getContext('2d'); 
-        c.width = v.videoWidth; 
-        c.height = v.videoHeight; 
+        const v = document.getElementById('camera-stream'),
+            c = document.getElementById('capture-canvas'),
+            x = c.getContext('2d');
+        c.width = v.videoWidth;
+        c.height = v.videoHeight;
 
         x.save();
         if (v.style.transform === 'scaleX(-1)') {
             x.translate(c.width, 0);
             x.scale(-1, 1);
         }
-        x.drawImage(v, 0, 0, c.width, c.height); 
+        x.drawImage(v, 0, 0, c.width, c.height);
         x.restore();
 
-        c.toBlob(b => { 
+        c.toBlob(b => {
             if (appState.isRetaking) {
                 appState.newlyCapturedPhotos.push(b);
             } else {
-                appState.capturedPhotos.push(b); 
+                appState.capturedPhotos.push(b);
                 appState.originalPhotos.push(b);
                 appState.cropData.push(null);
             }
-            const t = document.createElement('img'); 
-            t.src = URL.createObjectURL(b); 
-            t.classList.add('thumbnail'); 
+            const t = document.createElement('img');
+            t.src = URL.createObjectURL(b);
+            t.classList.add('thumbnail');
             t.setAttribute('data-index', appState.capturedPhotos.length - 1);
-            thumbnailsContainer.appendChild(t); 
-            updatePhotoStatus(); 
+            thumbnailsContainer.appendChild(t);
+            updatePhotoStatus();
 
             const totalToCapture = appState.isRetaking ? appState.photosToRetake.length : appState.templateInfo.hole_count;
             const currentCaptureCount = appState.isRetaking ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
@@ -483,7 +487,7 @@ window.eventBus.on('app:init', (appState) => {
             if (currentCaptureCount < totalToCapture) {
                 startRecording();
             }
-        }, 'image/jpeg'); 
+        }, 'image/jpeg');
     }
 
     async function uploadVideo(videoBlob) {
