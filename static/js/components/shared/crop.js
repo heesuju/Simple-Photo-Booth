@@ -1,4 +1,4 @@
-window.initCropper = function(appState) {
+window.initCropper = function (appState) {
     const croppingModal = document.getElementById('cropping-modal');
     const cropContainer = document.getElementById('crop-container');
     const cropImage = document.getElementById('crop-image');
@@ -112,6 +112,12 @@ window.initCropper = function(appState) {
         const imageRect = cropImage.getBoundingClientRect();
         const containerRect = cropContainer.getBoundingClientRect();
 
+        // Boundaries relative to container
+        const imgL = imageRect.left - containerRect.left;
+        const imgT = imageRect.top - containerRect.top;
+        const imgR = imageRect.right - containerRect.left;
+        const imgB = imageRect.bottom - containerRect.top;
+
         let newLeft = startLeft;
         let newTop = startTop;
         let newWidth = startWidth;
@@ -120,10 +126,10 @@ window.initCropper = function(appState) {
         const aspectRatio = startWidth / startHeight;
 
         if (isDragging) {
-            newLeft = Math.max(startLeft + dx, imageRect.left - containerRect.left);
-            newTop = Math.max(startTop + dy, imageRect.top - containerRect.top);
-            newLeft = Math.min(newLeft, imageRect.right - containerRect.left - startWidth);
-            newTop = Math.min(newTop, imageRect.bottom - containerRect.top - startHeight);
+            newLeft = Math.max(startLeft + dx, imgL);
+            newTop = Math.max(startTop + dy, imgT);
+            newLeft = Math.min(newLeft, imgR - startWidth);
+            newTop = Math.min(newTop, imgB - startHeight);
 
             cropRectangle.style.left = `${newLeft}px`;
             cropRectangle.style.top = `${newTop}px`;
@@ -132,103 +138,77 @@ window.initCropper = function(appState) {
             return;
         }
 
-        switch (resizeHandle) {
-            case 'nw':
-                newWidth = startWidth - dx;
-                newHeight = newWidth / aspectRatio;
-                newLeft = startLeft + dx;
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'ne':
-                newWidth = startWidth + dx;
-                newHeight = newWidth / aspectRatio;
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'sw':
-                newWidth = startWidth - dx;
-                newHeight = newWidth / aspectRatio;
-                newLeft = startLeft + dx;
-                break;
-            case 'se':
-                newWidth = startWidth + dx;
-                newHeight = newWidth / aspectRatio;
-                break;
-        }
-
         const minSize = 20;
-        if (newWidth < minSize) {
-            newWidth = minSize;
+
+        if (resizeHandle === 'nw') {
+            const anchorRight = startLeft + startWidth;
+            const anchorBottom = startTop + startHeight;
+            newWidth = startWidth - dx;
+
+            // Ensure min size first
+            newWidth = Math.max(newWidth, minSize);
+
+            // Apply constraints
+            const maxW_Left = anchorRight - imgL;
+            const maxH_Top = anchorBottom - imgT;
+            const maxW_Top = maxH_Top * aspectRatio;
+
+            newWidth = Math.min(newWidth, maxW_Left, maxW_Top);
+
             newHeight = newWidth / aspectRatio;
-        }
-        if (newHeight < minSize) {
-            newHeight = minSize;
-            newWidth = newHeight * aspectRatio;
-        }
+            newLeft = anchorRight - newWidth;
+            newTop = anchorBottom - newHeight;
 
-        switch (resizeHandle) {
-            case 'nw':
-                newLeft = startLeft + (startWidth - newWidth);
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'ne':
-                newTop = startTop + (startHeight - newHeight);
-                break;
-            case 'sw':
-                newLeft = startLeft + (startWidth - newWidth);
-                break;
-            case 'se':
-                break;
-        }
+        } else if (resizeHandle === 'ne') {
+            const anchorLeft = startLeft;
+            const anchorBottom = startTop + startHeight;
+            newWidth = startWidth + dx;
 
-        if (newLeft < imageRect.left - containerRect.left) {
-            if (resizeHandle.includes('w')) {
-                const maxWidth = startWidth + (startLeft - (imageRect.left - containerRect.left));
-                newWidth = maxWidth;
-                newHeight = newWidth / aspectRatio;
-                newLeft = imageRect.left - containerRect.left;
-                if (resizeHandle.includes('n')) {
-                    newTop = startTop + (startHeight - newHeight);
-                }
-            } else {
-                newLeft = startLeft;
-            }
-        }
-        if (newTop < imageRect.top - containerRect.top) {
-            if (resizeHandle.includes('n')) {
-                const maxHeight = startHeight + (startTop - (imageRect.top - containerRect.top));
-                newHeight = maxHeight;
-                newWidth = newHeight * aspectRatio;
-                newTop = imageRect.top - containerRect.top;
-                if (resizeHandle.includes('w')) {
-                    newLeft = startLeft + (startWidth - newWidth);
-                }
-            } else {
-                newTop = startTop;
-            }
-        }
-        if (newLeft + newWidth > imageRect.right - containerRect.left) {
-            if (resizeHandle.includes('e')) {
-                const maxWidth = imageRect.right - containerRect.left - newLeft;
-                newWidth = maxWidth;
-                newHeight = newWidth / aspectRatio;
-                if (resizeHandle.includes('n')) {
-                    newTop = startTop + (startHeight - newHeight);
-                }
-            } else {
-                newWidth = startWidth;
-            }
-        }
-        if (newTop + newHeight > imageRect.bottom - containerRect.top) {
-            if (resizeHandle.includes('s')) {
-                const maxHeight = imageRect.bottom - containerRect.top - newTop;
-                newHeight = maxHeight;
-                newWidth = newHeight * aspectRatio;
-                if (resizeHandle.includes('w')) {
-                    newLeft = startLeft + (startWidth - newWidth);
-                }
-            } else {
-                newHeight = startHeight;
-            }
+            newWidth = Math.max(newWidth, minSize);
+
+            const maxW_Right = imgR - anchorLeft;
+            const maxH_Top = anchorBottom - imgT;
+            const maxW_Top = maxH_Top * aspectRatio;
+
+            newWidth = Math.min(newWidth, maxW_Right, maxW_Top);
+
+            newHeight = newWidth / aspectRatio;
+            newLeft = anchorLeft;
+            newTop = anchorBottom - newHeight;
+
+        } else if (resizeHandle === 'sw') {
+            const anchorRight = startLeft + startWidth;
+            const anchorTop = startTop;
+            newWidth = startWidth - dx;
+
+            newWidth = Math.max(newWidth, minSize);
+
+            const maxW_Left = anchorRight - imgL;
+            const maxH_Bottom = imgB - anchorTop;
+            const maxW_Bottom = maxH_Bottom * aspectRatio;
+
+            newWidth = Math.min(newWidth, maxW_Left, maxW_Bottom);
+
+            newHeight = newWidth / aspectRatio;
+            newLeft = anchorRight - newWidth;
+            newTop = anchorTop;
+
+        } else if (resizeHandle === 'se') {
+            const anchorLeft = startLeft;
+            const anchorTop = startTop;
+            newWidth = startWidth + dx;
+
+            newWidth = Math.max(newWidth, minSize);
+
+            const maxW_Right = imgR - anchorLeft;
+            const maxH_Bottom = imgB - anchorTop;
+            const maxW_Bottom = maxH_Bottom * aspectRatio;
+
+            newWidth = Math.min(newWidth, maxW_Right, maxW_Bottom);
+
+            newHeight = newWidth / aspectRatio;
+            newLeft = anchorLeft;
+            newTop = anchorTop;
         }
 
         cropRectangle.style.left = `${newLeft}px`;
