@@ -64,8 +64,7 @@ window.eventBus.on('app:init', (appState) => {
     const stripBackBtn = document.getElementById('strip-back-btn');
     let panelHistory = [];
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
-    const addFontBtn = document.getElementById('add-font-btn');
-    const addPresetBtn = document.getElementById('add-preset-btn');
+    const genericAddBtn = document.getElementById('generic-add-btn');
     const fontGallery = document.getElementById('font-gallery');
     const fontUploadInput = document.createElement('input');
     fontUploadInput.type = 'file';
@@ -134,8 +133,69 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    addFontBtn.addEventListener('click', () => {
-        fontUploadInput.click();
+    genericAddBtn.addEventListener('click', () => {
+        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
+        if (!currentOpenPanel) return;
+
+        const panelId = currentOpenPanel.id;
+        const panelType = currentOpenPanel.dataset.panel;
+
+        if (panelId === 'style-strip-panel') { // Styles
+            // Toggle logic for styles if needed, or open modal
+            const addStyleModal = document.getElementById('add-style-modal');
+            if (addStyleModal) addStyleModal.className = 'modal-visible';
+        } else if (panelType === 'filters') { // Filters
+            const addPresetModal = document.getElementById('add-filter-preset-modal');
+            // Pre-populate logic from old addPresetBtn click handler
+            const presetFilterControls = document.getElementById('preset-filter-controls');
+            const filterControls = document.getElementById('filter-controls');
+            presetFilterControls.innerHTML = filterControls.innerHTML;
+
+            const presetPreview = document.getElementById('preset-preview');
+            const firstPhoto = appState.capturedPhotos[0];
+            if (firstPhoto) {
+                const imageUrl = URL.createObjectURL(firstPhoto);
+                presetPreview.style.backgroundImage = `url(${imageUrl})`;
+
+                const updatePreviewFilters = () => {
+                    const values = {};
+                    presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
+                        values[slider.dataset.filter] = parseInt(slider.value, 10);
+                    });
+                    const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
+                    presetPreview.style.filter = filterString;
+                };
+
+                presetFilterControls.addEventListener('input', updatePreviewFilters);
+                updatePreviewFilters();
+            }
+            addPresetModal.className = 'modal-visible';
+
+        } else if (panelType === 'stickers') { // Stickers
+            stickerUploadInput.click();
+        } else if (panelId === 'color-palette-panel') { // Template Colors
+            colorPicker.show().then(result => {
+                if (result) {
+                    // We need the template object here... 
+                    // showColorPalettePanel saves context? No. 
+                    // We need to know which template we are editing. 
+                    // Let's store currentTemplate in appState or closure? 
+                    // showColorPalettePanel is called with template.
+                    if (appState.currentEditingTemplate) {
+                        recolorTemplateAndApply(appState.currentEditingTemplate, result.color);
+                        // Don't close panel automatically so user can add more or pick others? 
+                        // Or mimick 'click' on swatch -> closes panel. The old logic removed the panel.
+                        // But the generic add button shouldn't necessarily close the panel. 
+                        // existing 'recolorTemplateAndApply' updates preview.
+                        // User might want to try multiple colors.
+                        // But if we want to follow 'swatch click' behavior:
+                        stripBackBtn.click();
+                    }
+                }
+            });
+        } else if (panelType === 'add-text') { // Fonts
+            fontUploadInput.click();
+        }
     });
 
     fontUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_font', loadFontGallery));
@@ -177,33 +237,7 @@ window.eventBus.on('app:init', (appState) => {
         document.getElementById('edit-style-modal').className = 'modal-hidden';
     });
 
-    document.getElementById('add-preset-btn').addEventListener('click', () => {
-        const addPresetModal = document.getElementById('add-filter-preset-modal');
-        const presetFilterControls = document.getElementById('preset-filter-controls');
-        const filterControls = document.getElementById('filter-controls');
-        presetFilterControls.innerHTML = filterControls.innerHTML;
 
-        const presetPreview = document.getElementById('preset-preview');
-        const firstPhoto = appState.capturedPhotos[0];
-        if (firstPhoto) {
-            const imageUrl = URL.createObjectURL(firstPhoto);
-            presetPreview.style.backgroundImage = `url(${imageUrl})`;
-
-            const updatePreviewFilters = () => {
-                const values = {};
-                presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
-                    values[slider.dataset.filter] = parseInt(slider.value, 10);
-                });
-                const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
-                presetPreview.style.filter = filterString;
-            };
-
-            presetFilterControls.addEventListener('input', updatePreviewFilters);
-            updatePreviewFilters();
-        }
-
-        addPresetModal.className = 'modal-visible';
-    });
 
     async function updateStyle(styleId, name, prompt) {
         try {
@@ -354,16 +388,7 @@ window.eventBus.on('app:init', (appState) => {
                 styleStripPanel.appendChild(container);
             });
 
-            const addStyleContainer = document.createElement('div');
-            addStyleContainer.className = 'style-item-container';
-            const addStyleButton = document.createElement('button');
-            addStyleButton.className = 'palette-add-btn';
-            addStyleButton.textContent = '+';
-            addStyleButton.addEventListener('click', () => {
-                addStyleModal.className = 'modal-visible';
-            });
-            addStyleContainer.appendChild(addStyleButton);
-            styleStripPanel.appendChild(addStyleContainer);
+
         } catch (e) {
             console.error("Failed to load styles:", e);
         }
@@ -596,6 +621,7 @@ window.eventBus.on('app:init', (appState) => {
                 clearSelections();
                 stripBackBtn.style.display = 'none';
                 panelHistory = [];
+                updateAddFinalizeButtons();
                 return;
             }
 
@@ -626,10 +652,9 @@ window.eventBus.on('app:init', (appState) => {
 
             if (panelType === 'filters') {
                 loadFilterPresets();
-                addPresetBtn.style.display = 'block';
-            } else {
-                addPresetBtn.style.display = 'none';
             }
+
+            updateAddFinalizeButtons();
         }
     });
 
@@ -663,6 +688,7 @@ window.eventBus.on('app:init', (appState) => {
                     correspondingButton.classList.add('active');
                 }
             }
+            updateAddFinalizeButtons();
         } else {
             stripBackBtn.style.display = 'none';
             document.getElementById('review-sidebar').classList.remove('strip-active');
@@ -670,6 +696,9 @@ window.eventBus.on('app:init', (appState) => {
             if (currentActiveBtn) {
                 currentActiveBtn.classList.remove('active');
             }
+
+            updateAddFinalizeButtons();
+
             // Clear stylizing selection when fully closing panels
             appState.selectedForStylizing = [];
             updatePreviewHighlights();
@@ -945,12 +974,6 @@ window.eventBus.on('app:init', (appState) => {
                     i.appendChild(m);
                     stickerGallery.appendChild(i);
                 });
-
-                const uploadButton = document.createElement('button');
-                uploadButton.className = 'palette-add-btn';
-                uploadButton.textContent = '+';
-                uploadButton.onclick = () => stickerUploadInput.click();
-                stickerGallery.appendChild(uploadButton);
 
             } else {
                 categoryGallery.style.display = 'flex';
@@ -1255,12 +1278,19 @@ window.eventBus.on('app:init', (appState) => {
     async function showColorPalettePanel(template) {
         const templatePanel = document.getElementById('template-gallery-review');
         const colorPanel = document.getElementById('color-palette-panel');
+        const genericAddBtn = document.getElementById('generic-add-btn');
+        const finalizeBtn = document.getElementById('finalize-btn');
+
+        // Store current template for Generic Add Button context
+        appState.currentEditingTemplate = template;
 
         templatePanel.classList.remove('show');
         colorPanel.innerHTML = ''; // Clear previous content
 
         panelHistory.push('templates');
         stripBackBtn.style.display = 'block';
+        genericAddBtn.style.display = 'block';
+        finalizeBtn.style.display = 'none';
 
 
         // --- Color Swatches ---
@@ -1281,18 +1311,8 @@ window.eventBus.on('app:init', (appState) => {
             console.error("Failed to load colors:", e);
         }
 
-        // --- Add Custom Color Button ---
-        const addButton = document.createElement('button');
-        addButton.className = 'palette-add-btn';
-        addButton.textContent = '+';
-        addButton.addEventListener('click', async () => {
-            const result = await colorPicker.show();
-            if (result) {
-                recolorTemplateAndApply(template, result.color);
-                stripBackBtn.click();
-            }
-        });
-        colorPanel.appendChild(addButton);
+
+
 
         colorPanel.classList.add('show');
     }
@@ -1310,6 +1330,9 @@ window.eventBus.on('app:init', (appState) => {
 
     function renderPreview() {
         const p = document.getElementById('review-preview');
+        // Check if templateInfo exists before proceeding. Resizing might trigger this early.
+        if (!appState.templateInfo) return;
+
         document.getElementById('review-photos-container').innerHTML = '';
         const t = document.getElementById('review-template-overlay');
         t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path;
@@ -1408,6 +1431,7 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function handleStylizeButtonClick(photoIndex, photoEl) {
+        clearSelections();
         appState.selectedForStylizing = [];
         appState.selectedForStylizing.push(photoIndex);
         showStylizePanel();
@@ -1419,6 +1443,9 @@ window.eventBus.on('app:init', (appState) => {
         const stripContainer = document.getElementById('strip-container');
         const stripBackBtn = document.getElementById('strip-back-btn');
         const isVisible = styleStrip.classList.contains('show');
+        const genericAddBtn = document.getElementById('generic-add-btn');
+        const finalizeBtn = document.getElementById('finalize-btn');
+
 
         // Close any currently open strip panel
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel'))
@@ -1435,9 +1462,12 @@ window.eventBus.on('app:init', (appState) => {
             styleStrip.classList.add('show');
             loadStylesStrip(); // Load available styles
             stripBackBtn.style.display = 'block';
+            genericAddBtn.style.display = 'block';
+            finalizeBtn.style.display = 'none';
         } else {
             stripBackBtn.style.display = 'none';
             panelHistory = [];
+            updateAddFinalizeButtons();
             // Clear selection when closing
             appState.selectedForStylizing = [];
             updatePreviewHighlights();
@@ -1561,11 +1591,42 @@ window.eventBus.on('app:init', (appState) => {
         }
 
 
-        const hasSelection = appState.selectedForRetake.length > 0;
-        retakeBtn.style.display = hasSelection ? 'block' : 'none';
-        document.getElementById('finalize-btn').style.display = hasSelection ? 'none' : 'block';
+        updateAddFinalizeButtons();
         updatePreviewHighlights();
     }
+
+    function updateAddFinalizeButtons() {
+        // Priority 1: Retake Selection
+        const hasSelection = appState.selectedForRetake.length > 0;
+        if (hasSelection) {
+            retakeBtn.style.display = 'block';
+            finalizeBtn.style.display = 'none';
+            genericAddBtn.style.display = 'none';
+            return;
+        }
+
+        retakeBtn.style.display = 'none';
+
+        // Priority 2: Open Panel Context
+        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
+        let showAdd = false;
+        if (currentOpenPanel) {
+            const type = currentOpenPanel.dataset.panel;
+            // Whitelist for panels that need the "Add" button
+            if (['styles', 'filters', 'stickers', 'add-text', 'colors'].includes(type)) {
+                showAdd = true;
+            }
+        }
+
+        if (showAdd) {
+            genericAddBtn.style.display = 'block';
+            finalizeBtn.style.display = 'none';
+        } else {
+            genericAddBtn.style.display = 'none';
+            finalizeBtn.style.display = 'block';
+        }
+    }
+
 
     function handleSwap(hIdx, pIdx) {
         const ptm = appState.capturedPhotos[pIdx],
