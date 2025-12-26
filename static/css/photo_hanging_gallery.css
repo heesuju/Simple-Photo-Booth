@@ -32,7 +32,7 @@
     width: 100%;
     height: 2px;
     background: var(--border-color);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     z-index: 1;
 }
 
@@ -42,10 +42,12 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 40px; /* spacing between photos */
+    gap: 40px;
+    /* spacing between photos */
     justify-content: center;
     align-items: flex-start;
-    flex-wrap: wrap; /* allow multiple lines */
+    flex-wrap: wrap;
+    /* allow multiple lines */
     width: 90%;
     z-index: 2;
 }
@@ -62,10 +64,12 @@
 /* Clip styling */
 .clip {
     position: absolute;
-    top: -24px; /* overlap with photo */
+    top: -24px;
+    /* overlap with photo */
     left: 50%;
     transform: translateX(-50%);
-    width: 70px; /* larger than before */
+    width: 70px;
+    /* larger than before */
     height: auto;
     user-select: none;
     pointer-events: none;
@@ -78,7 +82,7 @@
     top: 28px;
     border: 3px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     transform-origin: top center;
     max-width: auto;
@@ -120,6 +124,7 @@
     0% {
         transform: translateY(-50%);
     }
+
     100% {
         transform: translateY(0);
     }
@@ -131,10 +136,12 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 200%; /* Twice the height to allow for seamless panning */
+    height: 200%;
+    /* Twice the height to allow for seamless panning */
     background-image: var(--panning-bg-image);
-    background-repeat: repeat-x; /* Repeat horizontally to fill the width */
-    background-size: contain;
+    background-repeat: repeat-x;
+    background-position: left top, left bottom;
+    background-size: auto 50%;
     animation: pan-vertical 60s linear infinite;
     z-index: 0;
 }
