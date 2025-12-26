@@ -17,7 +17,7 @@ window.eventBus.on('app:init', (appState) => {
 
         const thumbnailsContainer = reviewThumbnails;
         const items = [...thumbnailsContainer.querySelectorAll('.strip-item:not(.dragging)')];
-        
+
         const nextItem = items.find(item => {
             const rect = item.getBoundingClientRect();
             const isHorizontal = window.innerWidth <= 900;
@@ -48,7 +48,7 @@ window.eventBus.on('app:init', (appState) => {
 
             const [reorderedVideo] = appState.capturedVideos.splice(dragStartIndex, 1);
             appState.capturedVideos.splice(dragEndIndex, 0, reorderedVideo);
-            
+
             const [reorderedOriginalPhoto] = appState.originalPhotos.splice(dragStartIndex, 1);
             appState.originalPhotos.splice(dragEndIndex, 0, reorderedOriginalPhoto);
 
@@ -78,8 +78,8 @@ window.eventBus.on('app:init', (appState) => {
     const newStyleNameInput = document.getElementById('new-style-name');
     const newStylePromptInput = document.getElementById('new-style-prompt');
     const styleStripPanel = document.getElementById('style-strip-panel');
-    
-    
+
+
 
     let isAddingNewStyle = false;
     let selectedStylePrompt = '';
@@ -97,8 +97,8 @@ window.eventBus.on('app:init', (appState) => {
         renderTexts: renderPlacedTexts,
         renderStickers: renderPlacedStickers,
     });
-    
-    
+
+
     appState.selectedForStylizing = [];
 
     removeBgCheckbox.addEventListener('change', (e) => {
@@ -309,7 +309,7 @@ window.eventBus.on('app:init', (appState) => {
                 actions.className = 'strip-item-actions';
 
                 const editButton = document.createElement('button');
-                editButton.textContent = 'E';
+                editButton.textContent = '✏️';
                 editButton.title = 'Edit';
                 editButton.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -317,7 +317,7 @@ window.eventBus.on('app:init', (appState) => {
                 });
 
                 const removeButton = document.createElement('button');
-                removeButton.textContent = 'R';
+                removeButton.textContent = '🗑️';
                 removeButton.title = 'Remove';
                 removeButton.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -325,7 +325,7 @@ window.eventBus.on('app:init', (appState) => {
                 });
 
                 const retryButton = document.createElement('button');
-                retryButton.textContent = 'R';
+                retryButton.textContent = '🔄';
                 retryButton.title = 'Retry';
                 retryButton.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -439,7 +439,7 @@ window.eventBus.on('app:init', (appState) => {
 
             const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
             const imageBlob = appState.originalPhotos[pIdx];
-            
+
             await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
         }
 
@@ -514,7 +514,7 @@ window.eventBus.on('app:init', (appState) => {
 
             const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
             const imageBlob = appState.originalPhotos[pIdx];
-            
+
             await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
         }
 
@@ -616,7 +616,8 @@ window.eventBus.on('app:init', (appState) => {
                 addPresetBtn.style.display = 'block';
             } else {
                 addPresetBtn.style.display = 'none';
-            }        }
+            }
+        }
     });
 
     stripBackBtn.addEventListener('click', () => {
@@ -648,7 +649,7 @@ window.eventBus.on('app:init', (appState) => {
             stripBackBtn.style.display = 'none';
             document.getElementById('review-sidebar').classList.remove('strip-active');
             const currentActiveBtn = reviewToolbar.querySelector('.active');
-            if(currentActiveBtn) {
+            if (currentActiveBtn) {
                 currentActiveBtn.classList.remove('active');
             }
         }
@@ -857,17 +858,17 @@ window.eventBus.on('app:init', (appState) => {
     window.eventBus.on('review:home', () => {
         document.getElementById('finalize-btn').disabled = false;
         window.eventBus.dispatch('screen:show', 'photo-hanging-gallery');
-    }); 
+    });
 
-    function showReviewScreen(isContinuingEditing = false) { 
+    function showReviewScreen(isContinuingEditing = false) {
         if (!isContinuingEditing) {
-            appState.photoAssignments = [...appState.capturedPhotos]; 
+            appState.photoAssignments = [...appState.capturedPhotos];
             appState.videoAssignments = [...appState.capturedVideos];
-            appState.selectedForRetake = []; 
+            appState.selectedForRetake = [];
             appState.disabledThumbnailIndex = -1;
             appState.placedStickers = [];
             appState.placedTexts = [];
-            appState.activeTransformable = null; 
+            appState.activeTransformable = null;
             appState.removeBackground = false;
             appState.stylizedImagesCache = {};
             appState.stylizedCropData = {};
@@ -883,21 +884,21 @@ window.eventBus.on('app:init', (appState) => {
                 }
             });
         }
-        renderReviewThumbnails(); 
-        renderPreview(); 
-        loadStickerGallery(); 
+        renderReviewThumbnails();
+        renderPreview();
+        loadStickerGallery();
         loadSimilarTemplates();
     }
 
-    async function loadStickerGallery(selectedCategory = null) { 
-        try { 
-            const r = await fetch('/stickers'); 
-            const stickers = await r.json(); 
-            const stickerGallery = document.getElementById('sticker-gallery'); 
+    async function loadStickerGallery(selectedCategory = null) {
+        try {
+            const r = await fetch('/stickers');
+            const stickers = await r.json();
+            const stickerGallery = document.getElementById('sticker-gallery');
             const categoryGallery = document.getElementById('sticker-category-gallery');
             const stickerUploadInput = document.getElementById('sticker-upload-input');
-                        
-            stickerGallery.innerHTML = ''; 
+
+            stickerGallery.innerHTML = '';
             categoryGallery.innerHTML = '';
 
             if (selectedCategory) {
@@ -905,15 +906,15 @@ window.eventBus.on('app:init', (appState) => {
                 stickerGallery.style.display = 'flex';
                 categoryGallery.dataset.category = selectedCategory;
 
-                stickers.filter(s => s.category === selectedCategory).forEach(s => { 
-                    const i = document.createElement('div'); 
-                    i.className = 'sticker-item'; 
-                    const m = document.createElement('img'); 
-                    m.src = s.sticker_path; 
+                stickers.filter(s => s.category === selectedCategory).forEach(s => {
+                    const i = document.createElement('div');
+                    i.className = 'sticker-item';
+                    const m = document.createElement('img');
+                    m.src = s.sticker_path;
                     m.draggable = false;
                     i.addEventListener('click', () => addStickerToCenter(s));
-                    i.appendChild(m); 
-                    stickerGallery.appendChild(i); 
+                    i.appendChild(m);
+                    stickerGallery.appendChild(i);
                 });
 
                 const uploadButton = document.createElement('button');
@@ -936,20 +937,20 @@ window.eventBus.on('app:init', (appState) => {
                     categoryGallery.appendChild(categoryButton);
                 });
 
-                stickers.filter(s => !s.category).forEach(s => { 
-                    const i = document.createElement('div'); 
-                    i.className = 'sticker-item'; 
-                    const m = document.createElement('img'); 
-                    m.src = s.sticker_path; 
+                stickers.filter(s => !s.category).forEach(s => {
+                    const i = document.createElement('div');
+                    i.className = 'sticker-item';
+                    const m = document.createElement('img');
+                    m.src = s.sticker_path;
                     m.draggable = false;
                     i.addEventListener('click', () => addStickerToCenter(s));
-                    i.appendChild(m); 
-                    categoryGallery.appendChild(i); 
+                    i.appendChild(m);
+                    categoryGallery.appendChild(i);
                 });
             }
-        } catch (e) { 
-            console.error(e); 
-        } 
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     async function loadFontGallery() {
@@ -1074,11 +1075,11 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    function renderReviewThumbnails() { 
-        const c = document.getElementById('review-thumbnails'); 
-        c.innerHTML = ''; 
+    function renderReviewThumbnails() {
+        const c = document.getElementById('review-thumbnails');
+        c.innerHTML = '';
 
-        appState.capturedPhotos.forEach((b, i) => { 
+        appState.capturedPhotos.forEach((b, i) => {
             const itemContainer = document.createElement('div');
             itemContainer.className = 'strip-item';
             itemContainer.dataset.index = i;
@@ -1166,30 +1167,30 @@ window.eventBus.on('app:init', (appState) => {
             itemContainer.appendChild(content);
             itemContainer.appendChild(actions);
 
-            c.appendChild(itemContainer); 
-        }); 
+            c.appendChild(itemContainer);
+        });
     }
 
 
-    async function loadSimilarTemplates() { 
-        const { aspect_ratio, cell_layout } = appState.templateInfo; 
-        try { 
-            const r = await fetch(`/templates_by_layout?aspect_ratio=${aspect_ratio}&cell_layout=${cell_layout}`); 
-            const d = await r.json(); 
-            const c = document.getElementById('template-gallery-review'); 
-            c.innerHTML = ''; 
-            d.forEach(t => { 
+    async function loadSimilarTemplates() {
+        const { aspect_ratio, cell_layout } = appState.templateInfo;
+        try {
+            const r = await fetch(`/templates_by_layout?aspect_ratio=${aspect_ratio}&cell_layout=${cell_layout}`);
+            const d = await r.json();
+            const c = document.getElementById('template-gallery-review');
+            c.innerHTML = '';
+            d.forEach(t => {
                 const itemContainer = document.createElement('div');
                 itemContainer.className = 'strip-item';
 
                 const content = document.createElement('div');
                 content.className = 'strip-item-content';
 
-                const i = document.createElement('div'); 
-                i.className = 'template-item'; 
-                const m = document.createElement('img'); 
-                m.src = t.template_path; 
-                i.appendChild(m); 
+                const i = document.createElement('div');
+                i.className = 'template-item';
+                const m = document.createElement('img');
+                m.src = t.template_path;
+                i.appendChild(m);
                 i.addEventListener('click', () => handleTemplateChange(t));
 
                 const currentBasePath = appState.templateInfo.original_path || appState.templateInfo.template_path;
@@ -1214,11 +1215,11 @@ window.eventBus.on('app:init', (appState) => {
                 itemContainer.appendChild(content);
                 itemContainer.appendChild(actions);
 
-                c.appendChild(itemContainer); 
-            }); 
-        } catch (e) { 
-            console.error(e); 
-        } 
+                c.appendChild(itemContainer);
+            });
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     // --- This function now only handles showing the panel and populating it ---
@@ -1267,7 +1268,7 @@ window.eventBus.on('app:init', (appState) => {
         colorPanel.classList.add('show');
     }
 
-    
+
 
     async function openTextColorPicker() {
         if (!appState.activeTransformable || appState.activeTransformable.type !== 'text') return;
@@ -1278,26 +1279,26 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    function renderPreview() { 
-        const p = document.getElementById('review-preview'); 
-        document.getElementById('review-photos-container').innerHTML = ''; 
+    function renderPreview() {
+        const p = document.getElementById('review-preview');
+        document.getElementById('review-photos-container').innerHTML = '';
         const t = document.getElementById('review-template-overlay');
-        t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path; 
-        t.className = 'preview-template-img'; 
-        t.onload = () => { 
-            renderPhotoAssignments(); 
-            renderPlacedStickers(); 
+        t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path;
+        t.className = 'preview-template-img';
+        t.onload = () => {
+            renderPhotoAssignments();
+            renderPlacedStickers();
             renderPlacedTexts();
-        }; 
+        };
     }
 
-    function handleTemplateChange(newTemplate) { 
+    function handleTemplateChange(newTemplate) {
         if (!newTemplate.original_path) {
             delete newTemplate.colored_template_path;
             delete newTemplate.original_path;
         }
-        appState.templateInfo = newTemplate; 
-        renderPreview(); 
+        appState.templateInfo = newTemplate;
+        renderPreview();
         loadSimilarTemplates(); // Re-render the strip to update the highlight
     }
 
@@ -1316,7 +1317,7 @@ window.eventBus.on('app:init', (appState) => {
 
             // If the color is white, we don't need to do anything else
             if (color.toLowerCase() !== '#ffffff') {
-                 // Use 'source-in' to only draw on non-transparent parts of the existing image
+                // Use 'source-in' to only draw on non-transparent parts of the existing image
                 ctx.globalCompositeOperation = 'source-in';
 
                 // Fill with the selected color
@@ -1325,7 +1326,7 @@ window.eventBus.on('app:init', (appState) => {
             }
 
             const dataURL = canvas.toDataURL('image/png');
-            
+
             // Create a new template info object to avoid mutating the original
             const coloredTemplate = { ...template };
             coloredTemplate.colored_template_path = dataURL;
@@ -1342,38 +1343,38 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    function renderPhotoAssignments() { 
+    function renderPhotoAssignments() {
         const { scale, offsetX, offsetY } = getPreviewScaling();
         if (scale === 1) return; // Preview not ready
 
         document.querySelectorAll('.preview-photo-wrapper').forEach(w => w.remove()); // Remove old wrappers
-        appState.photoAssignments.forEach((b, hIdx) => { 
+        appState.photoAssignments.forEach((b, hIdx) => {
             const h = appState.templateInfo.holes[hIdx];
             const wrapper = document.createElement('div');
             wrapper.className = 'preview-photo-wrapper';
-            wrapper.style.left = `${offsetX + h.x * scale}px`; 
-            wrapper.style.top = `${offsetY + h.y * scale}px`; 
-            wrapper.style.width = `${h.w * scale}px`; 
+            wrapper.style.left = `${offsetX + h.x * scale}px`;
+            wrapper.style.top = `${offsetY + h.y * scale}px`;
+            wrapper.style.width = `${h.w * scale}px`;
             wrapper.style.height = `${h.h * scale}px`;
             const transform = appState.templateInfo.transformations[hIdx];
             if (transform && transform.rotation !== undefined) {
                 wrapper.style.transform = `rotate(${transform.rotation}deg)`;
             }
 
-            const i = document.createElement('img'); 
-            i.src = URL.createObjectURL(b); 
-            i.className = 'preview-photo-img'; 
-            i.draggable = false; 
-            
+            const i = document.createElement('img');
+            i.src = URL.createObjectURL(b);
+            i.className = 'preview-photo-img';
+            i.draggable = false;
+
             const btn = document.createElement('button');
             btn.className = 'preview-photo-button';
             btn.addEventListener('click', () => handleHoleSelection(btn, hIdx));
 
             wrapper.appendChild(i);
             wrapper.appendChild(btn);
-            document.getElementById('review-photos-container').appendChild(wrapper); 
-        }); 
-        applyPhotoFilters(); 
+            document.getElementById('review-photos-container').appendChild(wrapper);
+        });
+        applyPhotoFilters();
     }
 
     function handleStylizeButtonClick(photoIndex, photoEl) {
@@ -1381,7 +1382,7 @@ window.eventBus.on('app:init', (appState) => {
         appState.selectedForStylizing.push(photoIndex);
         showStylizePanel()
     }
-    
+
     function showStylizePanel() {
         const styleStrip = document.getElementById('style-strip-panel');
         const stripContainer = document.getElementById('strip-container');
@@ -1527,27 +1528,27 @@ window.eventBus.on('app:init', (appState) => {
         retakeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
     }
 
-    function handleSwap(hIdx, pIdx) { 
-        const ptm = appState.capturedPhotos[pIdx], 
-              ptr = appState.photoAssignments[hIdx], 
-              opor = appState.photoAssignments.findIndex(p => p === ptm); 
-        if (opor !== -1) { 
-            appState.photoAssignments[opor] = ptr; 
-        } 
-        appState.photoAssignments[hIdx] = ptm; 
+    function handleSwap(hIdx, pIdx) {
+        const ptm = appState.capturedPhotos[pIdx],
+            ptr = appState.photoAssignments[hIdx],
+            opor = appState.photoAssignments.findIndex(p => p === ptm);
+        if (opor !== -1) {
+            appState.photoAssignments[opor] = ptr;
+        }
+        appState.photoAssignments[hIdx] = ptm;
 
         const vtm = appState.capturedVideos[pIdx],
-              vtr = appState.videoAssignments[hIdx],
-              vpor = appState.videoAssignments.findIndex(v => v === vtm);
+            vtr = appState.videoAssignments[hIdx],
+            vpor = appState.videoAssignments.findIndex(v => v === vtm);
         if (vpor !== -1) {
             appState.videoAssignments[vpor] = vtr;
         }
         appState.videoAssignments[hIdx] = vtm;
 
-        if (appState.selectedHole.element) { 
-            appState.selectedHole.element.classList.remove('selected'); 
-        } 
-        appState.selectedHole = { element: null, index: -1 }; 
+        if (appState.selectedHole.element) {
+            appState.selectedHole.element.classList.remove('selected');
+        }
+        appState.selectedHole = { element: null, index: -1 };
 
         // Clear disabled thumbnail
         if (appState.disabledThumbnailIndex !== -1) {
@@ -1556,7 +1557,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.disabledThumbnailIndex = -1;
         }
 
-        renderPreview(); 
+        renderPreview();
     }
 
     function addStickerToCenter(stickerData) {
@@ -1660,7 +1661,7 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-function updateVerticalSnapLine(isSnapping, xPosition) {
+    function updateVerticalSnapLine(isSnapping, xPosition) {
         const previewContainer = document.getElementById('review-preview');
         let snapLine = document.getElementById('vertical-snap-line');
         if (isSnapping) {
