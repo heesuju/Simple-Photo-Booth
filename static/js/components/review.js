@@ -399,14 +399,12 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     async function processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex) {
-        const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
-        const wrapper = photoWrappers[assignmentIndex];
         let imageToAssign = imageBlob;
 
         try {
-            if (wrapper) {
-                wrapper.classList.add('loading');
-            }
+            // Track loading state by photo index
+            appState.loadingPhotos.add(pIdx);
+            renderPhotoAssignments(); // Re-render to show loading state
 
             const formData = new FormData();
             formData.append('prompt', prompt);
@@ -463,9 +461,9 @@ window.eventBus.on('app:init', (appState) => {
             console.error('Error during stylization:', error);
             showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
         } finally {
-            if (wrapper) {
-                wrapper.classList.remove('loading');
-            }
+            // Remove loading state by photo index
+            appState.loadingPhotos.delete(pIdx);
+            renderPhotoAssignments(); // Re-render to remove loading state
         }
     }
 
@@ -935,6 +933,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.stylizedImagesCache = {};
             appState.stylizedCropData = {};
             appState.isStylized = new Array(appState.capturedPhotos.length).fill(false);
+            appState.loadingPhotos = new Set();
             appState.bgRemovedPhotos = {};
             document.getElementById('remove-bg-checkbox').checked = false;
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
@@ -1416,6 +1415,16 @@ window.eventBus.on('app:init', (appState) => {
             const h = appState.templateInfo.holes[hIdx];
             const wrapper = document.createElement('div');
             wrapper.className = 'preview-photo-wrapper';
+
+            // Find which photo index is assigned to this hole
+            const photoInHole = appState.photoAssignments[hIdx];
+            const pIdx = appState.capturedPhotos.indexOf(photoInHole);
+
+            // Apply loading class if this photo is being stylized
+            if (pIdx !== -1 && appState.loadingPhotos.has(pIdx)) {
+                wrapper.classList.add('loading');
+            }
+
             wrapper.style.left = `${offsetX + h.x * scale}px`;
             wrapper.style.top = `${offsetY + h.y * scale}px`;
             wrapper.style.width = `${h.w * scale}px`;
