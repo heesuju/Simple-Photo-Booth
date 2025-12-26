@@ -117,6 +117,7 @@ window.eventBus.on('app:init', (appState) => {
         });
         appState.selectedForRetake = [];
         retakeBtn.style.display = 'none';
+        finalizeBtn.style.display = 'block';
     });
 
 
@@ -826,6 +827,7 @@ window.eventBus.on('app:init', (appState) => {
             });
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
+            document.getElementById('finalize-btn').style.display = 'block';
         }
     }
 
@@ -1504,6 +1506,7 @@ window.eventBus.on('app:init', (appState) => {
             });
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
+            document.getElementById('finalize-btn').style.display = 'block';
         }
 
         // Handle hole selection
@@ -1545,7 +1548,10 @@ window.eventBus.on('app:init', (appState) => {
             el.classList.add('selected');
         }
 
-        retakeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
+
+        const hasSelection = appState.selectedForRetake.length > 0;
+        retakeBtn.style.display = hasSelection ? 'block' : 'none';
+        document.getElementById('finalize-btn').style.display = hasSelection ? 'none' : 'block';
         updatePreviewHighlights();
     }
 
