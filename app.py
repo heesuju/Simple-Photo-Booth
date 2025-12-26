@@ -748,14 +748,23 @@ async def process_and_stylize_image(request: Request, prompt: str = Form(...), f
     for attempt in range(max_retries):
         try:
             # Step 2: Call Pollinations.ai
+
             encoded_prompt = quote(prompt)
-            pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+            pollinations_url = f"https://gen.pollinations.ai/image/{encoded_prompt}"
             params = {
                 "model": "kontext",
-                "image": direct_link,
-                "nologo": True,
+                "width": 1024,
+                "height": 1024,
+                "seed": random.randint(0, 1000000),
                 "enhance": True,
+                "negative_prompt": "worst quality, blurry",
                 "private": True,
+                "nologo": True,
+                "nofeed": True,
+                "safe": True,
+                "quality": "medium",
+                "image": direct_link,
+                "guidance_scale": 1
             }
             print(f"Proxying request to: {pollinations_url}")
             print(params)
