@@ -187,12 +187,10 @@ window.eventBus.on('app:init', (appState) => {
                     // Let's store currentTemplate in appState or closure? 
                     // showColorPalettePanel is called with template.
                     if (appState.currentEditingTemplate) {
+                        if (result.saved) {
+                            showColorPalettePanel(appState.currentEditingTemplate);
+                        }
                         recolorTemplateAndApply(appState.currentEditingTemplate, result.color);
-                        // Don't close panel automatically so user can add more or pick others? 
-                        // Or mimick 'click' on swatch -> closes panel. The old logic removed the panel.
-                        // But the generic add button shouldn't necessarily close the panel. 
-                        // existing 'recolorTemplateAndApply' updates preview.
-                        // User might want to try multiple colors.
                         // User might want to try multiple colors.
                         // But if we want to follow 'swatch click' behavior:
                         // stripBackBtn.click();
