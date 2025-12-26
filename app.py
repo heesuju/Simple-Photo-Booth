@@ -586,6 +586,36 @@ async def upload_sticker(request: Request, file: UploadFile = File(...), categor
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading sticker: {e}")
 
+@app.get("/sticker_categories")
+async def get_sticker_categories(request: Request):
+    categories = []
+    if os.path.exists(STICKERS_DIR):
+        for item in os.listdir(STICKERS_DIR):
+            if os.path.isdir(os.path.join(STICKERS_DIR, item)):
+                categories.append(item)
+    return JSONResponse(content=categories)
+
+@app.post("/create_sticker_category")
+async def create_sticker_category(request: Request):
+    data = await request.json()
+    category_name = data.get('name')
+    if not category_name:
+        raise HTTPException(status_code=400, detail="Category name is required.")
+
+    # Sanitize category name
+    sanitized_name = "".join(c for c in category_name if c.isalnum() or c in (' ', '.', '_', '-')).strip()
+    if not sanitized_name:
+        raise HTTPException(status_code=400, detail="Invalid category name.")
+
+    sticker_dir = os.path.join(STICKERS_DIR, sanitized_name)
+    try:
+        if os.path.exists(sticker_dir):
+             raise HTTPException(status_code=409, detail="Category already exists.")
+        os.makedirs(sticker_dir, exist_ok=True)
+        return JSONResponse(content={"message": "Category created successfully", "name": sanitized_name}, status_code=201)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Error creating category: {e}")
+
 @app.get("/fonts")
 async def get_fonts(request: Request):
     return JSONResponse(content=request.app.state.db_manager.get_all_fonts())

@@ -172,7 +172,12 @@ window.eventBus.on('app:init', (appState) => {
             addPresetModal.className = 'modal-visible';
 
         } else if (panelType === 'stickers') { // Stickers
-            stickerUploadInput.click();
+            const categoryGallery = document.getElementById('sticker-category-gallery');
+            if (categoryGallery.style.display !== 'none') {
+                document.getElementById('add-sticker-category-modal').className = 'modal-visible';
+            } else {
+                stickerUploadInput.click();
+            }
         } else if (panelId === 'color-palette-panel') { // Template Colors
             colorPicker.show().then(result => {
                 if (result) {
@@ -950,8 +955,13 @@ window.eventBus.on('app:init', (appState) => {
 
     async function loadStickerGallery(selectedCategory = null) {
         try {
-            const r = await fetch('/stickers');
-            const stickers = await r.json();
+            const [stickersResponse, categoriesResponse] = await Promise.all([
+                fetch('/stickers'),
+                fetch('/sticker_categories')
+            ]);
+            const stickers = await stickersResponse.json();
+            const fetchedCategories = await categoriesResponse.json();
+
             const stickerGallery = document.getElementById('sticker-gallery');
             const categoryGallery = document.getElementById('sticker-category-gallery');
             const stickerUploadInput = document.getElementById('sticker-upload-input');
@@ -980,8 +990,11 @@ window.eventBus.on('app:init', (appState) => {
                 stickerGallery.style.display = 'none';
                 delete categoryGallery.dataset.category;
 
-                const categories = [...new Set(stickers.map(s => s.category).filter(Boolean))];
-                categories.forEach(category => {
+                // Combine categories from stickers (in case of DB/Filesystem mismatch) and explicit folders
+                const stickerCategories = stickers.map(s => s.category).filter(Boolean);
+                const allCategories = [...new Set([...fetchedCategories, ...stickerCategories])];
+
+                allCategories.forEach(category => {
                     const categoryButton = document.createElement('button');
                     categoryButton.className = 'style-strip-item';
                     categoryButton.textContent = category;
@@ -1813,6 +1826,47 @@ window.eventBus.on('app:init', (appState) => {
     }
 
 
+
+    // --- Sticker Category Modal ---
+    const addStickerCategoryModal = document.getElementById('add-sticker-category-modal');
+    const newCategoryNameInput = document.getElementById('new-category-name');
+    const addCategoryConfirmBtn = document.getElementById('add-category-confirm-btn');
+    const addCategoryCancelBtn = document.getElementById('add-category-cancel-btn');
+
+    if (addCategoryConfirmBtn && addCategoryCancelBtn) {
+        addCategoryConfirmBtn.addEventListener('click', async () => {
+            const name = newCategoryNameInput.value.trim();
+            if (!name) {
+                alert('Please enter a category name.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/create_sticker_category', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+
+                if (response.ok) {
+                    addStickerCategoryModal.className = 'modal-hidden';
+                    newCategoryNameInput.value = '';
+                    loadStickerGallery(); // Reload gallery
+                } else {
+                    const data = await response.json();
+                    alert(data.detail || 'Failed to create category.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error creating category.');
+            }
+        });
+
+        addCategoryCancelBtn.addEventListener('click', () => {
+            addStickerCategoryModal.className = 'modal-hidden';
+            newCategoryNameInput.value = '';
+        });
+    }
 
     async function applyBackgroundRemovalPreview() {
         const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
