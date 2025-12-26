@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editingTemplate: null,
         activeHole: { element: null, data: null, index: -1, action: null },
         dragStart: { x: 0, y: 0, initialX: 0, initialY: 0 },
-        selectedTimer: 0,
+        selectedTimer: 5,
         isCapturing: false,
         captureMode: 'camera',
         filters: { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 },
