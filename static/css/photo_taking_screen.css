@@ -1,14 +1,17 @@
 /* === APP CONTENT AREA (left/main) === */
-#app-content, .main-content {
+#app-content,
+.main-content {
     /* #app-content is the element loaded into; .main-content is inside it.
        Keep rules for both so dynamic loading works. */
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
-    min-height: 0; /* critical for flex children (photo-booth) to shrink */
+    min-height: 0;
+    /* critical for flex children (photo-booth) to shrink */
     box-sizing: border-box;
     overflow: hidden;
-    padding: 0; /* main spacing handled by inner elements */
+    padding: 0;
+    /* main spacing handled by inner elements */
 }
 
 /* If you are using both #app-content and .main-content, ensure the inner main-content
@@ -35,9 +38,12 @@
 #camera-stream,
 #capture-canvas {
     height: 100%;
-    width: auto; /* keep aspect ratio */
-    max-width: 100%; /* prevent overflow */
-    object-fit: contain; /* show entire frame without cropping */
+    width: auto;
+    /* keep aspect ratio */
+    max-width: 100%;
+    /* prevent overflow */
+    object-fit: contain;
+    /* show entire frame without cropping */
     display: block;
     background: var(--bg-dark);
 }
@@ -77,23 +83,26 @@
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.1s ease-in-out;
-    z-index: 51; /* Above flash */
+    z-index: 51;
+    /* Above flash */
 }
 
 #ghost-overlay.active {
     opacity: 0.7;
     visibility: visible;
 }
+
 #countdown-display {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 5rem;
-    color: var(--overlay-text-color);
+    font-size: 8rem;
+    color: #ffffff;
     pointer-events: none;
     z-index: 40;
-    display: none; /* toggle visibility in JS */
+    display: none;
+    /* toggle visibility in JS */
 }
 
 /* Mode selection - positioned above the booth */
@@ -121,8 +130,14 @@
 }
 
 /* keep buttons compact */
-#action-buttons { justify-content: center; }
-#timer-controls, #flash-toggle-controls { justify-content: flex-start; }
+#action-buttons {
+    justify-content: center;
+}
+
+#timer-controls,
+#flash-toggle-controls {
+    justify-content: flex-start;
+}
 
 /* === SIDEBAR (fixed width, internal scroll only) === */
 .sidebar {
@@ -134,7 +149,8 @@
     background: var(--header-bg);
     border-left: 1px solid var(--border-color);
     box-sizing: border-box;
-    flex-shrink: 0; /* don't allow sidebar to shrink smaller */
+    flex-shrink: 0;
+    /* don't allow sidebar to shrink smaller */
     overflow: hidden;
 }
 
@@ -174,7 +190,8 @@
     justify-content: center;
     align-items: center;
     background-color: var(--bg-dark);
-    z-index: 10; /* on top of video/canvas */
+    z-index: 10;
+    /* on top of video/canvas */
     transition: background-color 0.3s;
 }
 
@@ -205,7 +222,8 @@
     }
 
     /* main content full width; sidebar below */
-    .main-content, #app-content {
+    .main-content,
+    #app-content {
         padding: 0.75rem;
     }
 
@@ -220,10 +238,12 @@
         overflow-y: hidden;
         padding: 0.5rem;
         gap: 0.5rem;
-        align-items: center;    }
+        align-items: center;
+    }
 
     .sidebar h3 {
-        display: none; /* hide title on small screens */
+        display: none;
+        /* hide title on small screens */
     }
 
     /* Thumbnails container becomes horizontal strip */
