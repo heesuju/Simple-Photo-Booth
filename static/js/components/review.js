@@ -631,6 +631,11 @@ window.eventBus.on('app:init', (appState) => {
 
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
         if (currentOpenPanel) {
+            // If we are leaving the style panel, clear the specific selection for it
+            if (currentOpenPanel.id === 'style-strip-panel') {
+                appState.selectedForStylizing = [];
+                updatePreviewHighlights();
+            }
             currentOpenPanel.classList.remove('show');
         }
 
@@ -652,6 +657,9 @@ window.eventBus.on('app:init', (appState) => {
             if (currentActiveBtn) {
                 currentActiveBtn.classList.remove('active');
             }
+            // Clear stylizing selection when fully closing panels
+            appState.selectedForStylizing = [];
+            updatePreviewHighlights();
         }
     });
 
@@ -785,6 +793,9 @@ window.eventBus.on('app:init', (appState) => {
                 }
                 stripBackBtn.style.display = 'none';
                 panelHistory = [];
+                // Clear stylizing selections
+                appState.selectedForStylizing = [];
+                updatePreviewHighlights();
             }
         }
     });
@@ -795,6 +806,10 @@ window.eventBus.on('app:init', (appState) => {
             appState.selectedHole.element.classList.remove('selected');
         }
         appState.selectedHole = { element: null, index: -1 };
+
+        // Clear stylizing selections
+        appState.selectedForStylizing = [];
+        updatePreviewHighlights();
 
         // Clear disabled thumbnail
         if (appState.disabledThumbnailIndex !== -1) {
@@ -1375,12 +1390,14 @@ window.eventBus.on('app:init', (appState) => {
             document.getElementById('review-photos-container').appendChild(wrapper);
         });
         applyPhotoFilters();
+        updatePreviewHighlights();
     }
 
     function handleStylizeButtonClick(photoIndex, photoEl) {
         appState.selectedForStylizing = [];
         appState.selectedForStylizing.push(photoIndex);
-        showStylizePanel()
+        showStylizePanel();
+        updatePreviewHighlights();
     }
 
     function showStylizePanel() {
@@ -1407,6 +1424,9 @@ window.eventBus.on('app:init', (appState) => {
         } else {
             stripBackBtn.style.display = 'none';
             panelHistory = [];
+            // Clear selection when closing
+            appState.selectedForStylizing = [];
+            updatePreviewHighlights();
         }
     }
 
@@ -1526,6 +1546,7 @@ window.eventBus.on('app:init', (appState) => {
         }
 
         retakeBtn.style.display = appState.selectedForRetake.length > 0 ? 'block' : 'none';
+        updatePreviewHighlights();
     }
 
     function handleSwap(hIdx, pIdx) {
@@ -1632,6 +1653,32 @@ window.eventBus.on('app:init', (appState) => {
                 wrapper.classList.remove('grain-effect');
             }
         });
+    }
+
+    function updatePreviewHighlights() {
+        // Clear all highlights first
+        document.querySelectorAll('.preview-photo-wrapper').forEach(w => w.classList.remove('highlighted'));
+
+        // Helper to highlight a photo by index
+        const highlightPhoto = (pIdx) => {
+            const selectedPhotoBlob = appState.capturedPhotos[pIdx];
+            // Assignment index search
+            const assignmentIndex = appState.photoAssignments.indexOf(selectedPhotoBlob);
+            if (assignmentIndex !== -1) {
+                const wrappers = document.querySelectorAll('.preview-photo-wrapper');
+                if (wrappers[assignmentIndex]) {
+                    wrappers[assignmentIndex].classList.add('highlighted');
+                }
+            }
+        };
+
+        // Apply highlights based on selected photos
+        appState.selectedForRetake.forEach(highlightPhoto);
+
+        // Apply highlights for stylizing selection
+        if (appState.selectedForStylizing) {
+            appState.selectedForStylizing.forEach(highlightPhoto);
+        }
     }
 
     function updateSnapLine(isSnapping, yPosition) {
