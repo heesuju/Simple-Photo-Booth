@@ -14,6 +14,8 @@ window.eventBus.on('app:init', (appState) => {
 
     window.addEventListener('mousemove', (e) => {
         if (!draggedItem) return;
+        // Prevent reordering while stylization is in progress
+        if (appState.loadingPhotos && appState.loadingPhotos.size > 0) return;
 
         const thumbnailsContainer = reviewThumbnails;
         const items = [...thumbnailsContainer.querySelectorAll('.strip-item:not(.dragging)')];
@@ -37,6 +39,14 @@ window.eventBus.on('app:init', (appState) => {
 
     window.addEventListener('mouseup', (e) => {
         if (!draggedItem) return;
+        // Prevent reordering while stylization is in progress
+        if (appState.loadingPhotos && appState.loadingPhotos.size > 0) {
+            draggedItem.classList.remove('dragging');
+            draggedItem = null;
+            dragStartIndex = -1;
+            renderReviewThumbnails(); // Reset visual state
+            return;
+        }
 
         const dragEndIndex = [...reviewThumbnails.children].indexOf(draggedItem);
         draggedItem.classList.remove('dragging');
@@ -1149,8 +1159,18 @@ window.eventBus.on('app:init', (appState) => {
 
             const handle = document.createElement('div');
             handle.className = 'drag-handle';
+            // Disable drag handle visually when stylization is in progress
+            if (appState.loadingPhotos && appState.loadingPhotos.size > 0) {
+                handle.style.opacity = '0.3';
+                handle.style.cursor = 'not-allowed';
+            }
             handle.innerHTML = '&#9776;'; // Hamburger icon
             handle.addEventListener('mousedown', (e) => {
+                // Prevent dragging while stylization is in progress
+                if (appState.loadingPhotos && appState.loadingPhotos.size > 0) {
+                    e.preventDefault();
+                    return;
+                }
                 draggedItem = itemContainer;
                 dragStartIndex = i;
                 draggedItem.classList.add('dragging');
