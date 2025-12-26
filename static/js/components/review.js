@@ -98,6 +98,18 @@ window.eventBus.on('app:init', (appState) => {
         renderStickers: renderPlacedStickers,
     });
 
+    // Add ResizeObserver to handle layout changes (especially in mobile view)
+    const previewObserver = new ResizeObserver(entries => {
+        window.requestAnimationFrame(() => {
+            renderPreview();
+        });
+    });
+
+    const reviewPreviewEl = document.getElementById('review-preview');
+    if (reviewPreviewEl) {
+        previewObserver.observe(reviewPreviewEl);
+    }
+
 
     appState.selectedForStylizing = [];
 
