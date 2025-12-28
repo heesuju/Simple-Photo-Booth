@@ -152,6 +152,11 @@ window.eventBus.on('app:init', (appState) => {
         if (!videoResult) {
           const d = new FormData();
 
+          // Generate session ID for progress tracking
+          const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+          d.append('session_id', sessionId);
+          console.log('[VideoProgress] Session ID:', sessionId);
+
           // Template
           if (appState.templateInfo.colored_template_path) {
             const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
@@ -174,8 +179,51 @@ window.eventBus.on('app:init', (appState) => {
             d.append('video_paths', video_path);
           }
 
-          // Call API
-          const r = await fetch('/compose_video', { method: 'POST', body: d });
+          // Create progress overlay
+          const progressOverlay = document.createElement('div');
+          progressOverlay.id = 'video-progress-overlay';
+          progressOverlay.innerHTML = `
+            <div class="progress-content">
+              <h3>비디오 생성 중...</h3>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+              <div class="progress-text" id="progress-text">0%</div>
+            </div>
+          `;
+          document.body.appendChild(progressOverlay);
+
+          const progressFill = document.getElementById('progress-fill');
+          const progressText = document.getElementById('progress-text');
+
+          // Start polling for progress
+          const pollInterval = setInterval(async () => {
+            try {
+              const progressRes = await fetch(`/video_progress/${sessionId}`);
+              const progressData = await progressRes.json();
+              const progress = progressData.progress || 0;
+
+              console.log('[VideoProgress] Polling response:', progress);
+
+              progressFill.style.width = `${progress}%`;
+              progressText.textContent = `${progress}%`;
+
+              if (progress >= 100) {
+                clearInterval(pollInterval);
+              }
+            } catch (err) {
+              console.error('[VideoProgress] Error polling progress:', err);
+            }
+          }, 500);
+
+          const composePromise = fetch('/compose_video', { method: 'POST', body: d });
+
+          // Wait for composition to complete
+          const r = await composePromise;
+
+          clearInterval(pollInterval);
+          progressOverlay.remove();
+
           if (!r.ok) {
             const errData = await r.json();
             throw new Error(errData.detail || '서버 오류');
@@ -205,7 +253,11 @@ window.eventBus.on('app:init', (appState) => {
         a.click();
       } catch (err) {
         console.error(err);
-        alert(`비디오 생성/다운로드에 실패했습니다.\n\n오류: ${err.message}`);
+        alert(`비디오 생성/다운로드에 실패했습니다.\\n\\n오류: ${err.message}`);
+
+        // Clean up overlay if error
+        const overlay = document.getElementById('video-progress-overlay');
+        if (overlay) overlay.remove();
       } finally {
         downloadVideoBtn.disabled = false;
         downloadVideoBtn.textContent = '비디오';

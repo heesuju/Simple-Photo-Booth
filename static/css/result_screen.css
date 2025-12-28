@@ -21,9 +21,11 @@
 /* Ensure images and videos scale correctly */
 #result-display img,
 #video-result-display video {
-  max-height: 100vh;   /* Fit to viewport height */
+  max-height: 100vh;
+  /* Fit to viewport height */
   max-width: 100%;
-  object-fit: contain;  /* Maintain aspect ratio */
+  object-fit: contain;
+  /* Maintain aspect ratio */
 }
 
 /* Layout container */
@@ -139,12 +141,14 @@
 @media (max-width: 900px) {
   #result-container {
     flex-direction: column;
-    height: 100vh; /* ensure container fills viewport */
+    height: 100vh;
+    /* ensure container fills viewport */
   }
 
   #result-left {
     width: 100%;
-    flex: 1 1 auto; /* take remaining height */
+    flex: 1 1 auto;
+    /* take remaining height */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -153,7 +157,8 @@
 
   #result-right {
     width: 100%;
-    flex: 0 0 auto; /* height based on content */
+    flex: 0 0 auto;
+    /* height based on content */
     padding: 1rem 2rem;
     box-shadow: none;
   }
@@ -162,7 +167,8 @@
   #result-display,
   #video-result-display {
     width: 100%;
-    height: 100%; /* fill the #result-left container */
+    height: 100%;
+    /* fill the #result-left container */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -171,7 +177,8 @@
   #result-display img,
   #video-result-display video {
     max-width: 100%;
-    max-height: 100%; /* fit inside #result-left */
+    max-height: 100%;
+    /* fit inside #result-left */
     object-fit: contain;
   }
 }
@@ -187,6 +194,7 @@
     opacity: 0;
     transform: translateY(5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -196,4 +204,83 @@
 /* Make QR fade nicely and stay centered */
 #qr-container.fade-in {
   animation: fadeIn 0.6s ease forwards;
+}
+
+/* Video Progress Overlay */
+#video-progress-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s;
+}
+
+.progress-content {
+  background: var(--bg-color);
+  padding: 2.5rem;
+  border-radius: 15px;
+  min-width: 350px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.progress-content h3 {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-color);
+  font-size: 1.3rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 35px;
+  background: var(--bg-dark);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--button-bg), var(--button-hover-bg));
+  transition: width 0.3s ease;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--text-color);
 }

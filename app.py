@@ -24,12 +24,50 @@ import asyncio
 import httpx
 
 import moviepy.editor as mpe
+from proglog import ProgressBarLogger
 
 from db_manager import DatabaseManager
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Global dictionary to track video composition progress
+video_progress = {}  # {session_id: progress_percentage}
+
+class CustomProgressLogger(ProgressBarLogger):
+    """Custom logger to track video composition progress"""
+    def __init__(self, session_id):
+        super().__init__()
+        self.session_id = session_id
+        video_progress[session_id] = 0
+        print(f"[ProgressLogger] Initialized for session {session_id}")
+        
+    def callback(self, **changes):
+        """Called by proglog when any progress is made"""
+        # Update progress in the global dict
+        for key, new_value in changes.items():
+            # Key is typically a tuple like ('t', 'index')
+            if isinstance(key, tuple) and len(key) == 2:
+                name, param = key
+                if param == 'index' and name in self.bars:
+                    bar = self.bars[name]
+                    if 'total' in bar and bar['total'] > 0:
+                        percentage = int((new_value / bar['total']) * 100)
+                        video_progress[self.session_id] = min(percentage, 100)
+                        print(f"[ProgressLogger] Progress: {percentage}%")
+        
+        # Call parent to maintain normal progress bar functionality
+        super().callback(**changes)
+    
+    def bars_callback(self, bar, attr, value, old_value=None):
+        """Alternative callback method"""
+        if attr == 'index' and bar in self.bars:
+            total = self.bars[bar].get('total', 0)
+            if total > 0:
+                percentage = int((value / total) * 100)
+                video_progress[self.session_id] = min(percentage, 100)
+                print(f"[ProgressLogger] bars_callback - Progress: {percentage}%")
 
 VIDEOS_DIR = "static/videos"
 
@@ -1165,6 +1203,14 @@ async def upload_video_chunk(request: Request, video: UploadFile = File(...)):
         return JSONResponse(content={"video_path": f"/{file_path}"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload video chunk: {e}")
+
+@app.get("/video_progress/{session_id}")
+async def get_video_progress(session_id: str):
+    """Get the current progress of video composition"""
+    progress = video_progress.get(session_id, 0)
+    print(f"[ProgressEndpoint] Session {session_id}: {progress}%")
+    return JSONResponse(content={"progress": progress})
+
 @app.post("/compose_video")
 async def compose_video(
     request: Request,
@@ -1175,10 +1221,15 @@ async def compose_video(
     transformations: str = Form(...),
     template_path: str = Form(None),
     template_file: UploadFile = File(None),
-    is_inverted: bool = Form(False)
+    is_inverted: bool = Form(False),
+    session_id: str = Form(None)  # Session ID for progress tracking
 ):
     try:
         import subprocess
+        
+        # Generate session ID if not provided
+        if not session_id:
+            session_id = str(uuid.uuid4())
 
         # --- Handle template file or path ---
         if template_file:
@@ -1310,7 +1361,17 @@ async def compose_video(
         # --- Write output ---
         result_filename = f"{uuid.uuid4()}.mp4"
         result_path = os.path.join(RESULTS_DIR, result_filename)
-        final_clip.write_videofile(result_path, codec="libx264", fps=24)
+        
+        # Use custom logger to track progress
+        logger = CustomProgressLogger(session_id)
+        
+        # Run video composition in background thread to avoid blocking progress requests
+        def compose_video_sync():
+            final_clip.write_videofile(result_path, codec="libx264", fps=24, logger=logger)
+            video_progress[session_id] = 100
+        
+        # Execute in thread pool to not block the event loop
+        await asyncio.to_thread(compose_video_sync)
 
         # --- Generate QR code ---
         ip_address = get_ip_address()
@@ -1324,6 +1385,7 @@ async def compose_video(
             content={
                 "result_path": f"/static/results/{result_filename}",
                 "qr_code_path": f"/static/results/{qr_filename}",
+                "session_id": session_id,
             }
         )
 
