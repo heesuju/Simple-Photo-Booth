@@ -850,6 +850,7 @@ window.eventBus.on('app:init', (appState) => {
                 // Clear stylizing selections
                 appState.selectedForStylizing = [];
                 updatePreviewHighlights();
+                updateAddFinalizeButtons();
             }
         }
     });
@@ -1650,14 +1651,16 @@ window.eventBus.on('app:init', (appState) => {
 
         // Priority 2: Open Panel Context
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
-        let showAdd = false;
-        if (currentOpenPanel) {
-            const type = currentOpenPanel.dataset.panel;
-            // Whitelist for panels that need the "Add" button
-            if (['styles', 'filters', 'stickers', 'add-text', 'colors'].includes(type)) {
-                showAdd = true;
-            }
+
+        if (!currentOpenPanel) {
+            genericAddBtn.style.display = 'none';
+            finalizeBtn.style.display = 'block';
+            return;
         }
+
+        // If panel is open, check if it needs the "Add" button
+        const type = currentOpenPanel.dataset.panel;
+        const showAdd = ['styles', 'filters', 'stickers', 'add-text', 'colors'].includes(type);
 
         if (showAdd) {
             genericAddBtn.style.display = 'block';
