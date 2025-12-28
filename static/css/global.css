@@ -1,5 +1,6 @@
 /* Basic Styles */
-html, body {
+html,
+body {
     height: 100%;
     width: 100%;
     margin: 0;
@@ -75,40 +76,56 @@ body.halloween-theme {
 body.christmas-theme {
     --bg-color: #5cb85c;
     --bg-dark: #2f4f4f;
-    --text-color: #2f4f4f; /* DarkSlateGray */
+    --text-color: #2f4f4f;
+    /* DarkSlateGray */
     --overlay-text-color: #2f4f4f;
-    --header-bg: #5cb85c; /* Festive Green */
+    --header-bg: #5cb85c;
+    /* Festive Green */
     --header-text: #ffffff;
 
-    --button-bg: #d9534f; /* Festive Red */
+    --button-bg: #d9534f;
+    /* Festive Red */
     --button-hover-bg: #c9302c;
-    --button-secondary-bg: #5cb85c; /* Festive Green */
+    --button-secondary-bg: #5cb85c;
+    /* Festive Green */
     --button-secondary-hover-bg: #449d44;
     --button-disabled-bg: #b2b2b2;
     --button-text-color: #ffffff;
 
-    --border-color: #b30000; /* Darker Red */
-    --accent-color: #ffd700; /* Gold */
+    --border-color: #b30000;
+    /* Darker Red */
+    --accent-color: #ffd700;
+    /* Gold */
 }
 
 /* Valentines Theme */
 body.valentines-theme {
-    --bg-color: #fefefe; /* Very light almost white pink */
-    --bg-dark: #fce4ec; /* Lighter MistyRose */
-    --text-color: #4a235a; /* Softer dark purple */
+    --bg-color: #fefefe;
+    /* Very light almost white pink */
+    --bg-dark: #fce4ec;
+    /* Lighter MistyRose */
+    --text-color: #4a235a;
+    /* Softer dark purple */
     --overlay-text-color: #4a235a;
-    --header-bg: #f8bbd0; /* Lighter, pastel pink */
+    --header-bg: #f8bbd0;
+    /* Lighter, pastel pink */
     --header-text: #ffffff;
 
-    --button-bg: #f48fb1; /* Pastel pink */
-    --button-hover-bg: #ec407a; /* Slightly deeper pastel pink */
-    --button-secondary-bg: #ce93d8; /* Pastel lavender */
+    --button-bg: #f48fb1;
+    /* Pastel pink */
+    --button-hover-bg: #ec407a;
+    /* Slightly deeper pastel pink */
+    --button-secondary-bg: #ce93d8;
+    /* Pastel lavender */
     --button-secondary-hover-bg: #ba68c8;
-    --button-disabled-bg: #e1bee7; /* Lighter pastel lavender */
+    --button-disabled-bg: #e1bee7;
+    /* Lighter pastel lavender */
     --button-text-color: #ffffff;
 
-    --border-color: #f06292; /* Medium pastel pink */
-    --accent-color: #e0b0ff; /* Lighter plum/lavender */
+    --border-color: #f06292;
+    /* Medium pastel pink */
+    --accent-color: #e0b0ff;
+    /* Lighter plum/lavender */
 }
 
 /* Apply variables */
@@ -145,7 +162,8 @@ button:hover {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    overflow: hidden; /* important so children control scrolling */
+    overflow: hidden;
+    /* important so children control scrolling */
 }
 
 
@@ -155,8 +173,9 @@ button:hover {
     max-width: 600px;
     gap: 20px;
     justify-content: center;
-    align-items: flex-start; /* Align items of different heights */
-    overflow-y: auto;
+    align-items: flex-start;
+    /* Align items of different heights */
+    overflow: visible;
     margin-left: auto;
     margin-right: auto;
 }
@@ -194,7 +213,7 @@ button:hover {
     background-color: var(--bg-color);
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     text-align: center;
 }
 
@@ -206,7 +225,7 @@ button:hover {
     z-index: 1000;
     padding: 1rem 3rem;
     font-size: 1.2rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .floating-btn:hover {
@@ -220,7 +239,8 @@ button:hover {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background-color: var(--button-bg); /* Green */
+    background-color: var(--button-bg);
+    /* Green */
     color: var(--button-text-color);
     border: none;
     font-size: 2rem;
@@ -228,7 +248,7 @@ button:hover {
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     z-index: 1000;
 }
 
