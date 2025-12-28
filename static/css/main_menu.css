@@ -26,5 +26,5 @@
 .layout-item.selected img {
     border-color: var(--button-bg);
     border-width: 3px;
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--button-bg) 40%, transparent);
 }
