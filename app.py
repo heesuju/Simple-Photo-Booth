@@ -333,14 +333,46 @@ def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
 
     # Load placeholder images
     placeholder_dir = "static/placeholder"
-    person_images = [
-        cv2.imread(os.path.join(placeholder_dir, "person1.png"), cv2.IMREAD_UNCHANGED),
-        cv2.imread(os.path.join(placeholder_dir, "person2.png"), cv2.IMREAD_UNCHANGED)
-    ]
+    
+    placeholder_files = [f for f in os.listdir(placeholder_dir) if f.endswith('.png')]
+    
+    prefixes = {}
+    for filename in placeholder_files:
+        name = os.path.splitext(filename)[0]
+        prefix = ''.join([c for c in name if not c.isdigit()]).rstrip()
+        if prefix not in prefixes:
+            prefixes[prefix] = []
+        prefixes[prefix].append(filename)
+    
+    used_images = []
 
-    # Draw the grid with person images
+    total_holes = rows * cols
+    
+    # Pre-select images from prefixes
+    if prefixes:
+        available_prefixes = list(prefixes.keys())
+        random.shuffle(available_prefixes)  # Shuffle to randomize selection order
+        
+        for selected_prefix in available_prefixes:
+            # Stop if we have enough images
+            if len(used_images) >= total_holes:
+                break
+            
+            prefix_images = []
+            for img_file in prefixes[selected_prefix]:
+                img_path = os.path.join(placeholder_dir, img_file)
+                img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+                if img is not None:
+                    prefix_images.append(img)
+            
+            while len(used_images) < total_holes and len(prefix_images) > 0:
+                rand_idx = random.randint(0, len(prefix_images) - 1)
+                used_images.append(prefix_images.pop(rand_idx))
+
+    # Draw the grid with pre-selected images from used_images
     offset = random.randint(0, len(pastel_colors) - 1)
-
+    image_index = 0
+    
     for r in range(rows):
         for c in range(cols):
             x = gap + c * (cell_w + gap)
@@ -353,30 +385,30 @@ def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
             # Place the cell background onto the canvas
             canvas[y:y + cell_h, x:x + cell_w] = cell_bg
 
-            # Cycle through person images
-            person_img = person_images[(r * cols + c) % len(person_images)]
-            
-            # Resize and crop person image to fit the cell
-            person_h, person_w, _ = person_img.shape
-            
-            # Maintain aspect ratio
-            scale = max(cell_w / person_w, cell_h / person_h)
-            new_w, new_h = int(person_w * scale), int(person_h * scale)
-            resized_person = cv2.resize(person_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-            
-            # Crop the center of the resized image
-            crop_x = (new_w - cell_w) // 2
-            crop_y = (new_h - cell_h) // 2
-            
-            cropped_person = resized_person[crop_y:crop_y + cell_h, crop_x:crop_x + cell_w]
-            
-            # Overlay the person image onto the cell background
-            # Alpha blending
-            alpha_person = cropped_person[:, :, 3] / 255.0
-            alpha_canvas = 1.0 - alpha_person
+            if used_images and image_index < len(used_images):
+                person_img = used_images[image_index]
+                image_index += 1
 
-            for i in range(3):
-                canvas[y:y+cell_h, x:x+cell_w, i] = (alpha_person * cropped_person[:,:,i] + alpha_canvas * canvas[y:y+cell_h, x:x+cell_w, i])
+                person_h, person_w, _ = person_img.shape
+                
+                # Maintain aspect ratio
+                scale = max(cell_w / person_w, cell_h / person_h)
+                new_w, new_h = int(person_w * scale), int(person_h * scale)
+                resized_person = cv2.resize(person_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                
+                # Crop the center of the resized image
+                crop_x = (new_w - cell_w) // 2
+                crop_y = (new_h - cell_h) // 2
+                
+                cropped_person = resized_person[crop_y:crop_y + cell_h, crop_x:crop_x + cell_w]
+                
+                # Overlay the person image onto the cell background
+                # Alpha blending
+                alpha_person = cropped_person[:, :, 3] / 255.0
+                alpha_canvas = 1.0 - alpha_person
+
+                for i in range(3):
+                    canvas[y:y+cell_h, x:x+cell_w, i] = (alpha_person * cropped_person[:,:,i] + alpha_canvas * canvas[y:y+cell_h, x:x+cell_w, i])
 
     # Save the generated image
     cv2.imwrite(thumbnail_path, canvas)
