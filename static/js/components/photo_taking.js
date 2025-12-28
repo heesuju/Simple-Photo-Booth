@@ -428,14 +428,17 @@ window.eventBus.on('app:init', (appState) => {
             mediaRecorder = new MediaRecorder(appState.stream, options);
         } catch (e) {
             console.error('Exception while creating MediaRecorder:', e);
-            return;
+            return Promise.resolve();
         }
 
-        mediaRecorder.onstop = (event) => {
-            const videoBlob = new Blob(recordedBlobs, { type: 'video/webm' });
-            const uploadPromise = uploadVideo(videoBlob);
-            appState.videoUploadPromises.push(uploadPromise);
-        };
+        const uploadRegisteredPromise = new Promise((resolve) => {
+            mediaRecorder.onstop = (event) => {
+                const videoBlob = new Blob(recordedBlobs, { type: 'video/webm' });
+                const uploadPromise = uploadVideo(videoBlob);
+                appState.videoUploadPromises.push(uploadPromise);
+                resolve();
+            };
+        });
 
         mediaRecorder.ondataavailable = (event) => {
             if (event.data && event.data.size > 0) {
@@ -445,12 +448,22 @@ window.eventBus.on('app:init', (appState) => {
 
         mediaRecorder.start();
         console.log('Recording started');
+
+        return uploadRegisteredPromise;
     }
 
+    let currentRecordingPromise = Promise.resolve();
+
     function handleCapture() {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
-            mediaRecorder.stop();
-        }
+        // Wait for the current recording to stop and register its upload promise
+        const stopPromise = new Promise((resolve) => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.addEventListener('stop', resolve, { once: true });
+                mediaRecorder.stop();
+            } else {
+                resolve();
+            }
+        });
 
         const v = document.getElementById('camera-stream'),
             c = document.getElementById('capture-canvas'),
@@ -466,7 +479,7 @@ window.eventBus.on('app:init', (appState) => {
         x.drawImage(v, 0, 0, c.width, c.height);
         x.restore();
 
-        c.toBlob(b => {
+        c.toBlob(async (b) => {
             if (appState.isRetaking) {
                 appState.newlyCapturedPhotos.push(b);
             } else {
@@ -479,14 +492,17 @@ window.eventBus.on('app:init', (appState) => {
             t.classList.add('thumbnail');
             t.setAttribute('data-index', appState.capturedPhotos.length - 1);
             thumbnailsContainer.appendChild(t);
-            updatePhotoStatus();
 
             const totalToCapture = appState.isRetaking ? appState.photosToRetake.length : appState.templateInfo.hole_count;
             const currentCaptureCount = appState.isRetaking ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
 
+            await stopPromise;
+
             if (currentCaptureCount < totalToCapture) {
-                startRecording();
+                currentRecordingPromise = startRecording();
             }
+
+            updatePhotoStatus();
         }, 'image/jpeg');
     }
 
