@@ -1,15 +1,15 @@
-(function() {
+(function () {
     const photoHangingGallery = document.querySelector('.photo-hanging-gallery');
     if (!photoHangingGallery) return;
 
     function updatePanningBackground(theme) {
         const imageUrl = `/static/img/effects/${theme}.png`;
         const img = new Image();
-        img.onload = function() {
+        img.onload = function () {
             photoHangingGallery.style.setProperty('--panning-bg-image', `url(${imageUrl}), url(${imageUrl})`);
             photoHangingGallery.classList.add('panning-background');
         }
-        img.onerror = function() {
+        img.onerror = function () {
             photoHangingGallery.classList.remove('panning-background');
             photoHangingGallery.style.removeProperty('--panning-bg-image');
         }
@@ -83,7 +83,7 @@
             };
         });
 
-        // Hover detection
+        // Hover detection (mouse)
         photos.forEach(photo => {
             photo.element.addEventListener('mouseenter', () => { photo.hovering = true; });
             photo.element.addEventListener('mouseleave', () => { photo.hovering = false; });
@@ -103,6 +103,65 @@
             lastMouseX = e.clientX;
             lastTime = now;
         });
+
+        // Touch tracking for mobile
+        let lastTouchX = 0;
+        let lastTouchTime = performance.now();
+        let activeTouchId = null;
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                const touch = e.touches[0];
+                activeTouchId = touch.identifier;
+                lastTouchX = touch.clientX;
+                lastTouchTime = performance.now();
+                mouseState.x = touch.clientX;
+
+                // Check which photo is being touched
+                photos.forEach(photo => {
+                    const rect = photo.element.getBoundingClientRect();
+                    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                        photo.hovering = true;
+                    }
+                });
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                const touch = Array.from(e.touches).find(t => t.identifier === activeTouchId);
+                if (touch) {
+                    const now = performance.now();
+                    const dt = Math.max(now - lastTouchTime, 1);
+                    const dx = touch.clientX - lastTouchX;
+                    mouseState.x = touch.clientX;
+                    mouseState.speed = dx / dt * 16;
+                    lastTouchX = touch.clientX;
+                    lastTouchTime = now;
+
+                    // Update hover state based on touch position
+                    photos.forEach(photo => {
+                        const rect = photo.element.getBoundingClientRect();
+                        if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                            touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                            photo.hovering = true;
+                        } else {
+                            photo.hovering = false;
+                        }
+                    });
+                }
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            // Reset hover state on all photos when touch ends
+            photos.forEach(photo => {
+                photo.hovering = false;
+            });
+            mouseState.speed = 0;
+            activeTouchId = null;
+        }, { passive: true });
 
         // Simple pendulum animation
         function animate() {
