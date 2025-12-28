@@ -59,6 +59,7 @@
     align-items: center;
     transform-origin: top center;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .clip {

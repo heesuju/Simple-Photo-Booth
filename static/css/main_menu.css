@@ -5,6 +5,7 @@
     background-color: transparent;
     text-align: center;
     padding: 0px;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .layout-item img {
@@ -19,7 +20,7 @@
 
 .layout-item:hover img {
     transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .layout-item.selected img {
