@@ -46,9 +46,9 @@
     /* spacing between photos */
     justify-content: center;
     align-items: flex-start;
-    flex-wrap: wrap;
-    /* allow multiple lines */
+    flex-wrap: nowrap;
     width: 90%;
+    overflow: visible;
     z-index: 2;
 }
 
@@ -61,19 +61,18 @@
     cursor: pointer;
 }
 
-/* Clip styling */
 .clip {
     position: absolute;
     top: -24px;
-    /* overlap with photo */
     left: 50%;
     transform: translateX(-50%);
     width: 70px;
-    /* larger than before */
     height: auto;
     user-select: none;
     pointer-events: none;
     z-index: 2;
+    filter:
+        drop-shadow(2px 0 0 var(--border-color)) drop-shadow(-2px 0 0 var(--border-color)) drop-shadow(0 2px 0 var(--border-color)) drop-shadow(0 -2px 0 var(--border-color))
 }
 
 .photo-frame {
