@@ -7,10 +7,28 @@ This is a web-based photobooth application built with FastAPI and vanilla JavaSc
 ```
 .
 ├── .gitignore
-├── app.py                  # Main FastAPI application backend
+├── app.py                  # Main FastAPI application backend (minimal entry point)
 ├── db_manager.py           # SQLite database management
 ├── README.md               # This file
 ├── requirements.txt        # Python dependencies
+├── routes/                 # API Route Modules
+│   ├── __init__.py
+│   ├── colors.py           # Color management endpoints
+│   ├── fonts.py            # Font management endpoints
+│   ├── photos.py           # Photo processing & composition
+│   ├── settings.py         # App settings & theme
+│   ├── stickers.py         # Sticker management
+│   ├── styles.py           # Style & filter preset endpoints
+│   ├── templates.py        # Template management
+│   └── videos.py           # Video processing & composition
+├── utils/                  # Helper Utilities
+│   ├── __init__.py
+│   ├── common.py           # Common helper functions
+│   ├── drawing.py          # Text drawing functions
+│   ├── filters.py          # Image filter application
+│   ├── image_processing.py # Core image processing logic
+│   ├── template_generation.py # Template generation logic
+│   └── video_processing.py # Video processing logic
 ├── static/                 # All frontend assets
 │   ├── components/         # HTML snippets for different UI screens
 │   │   ├── main_menu.html
