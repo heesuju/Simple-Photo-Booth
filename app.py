@@ -1,5 +1,6 @@
 import os
 import uvicorn
+import json
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -14,7 +15,17 @@ from routes import templates, colors, styles, stickers, fonts, photos, videos, s
 load_dotenv()
 
 # --- Global Configuration ---
+CONFIG_FILE = 'config.json'
 PORT = 8000
+
+if os.path.exists(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+            PORT = config.get('port', 8000)
+    except Exception as e:
+        print(f"Error loading config.json: {e}. Using default port {PORT}")
+
 DATABASE = 'photobooth.db'
 UPLOAD_DIR = "static/uploads"
 STICKERS_DIR = "static/stickers"
