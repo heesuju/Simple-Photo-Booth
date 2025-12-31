@@ -113,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const activeScreen = document.getElementById(screenId);
         if (activeScreen) {
-            activeScreen.style.display = 'block';
+            // Clear the inline style to let CSS control display (e.g. flex, grid)
+            activeScreen.style.display = '';
         }
 
         // Disable all component-specific stylesheets
