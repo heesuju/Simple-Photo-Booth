@@ -30,13 +30,17 @@
 
         <div id="camera-controls-row">
             <div id="timer-controls">
-                <label for="timer-select">타이머</label>
-                <select id="timer-select">
-                    <option value="0">수동</option>
-                    <option value="3">3초</option>
-                    <option value="5" selected>5초</option>
-                    <option value="10">10초</option>
-                </select>
+                <div id="timer-container">
+                    <button id="timer-main-btn" class="icon-button" aria-label="Timer Settings">
+                        <!-- SVG injected by JS -->
+                    </button>
+                    <div id="timer-options-row" style="display: none;">
+                        <button class="icon-button timer-option" data-value="0" aria-label="Manual"></button>
+                        <button class="icon-button timer-option" data-value="3" aria-label="3 Seconds"></button>
+                        <button class="icon-button timer-option" data-value="5" aria-label="5 Seconds"></button>
+                        <button class="icon-button timer-option" data-value="10" aria-label="10 Seconds"></button>
+                    </div>
+                </div>
             </div>
 
             <div id="flash-toggle-controls">

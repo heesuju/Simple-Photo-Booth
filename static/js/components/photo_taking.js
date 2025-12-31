@@ -75,10 +75,85 @@ window.eventBus.on('app:init', (appState) => {
 
     startCaptureBtn.addEventListener('click', () => window.eventBus.dispatch('capture-sequence:start'));
     captureBtn.addEventListener('click', () => window.eventBus.dispatch('capture:manual'));
-    const timerSelect = document.getElementById('timer-select');
-    timerSelect.addEventListener('change', (e) => {
-        appState.selectedTimer = parseInt(e.target.value, 10);
+
+    // --- Timer Logic (Icon Based) ---
+    const timerMainBtn = document.getElementById('timer-main-btn');
+    const timerOptionsRow = document.getElementById('timer-options-row');
+    const timerOptions = document.querySelectorAll('.timer-option');
+
+    // SVG Icons
+    const timerIcon0 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
+    // User requested removal of "weird scratch" (which was likely the extra path data at the end)
+    const iconManual = timerIcon0;
+
+    // Numeric Icons (Circle with number)
+    // Reuse the ring path from timerIcon0 (minus the hands)
+    const ringPath = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z";
+
+    const getNumberIcon = (num) => {
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="${ringPath}" />
+            <text x="12" y="16.5" text-anchor="middle" font-size="11" font-weight="bold" fill="currentColor" font-family="Arial, sans-serif">${num}</text>
+        </svg>`;
+    };
+
+    const timerIcons = {
+        0: iconManual,
+        3: getNumberIcon(3),
+        5: getNumberIcon(5),
+        10: getNumberIcon(10)
+    };
+
+    const toggleTimerExpanded = (show) => {
+        if (show) {
+            timerOptionsRow.style.display = 'flex';
+            timerMainBtn.style.display = 'none';
+            flashToggleControls.style.display = 'none';
+            document.getElementById('flip-camera-controls').style.display = 'none';
+        } else {
+            timerOptionsRow.style.display = 'none';
+            timerMainBtn.style.display = 'flex';
+            flashToggleControls.style.display = 'flex';
+            document.getElementById('flip-camera-controls').style.display = 'flex';
+        }
+    };
+
+    timerMainBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTimerExpanded(true);
     });
+
+    timerOptions.forEach(btn => {
+        const val = parseInt(btn.dataset.value);
+        btn.innerHTML = timerIcons[val];
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            appState.selectedTimer = val;
+            updateTimerUI();
+            toggleTimerExpanded(false);
+        });
+    });
+
+    const updateTimerUI = () => {
+        timerMainBtn.innerHTML = timerIcons[appState.selectedTimer] || timerIcons[5];
+        // Highlight active option
+        timerOptions.forEach(btn => {
+            const val = parseInt(btn.dataset.value);
+            if (val === appState.selectedTimer) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    };
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!timerMainBtn.contains(e.target) && !timerOptionsRow.contains(e.target)) {
+            toggleTimerExpanded(false);
+        }
+    });
+
+    // Initial Set
+    appState.selectedTimer = 5; // Default
+    updateTimerUI();
     modeSelection.addEventListener('click', (e) => {
         if (e.target.classList.contains('mode-btn')) {
             const newMode = e.target.dataset.mode;

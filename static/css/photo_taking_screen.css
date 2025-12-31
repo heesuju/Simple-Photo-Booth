@@ -162,6 +162,36 @@
     align-items: center;
 }
 
+#timer-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    /* transition: all 0.3s ease; */
+}
+
+#timer-options-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* Optional: background pill shape behind options */
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 30px;
+    padding: 0 5px;
+    margin-left: 5px;
+}
+
+.timer-option {
+    width: 40px;
+    height: 40px;
+    padding: 5px;
+}
+
+.timer-option svg {
+    width: 24px;
+    height: 24px;
+}
+
 
 
 .icon-button {
