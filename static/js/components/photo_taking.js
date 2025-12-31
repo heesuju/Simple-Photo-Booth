@@ -131,6 +131,14 @@ window.eventBus.on('app:init', (appState) => {
 
         cameraStream.srcObject = appState.stream;
         cameraStream.style.transform = 'scaleX(-1)';
+
+        // Enforce Aspect Ratio on the Preview Element
+        if (appState.templateInfo && appState.templateInfo.holes && appState.templateInfo.holes.length > 0) {
+            const h = appState.templateInfo.holes[0];
+            const r = h.w / h.h;
+            cameraStream.style.aspectRatio = `${r}`;
+        }
+
         appState.isStreamInverted = cameraStream.style.transform === 'scaleX(-1)';
         cameraStream.play();
 
@@ -183,6 +191,14 @@ window.eventBus.on('app:init', (appState) => {
         } else {
             cameraStream.srcObject = appState.stream;
             cameraStream.style.transform = 'scaleX(-1)';
+
+            // Enforce Aspect Ratio on the Preview Element
+            if (appState.templateInfo && appState.templateInfo.holes && appState.templateInfo.holes.length > 0) {
+                const h = appState.templateInfo.holes[0];
+                const r = h.w / h.h;
+                cameraStream.style.aspectRatio = `${r}`;
+            }
+
             cameraStream.play();
             updatePhotoStatus();
         }
@@ -468,15 +484,45 @@ window.eventBus.on('app:init', (appState) => {
         const v = document.getElementById('camera-stream'),
             c = document.getElementById('capture-canvas'),
             x = c.getContext('2d');
-        c.width = v.videoWidth;
-        c.height = v.videoHeight;
+
+        // 1. Determine Target Aspect Ratio from the template
+        //    (Assumes all holes in a template have the same AR, or uses the first one)
+        const firstHole = appState.templateInfo.holes[0];
+        const targetAspectRatio = firstHole.w / firstHole.h;
+
+        // 2. Determine Source Dimensions
+        const videoW = v.videoWidth;
+        const videoH = v.videoHeight;
+        const videoAspectRatio = videoW / videoH;
+
+        // 3. Calculate Crop (Source Rectangle) to perform a "Center Crop" (Cover)
+        let sx, sy, sWidth, sHeight;
+
+        if (videoAspectRatio > targetAspectRatio) {
+            // Video is wider than target: Crop width
+            sHeight = videoH;
+            sWidth = sHeight * targetAspectRatio;
+            sy = 0;
+            sx = (videoW - sWidth) / 2;
+        } else {
+            // Video is taller than target (or equal): Crop height
+            sWidth = videoW;
+            sHeight = sWidth / targetAspectRatio;
+            sx = 0;
+            sy = (videoH - sHeight) / 2;
+        }
+
+        // 4. Set Canvas Output Size to match the Crop Size (or scaled if desired, but 1:1 with crop is best)
+        c.width = sWidth;
+        c.height = sHeight;
 
         x.save();
         if (v.style.transform === 'scaleX(-1)') {
             x.translate(c.width, 0);
             x.scale(-1, 1);
         }
-        x.drawImage(v, 0, 0, c.width, c.height);
+        // Draw the cropped portion of the video onto the full canvas
+        x.drawImage(v, sx, sy, sWidth, sHeight, 0, 0, c.width, c.height);
         x.restore();
 
         c.toBlob(async (b) => {

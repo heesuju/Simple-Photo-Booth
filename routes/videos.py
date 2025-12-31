@@ -152,7 +152,28 @@ async def compose_video(
             new_w = int(hole["w"] * scale)
             new_h = int(hole["h"] * scale)
 
-            resized_clip = clip.resize((new_w, new_h)).rotate(rotation)
+            # Center Crop Logic to prevent stretching
+            target_aspect_ratio = new_w / new_h
+            video_w, video_h = clip.w, clip.h
+            video_aspect_ratio = video_w / video_h
+
+            if video_aspect_ratio > target_aspect_ratio:
+                # Video is wider than target: Crop width
+                crop_h = video_h
+                crop_w = crop_h * target_aspect_ratio
+                x1 = (video_w - crop_w) / 2
+                y1 = 0
+            else:
+                # Video is taller than target: Crop height
+                crop_w = video_w
+                crop_h = crop_w / target_aspect_ratio
+                x1 = 0
+                y1 = (video_h - crop_h) / 2
+            
+            # Apply crop and then resize
+            cropped_clip = clip.crop(x1=x1, y1=y1, width=crop_w, height=crop_h)
+            resized_clip = cropped_clip.resize((new_w, new_h)).rotate(rotation)
+
             if is_inverted:
                 resized_clip = resized_clip.fx(mpe.vfx.mirror_x)
             pos_x = hole["x"] + (hole["w"] - resized_clip.w) // 2

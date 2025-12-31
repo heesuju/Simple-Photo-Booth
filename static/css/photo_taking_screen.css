@@ -37,13 +37,15 @@
 /* === Video & Canvas maintain aspect ratio and fill height === */
 #camera-stream,
 #capture-canvas {
-    height: 100%;
+    height: auto;
     width: auto;
-    /* keep aspect ratio */
     max-width: 100%;
+    max-height: 100%;
+    /* Keep aspect ratio defined by JS style */
+
     /* prevent overflow */
-    object-fit: contain;
-    /* show entire frame without cropping */
+    object-fit: cover;
+    /* show center cropped frame to match capture */
     display: block;
     background: var(--bg-dark);
 }
