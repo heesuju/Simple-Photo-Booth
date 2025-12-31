@@ -54,7 +54,7 @@
             console.error('Error fetching recent results:', error);
         }
 
-        const maxItems = 10; // limit number of items to display
+        const maxItems = 6; // limit number of items to display
         const photosToRender = imageList.slice(0, maxItems);
 
         const photos = photosToRender.map(item => {
@@ -106,6 +106,7 @@
         let lastMouseX = 0;
         let lastTime = performance.now();
         const mouseState = { x: 0, speed: 0 };
+        let isLoopRunning = false;
 
         document.addEventListener('mousemove', (e) => {
             const now = performance.now();
@@ -115,12 +116,33 @@
             mouseState.speed = dx / dt * 16;
             lastMouseX = e.clientX;
             lastTime = now;
+
+            // Wake up animation if needed
+            if (!isLoopRunning) {
+                isLoopRunning = true;
+                animate();
+            }
         });
 
         // Touch tracking for mobile
         let lastTouchX = 0;
         let lastTouchTime = performance.now();
         let activeTouchId = null;
+        let cachedRects = []; // Cache rects during touch interaction
+
+        // Helper to update cached rects
+        function updateCachedRects() {
+            cachedRects = photos.map(photo => {
+                const r = photo.element.getBoundingClientRect();
+                return {
+                    photo: photo,
+                    left: r.left,
+                    right: r.right,
+                    top: r.top,
+                    bottom: r.bottom
+                };
+            });
+        }
 
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length > 0) {
@@ -130,14 +152,21 @@
                 lastTouchTime = performance.now();
                 mouseState.x = touch.clientX;
 
+                // Cache rects at start of interaction to avoid thrashing during move
+                updateCachedRects();
+
                 // Check which photo is being touched
-                photos.forEach(photo => {
-                    const rect = photo.element.getBoundingClientRect();
-                    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                        photo.hovering = true;
+                cachedRects.forEach(rectData => {
+                    if (touch.clientX >= rectData.left && touch.clientX <= rectData.right &&
+                        touch.clientY >= rectData.top && touch.clientY <= rectData.bottom) {
+                        rectData.photo.hovering = true;
                     }
                 });
+
+                if (!isLoopRunning) {
+                    isLoopRunning = true;
+                    animate();
+                }
             }
         }, { passive: true });
 
@@ -153,16 +182,20 @@
                     lastTouchX = touch.clientX;
                     lastTouchTime = now;
 
-                    // Update hover state based on touch position
-                    photos.forEach(photo => {
-                        const rect = photo.element.getBoundingClientRect();
-                        if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                            touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                            photo.hovering = true;
+                    // Update hover state based on touch position using cached rects
+                    cachedRects.forEach(rectData => {
+                        if (touch.clientX >= rectData.left && touch.clientX <= rectData.right &&
+                            touch.clientY >= rectData.top && touch.clientY <= rectData.bottom) {
+                            rectData.photo.hovering = true;
                         } else {
-                            photo.hovering = false;
+                            rectData.photo.hovering = false;
                         }
                     });
+
+                    if (!isLoopRunning) {
+                        isLoopRunning = true;
+                        animate();
+                    }
                 }
             }
         }, { passive: true });
@@ -174,13 +207,18 @@
             });
             mouseState.speed = 0;
             activeTouchId = null;
+            cachedRects = []; // Clear cache
         }, { passive: true });
 
         // Simple pendulum animation
         function animate() {
+            let allSettled = true;
+
             photos.forEach(photo => {
+                // Apply mouse influence
                 if (photo.hovering && Math.abs(mouseState.speed) > 0.5) {
                     photo.velocity += -mouseState.speed * 0.05; // weak & reversed
+                    allSettled = false;
                 }
 
                 const stiffness = 0.05;
@@ -189,12 +227,41 @@
                 photo.velocity += acceleration;
                 photo.angle += photo.velocity;
 
-                photo.element.style.transform = `rotate(${photo.angle}deg)`;
+                // Check for "settled" state
+                if (Math.abs(photo.angle) < 0.1 && Math.abs(photo.velocity) < 0.1) {
+                    // Snap to zero if very close
+                    if (photo.angle !== 0) {
+                        photo.angle = 0;
+                        photo.velocity = 0;
+                        photo.element.style.transform = `rotate(0deg)`;
+                    }
+                    // If strictly 0, it contributes to being settled
+                    // If we just snapped it, it's now settled for next frame
+                } else {
+                    allSettled = false;
+                    photo.element.style.transform = `rotate(${photo.angle.toFixed(2)}deg)`;
+                }
             });
 
-            requestAnimationFrame(animate);
+            // Decay global mouse speed even if no photo hovered
+            if (Math.abs(mouseState.speed) > 0.01) {
+                mouseState.speed *= 0.9;
+                allSettled = false;
+            } else {
+                mouseState.speed = 0;
+            }
+
+            if (!allSettled) {
+                requestAnimationFrame(animate);
+                isLoopRunning = true;
+            } else {
+                isLoopRunning = false;
+                // console.log("Animation paused (idle)");
+            }
         }
 
+        // Start animation initially
+        isLoopRunning = true;
         animate();
 
         const enterButton = document.getElementById('enter-button');
