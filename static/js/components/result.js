@@ -1,10 +1,16 @@
 window.eventBus.on('app:init', (appState) => {
 
   let cachedVideoResult = null; // store composed video after first creation
+  let currentSessionId = null; // Store ID when viewing a past session
+  let currentSessionData = null; // Store data when viewing a past session
 
   window.eventBus.on('review:finalize', async (data) => {
     const finalizeBtn = document.getElementById('finalize-btn');
     if (finalizeBtn) finalizeBtn.disabled = true;
+
+    // Reset session state for new result
+    currentSessionId = null;
+    currentSessionData = null;
 
     // Compose image immediately
     const imageComposePromise = (async () => {
@@ -24,6 +30,11 @@ window.eventBus.on('app:init', (appState) => {
       d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
       d.append('remove_background', appState.removeBackground);
 
+      // Pass video paths if available
+      if (data.videos && data.videos.length > 0) {
+        d.append('video_paths', JSON.stringify(data.videos));
+      }
+
       appState.photoAssignments.forEach((b, i) => {
         d.append('photos', b, `photo_${i}.jpg`);
       });
@@ -35,12 +46,61 @@ window.eventBus.on('app:init', (appState) => {
 
     try {
       const imageResult = await imageComposePromise;
+      // Store the session ID returned for the NEW session
+      currentSessionId = imageResult.session_id;
       displayFinalResult(imageResult, data, appState);
     } catch (e) {
       console.error(e);
       if (finalizeBtn) finalizeBtn.disabled = false;
     }
   });
+
+  // Handle loading a past session
+  window.eventBus.on('session:load', async (sessionId) => {
+    loadSession(sessionId);
+  });
+
+  async function loadSession(sessionId) {
+    try {
+      const response = await fetch(`/session/${sessionId}`);
+      if (!response.ok) throw new Error('Failed to load session');
+      const sessionData = await response.json();
+
+      currentSessionId = sessionId;
+      currentSessionData = sessionData;
+      cachedVideoResult = null; // Reset video cache
+
+      // Reconstruct a mock result object for display
+      const imageResult = {
+        result_path: sessionData.result_path,
+        qr_code_path: sessionData.qr_code_path,
+        session_id: sessionId
+      };
+
+      // Reconstruct mock data/appState
+      // We only need what's required for display and downloads
+      const mockData = { videos: sessionData.videos || [] };
+      const mockAppState = {
+        stylizedImagesCache: {}, // We assume no generated images for past sessions for now
+        templateInfo: {
+          holes: sessionData.holes,
+          transformations: sessionData.transformations,
+          template_path: sessionData.template_path
+        },
+        placedStickers: sessionData.stickers,
+        placedTexts: sessionData.texts,
+        filters: sessionData.filters,
+        removeBackground: sessionData.remove_background,
+        isStreamInverted: false // default
+      };
+
+      displayFinalResult(imageResult, mockData, mockAppState);
+
+    } catch (err) {
+      console.error('Error loading session:', err);
+      alert('Failed to load past session.');
+    }
+  }
 
   function displayFinalResult(imageResult, data, appState) {
     window.eventBus.dispatch('screen:show', 'result-screen');
@@ -70,10 +130,18 @@ window.eventBus.on('app:init', (appState) => {
       downloadGeneratedBtn.style.display = 'block';
     }
 
-    if (Object.keys(data.videos).length === 0) {
+    if (!data.videos || Object.keys(data.videos).length === 0) {
       downloadVideoBtn.style.display = 'none';
     } else {
       downloadVideoBtn.style.display = 'block';
+    }
+
+    // If viewing a past session, hide "Continue Editing"
+    if (currentSessionData) {
+      continueEditingBtn.style.display = 'none';
+      downloadGeneratedBtn.style.display = 'none'; // Not supported for past sessions yet
+    } else {
+      continueEditingBtn.style.display = 'inline-block';
     }
 
     // Reset content
@@ -104,7 +172,13 @@ window.eventBus.on('app:init', (appState) => {
           qrPath = cachedVideoResult?.qr_code_path || '/qr/video';
           break;
         case 'original':
-          qrPath = '/qr/original';
+          if (currentSessionId && currentSessionData) {
+            // For sessions requests, we generate QR in the response of zip_session_originals
+            // So this logic might be handled in the onclick handler
+            qrPath = null;
+          } else {
+            qrPath = '/qr/original';
+          }
           break;
         case 'generated':
           qrPath = '/qr/generated';
@@ -112,7 +186,7 @@ window.eventBus.on('app:init', (appState) => {
       }
 
       if (!qrPath) {
-        qrContainer.style.display = 'none';
+        if (type !== 'video' && type !== 'original') qrContainer.style.display = 'none';
         return;
       }
 
@@ -153,16 +227,27 @@ window.eventBus.on('app:init', (appState) => {
           const d = new FormData();
 
           // Generate session ID for progress tracking
-          const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-          d.append('session_id', sessionId);
-          console.log('[VideoProgress] Session ID:', sessionId);
+          // If we are viewing a past session, use a NEW tracking ID, but we operate on PAST session data
+          const progressIds = Math.random().toString(36).substring(2) + Date.now().toString(36);
+          d.append('session_id', progressIds);
+          console.log('[VideoProgress] Session ID:', progressIds);
 
           // Template
-          if (appState.templateInfo.colored_template_path) {
-            const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
-            d.append('template_file', blob, 'template.png');
+          // Logic for past session vs new session
+          if (currentSessionData) {
+            // Use stored paths
+            if (currentSessionData.template_path.startsWith('static')) {
+              d.append('template_path', currentSessionData.template_path);
+            } else {
+              d.append('template_path', currentSessionData.template_path);
+            }
           } else {
-            d.append('template_path', appState.templateInfo.template_path);
+            if (appState.templateInfo.colored_template_path) {
+              const blob = await (await fetch(appState.templateInfo.colored_template_path)).blob();
+              d.append('template_file', blob, 'template.png');
+            } else {
+              d.append('template_path', appState.templateInfo.template_path);
+            }
           }
 
           // Metadata
@@ -173,8 +258,8 @@ window.eventBus.on('app:init', (appState) => {
           d.append('is_inverted', appState.isStreamInverted);
 
           // Videos
+          // For past sessions, appState is mock. data.videos has paths from session JSON.
           for (const video_path of data.videos) {
-            // Ensure the file exists and has finished uploading
             if (!video_path) continue;
             d.append('video_paths', video_path);
           }
@@ -199,7 +284,7 @@ window.eventBus.on('app:init', (appState) => {
           // Start polling for progress
           const pollInterval = setInterval(async () => {
             try {
-              const progressRes = await fetch(`/video_progress/${sessionId}`);
+              const progressRes = await fetch(`/video_progress/${progressIds}`);
               const progressData = await progressRes.json();
               const progress = progressData.progress || 0;
 
@@ -244,7 +329,12 @@ window.eventBus.on('app:init', (appState) => {
         video.classList.add('fade-in');
         videoDisplay.appendChild(video);
 
-        showQr('video');
+        // Update QR
+        qrImage.src = videoResult.qr_code_path;
+        qrContainer.style.display = 'block';
+        qrContainer.classList.remove('fade-in');
+        void qrContainer.offsetWidth; // trigger reflow
+        qrContainer.classList.add('fade-in');
 
         // Auto download
         const a = document.createElement('a');
@@ -253,7 +343,7 @@ window.eventBus.on('app:init', (appState) => {
         a.click();
       } catch (err) {
         console.error(err);
-        alert(`비디오 생성/다운로드에 실패했습니다.\\n\\n오류: ${err.message}`);
+        alert(`비디오 생성/다운로드에 실패했습니다.\n\n오류: ${err.message}`);
 
         // Clean up overlay if error
         const overlay = document.getElementById('video-progress-overlay');
@@ -271,15 +361,29 @@ window.eventBus.on('app:init', (appState) => {
         downloadOriginalBtn.disabled = true;
         downloadOriginalBtn.textContent = '압축 중...';
 
-        const formData = new FormData();
-        appState.originalPhotos.forEach((photoBlob, i) => {
-          formData.append('photos', photoBlob, `photo_${i}.jpg`);
-        });
+        let zipResult;
 
-        // Upload images and create zip on server
-        const response = await fetch('/zip_originals', { method: 'POST', body: formData });
-        if (!response.ok) throw new Error('Failed to create zip file.');
-        const zipResult = await response.json();
+        if (currentSessionId) {
+          // Use new session zip endpoint
+          const formData = new FormData();
+          formData.append('session_id', currentSessionId);
+
+          const response = await fetch('/zip_session_originals', { method: 'POST', body: formData });
+          if (!response.ok) throw new Error('Failed to create zip from session.');
+          zipResult = await response.json();
+
+        } else {
+          // Live session - uses blobs in memory
+          const formData = new FormData();
+          appState.originalPhotos.forEach((photoBlob, i) => {
+            formData.append('photos', photoBlob, `photo_${i}.jpg`);
+          });
+
+          // Upload images and create zip on server
+          const response = await fetch('/zip_originals', { method: 'POST', body: formData });
+          if (!response.ok) throw new Error('Failed to create zip file.');
+          zipResult = await response.json();
+        }
 
         // Display QR code
         qrImage.src = zipResult.qr_code_path;
@@ -305,6 +409,10 @@ window.eventBus.on('app:init', (appState) => {
 
     // --- GENERATED DOWNLOAD ---
     downloadGeneratedBtn.onclick = async () => {
+      // Not supported for past sessions yet as we don't save generated variations
+      // We check currentSessionData (which is only set for past sessions) rather than currentSessionId
+      if (currentSessionData) return;
+
       try {
         downloadGeneratedBtn.disabled = true;
         downloadGeneratedBtn.textContent = '압축 중...';
@@ -345,6 +453,7 @@ window.eventBus.on('app:init', (appState) => {
 
     // --- CONTINUE EDITING ---
     continueEditingBtn.onclick = () => {
+      if (currentSessionId) return; // Should be hidden, but safety check
       cachedVideoResult = null;
       window.eventBus.dispatch('review:edit-existing');
     };
@@ -352,7 +461,10 @@ window.eventBus.on('app:init', (appState) => {
     // --- GO MAIN MENU ---
     goHomeBtn.onclick = () => {
       cachedVideoResult = null;
+      currentSessionId = null;
+      currentSessionData = null;
       window.eventBus.dispatch('review:home');
     };
   }
 });
+

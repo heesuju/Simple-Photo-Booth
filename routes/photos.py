@@ -9,7 +9,8 @@ import qrcode
 import asyncio
 import httpx
 import aiofiles
-from typing import List
+import shutil  # Added for copying files
+from typing import List, Optional
 from zipfile import ZipFile
 from urllib.parse import quote
 from PIL import Image
@@ -26,6 +27,12 @@ router = APIRouter()
 PORT = 8000
 UPLOAD_DIR = "static/uploads"
 RESULTS_DIR = "static/results"
+SESSIONS_DIR = "static/results/sessions"
+
+# Ensure directories exist
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
+os.makedirs(SESSIONS_DIR, exist_ok=True)
 
 
 @router.post("/zip_originals")
@@ -37,6 +44,42 @@ async def zip_originals(photos: List[UploadFile] = File(...)):
         for i, photo_file in enumerate(photos):
             content = await photo_file.read()
             zf.writestr(f"photo_{i+1}.jpg", content)
+
+    ip_address = get_ip_address()
+    full_url = f"http://{ip_address}:{PORT}/static/results/{zip_filename}"
+    qr_img = qrcode.make(full_url)
+    qr_filename = f"qr_{uuid.uuid4()}.png"
+    qr_path = os.path.join(RESULTS_DIR, qr_filename)
+    qr_img.save(qr_path)
+
+    return JSONResponse(content={
+        "result_path": f"/static/results/{zip_filename}",
+        "qr_code_path": f"/static/results/{qr_filename}"
+    })
+
+
+@router.post("/zip_session_originals")
+async def zip_session_originals(session_id: str = Form(...)):
+    session_json_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    if not os.path.exists(session_json_path):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_dir = os.path.join(SESSIONS_DIR, session_id)
+    photos_dir = os.path.join(session_dir, "photos")
+    
+    if not os.path.exists(photos_dir):
+        raise HTTPException(status_code=404, detail="Session photos not found")
+
+    zip_filename = f"originals_{session_id}.zip"
+    zip_path = os.path.join(RESULTS_DIR, zip_filename)
+
+    # Use shutil.make_archive or ZipFile manually
+    # Manual ZipFile gives more control over internal structure
+    with ZipFile(zip_path, 'w') as zf:
+        for filename in os.listdir(photos_dir):
+            file_path = os.path.join(photos_dir, filename)
+            if os.path.isfile(file_path):
+                zf.write(file_path, arcname=filename)
 
     ip_address = get_ip_address()
     full_url = f"http://{ip_address}:{PORT}/static/results/{zip_filename}"
@@ -165,8 +208,16 @@ from fastapi import Request
 
 
 @router.post("/compose_image")
-async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False)):
+async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False), video_paths: str = Form(None)):
     try:
+        session_id = str(uuid.uuid4())
+        
+        # --- Persistence Setup ---
+        # Create session directory structure: static/results/sessions/{session_id}/photos/
+        session_dir = os.path.join(SESSIONS_DIR, session_id)
+        session_photos_dir = os.path.join(session_dir, "photos")
+        os.makedirs(session_photos_dir, exist_ok=True)
+
         if template_file:
             # Save the uploaded colored template
             temp_filename = f"{uuid.uuid4()}.png"
@@ -174,9 +225,13 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             async with aiofiles.open(base_template_path, 'wb') as out_file:
                 content = await template_file.read()
                 await out_file.write(content)
+            
+            # Also save template path to session data
+            saved_template_path = base_template_path
         elif template_path:
             # Use the path from the form
             base_template_path = os.path.join(os.getcwd(), template_path.lstrip('/'))
+            saved_template_path = template_path
         else:
             raise HTTPException(status_code=400, detail="No template provided.")
 
@@ -187,10 +242,37 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
         template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
         canvas = np.full((height, width, 3), 255, np.uint8)
+
+        # Parse video paths if provided (it comes as a stringified list or comma separated?)
+        # Based on how other lists are passed, it might be separate fields or a JSON string.
+        # But looking at result.js call, it's appending 'video_paths' multiple times?
+        # Actually in result.js for compose_video it appends multiple times.
+        # For compose_image, we haven't implemented sending video paths yet in JS.
+        # But let's handle the parameter. We will assume JS will send it as a JSON string or we handle it later.
+        # Actually in the plan I said "Pass data.videos".
+        # Let's assume passed as JSON string for consistency with others if I update JS to do so.
+        # Wait, if I use `video_paths: str = Form(None)`, I expect JSON string.
+        
+        parsed_video_paths = []
+        if video_paths:
+             try:
+                 parsed_video_paths = json.loads(video_paths)
+             except:
+                 pass
+
+        saved_photo_paths = []
+
         for i, photo_file in enumerate(photos):
             hole = hole_data[i]
             transform = transform_data[i]
             photo_content = await photo_file.read()
+
+            # Save Original Photo for persistence
+            photo_filename = f"photo_{i}.jpg"
+            saved_photo_path = os.path.join(session_photos_dir, photo_filename)
+            async with aiofiles.open(saved_photo_path, 'wb') as f:
+                await f.write(photo_content)
+            saved_photo_paths.append(f"/{saved_photo_path.replace(os.path.sep, '/')}")
 
             if remove_background:
                 # Remove background and place on a white canvas
@@ -321,22 +403,47 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             final_image_bgra = draw_texts(final_image_bgra, texts_data, db_manager)
 
         # --- Save final image and generate QR code ---
-        result_filename = f"{uuid.uuid4()}.png"
+        # use session_id in filename
+        result_filename = f"{session_id}.png"
         result_path = os.path.join(RESULTS_DIR, result_filename)
         cv2.imwrite(result_path, final_image_bgra)
 
         ip_address = get_ip_address()
         full_url = f"http://{ip_address}:{PORT}/static/results/{result_filename}"
         qr_img = qrcode.make(full_url)
-        qr_filename = f"qr_{uuid.uuid4()}.png"
+        qr_filename = f"qr_{session_id}.png"
         qr_path = os.path.join(RESULTS_DIR, qr_filename)
         qr_img.save(qr_path)
+        
+        # --- Save Session Metadata ---
+        session_metadata = {
+            "session_id": session_id,
+            "holes": hole_data,
+            "stickers": placed_stickers,
+            "texts": json.loads(texts) if texts else [],
+            "filters": filter_data,
+            "transformations": transform_data,
+            "template_path": saved_template_path,
+            "remove_background": remove_background,
+            "photos": saved_photo_paths,
+            "videos": parsed_video_paths,
+            "result_path": f"/static/results/{result_filename}",
+            "qr_code_path": f"/static/results/{qr_filename}",
+            "timestamp": os.path.getmtime(result_path)
+        }
+        
+        session_json_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+        async with aiofiles.open(session_json_path, 'w') as f:
+            await f.write(json.dumps(session_metadata, indent=4))
 
         return JSONResponse(content={
             "result_path": f"/static/results/{result_filename}",
-            "qr_code_path": f"/static/results/{qr_filename}"
+            "qr_code_path": f"/static/results/{qr_filename}",
+            "session_id": session_id
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to compose image: {e}")
 
 
@@ -348,15 +455,32 @@ async def get_recent_results():
             file_path = os.path.join(RESULTS_DIR, filename)
             if os.path.isfile(file_path):
                 mod_time = os.path.getmtime(file_path)
-                results_files.append({"path": f"/{file_path}", "mod_time": mod_time})
+                # Try to extract session_id (filename without extension)
+                session_id = os.path.splitext(filename)[0]
+                results_files.append({
+                    "path": f"/{file_path}", 
+                    "mod_time": mod_time,
+                    "session_id": session_id
+                })
     
     # Sort by modification time, newest first
     results_files.sort(key=lambda x: x["mod_time"], reverse=True)
     
-    # Get the most recent 5 files
-    recent_five = [file["path"] for file in results_files[:5]]
+    # Get the most recent 10 files (increased from 5 to show more history)
+    recent_items = results_files[:10]
     
-    return JSONResponse(content=recent_five)
+    return JSONResponse(content=recent_items)
+
+
+@router.get("/session/{session_id}")
+async def get_session_data(session_id: str):
+    session_json_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    if not os.path.exists(session_json_path):
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    async with aiofiles.open(session_json_path, 'r') as f:
+        content = await f.read()
+        return JSONResponse(content=json.loads(content))
 
 
 @router.get("/ghosts")

@@ -54,10 +54,10 @@
             console.error('Error fetching recent results:', error);
         }
 
-        const maxItems = 5; // limit number of items to display
+        const maxItems = 10; // limit number of items to display
         const photosToRender = imageList.slice(0, maxItems);
 
-        const photos = photosToRender.map(src => {
+        const photos = photosToRender.map(item => {
             const photoDiv = document.createElement('div');
             photoDiv.className = 'hanging-photo';
 
@@ -69,9 +69,21 @@
             const frame = document.createElement('div');
             frame.className = 'photo-frame';
             const img = document.createElement('img');
-            img.src = src;
+            img.src = item.path || item; // Handle both new object format and old string format
             frame.appendChild(img);
             photoDiv.appendChild(frame);
+
+            // Add click listener for navigation
+            if (item.session_id) {
+                photoDiv.style.cursor = 'pointer';
+                photoDiv.addEventListener('click', (e) => {
+                    // Prevent click if we are dragging (simple check)
+                    if (Math.abs(mouseState.speed) > 2) return;
+
+                    console.log('Navigating to session:', item.session_id);
+                    window.eventBus.dispatch('session:load', item.session_id);
+                });
+            }
 
             galleryContainer.appendChild(photoDiv);
 
@@ -81,6 +93,7 @@
                 velocity: 0,
                 hovering: false
             };
+
         });
 
         // Hover detection (mouse)
