@@ -22,10 +22,21 @@
 
     // Pagination state
     let allImages = [];
-    let currentPage = 0;
-    const itemsPerPage = 6;
+    let currentIndex = 0; // The index of the first photo on the current screen
+    let pageHistory = []; // Stack to keep track of previous page start indices
+    let currentRenderCount = 0; // How many items are currently visible
 
     let isTransitioning = false;
+
+    // Helper: Preload image to get dimensions
+    function getImageDimensions(src) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            img.onerror = () => resolve({ width: 300, height: 400 }); // Fallback
+            img.src = src;
+        });
+    }
 
     // --- Extracted Photo Loading Function ---
     async function loadGalleryPhotos() {
@@ -36,8 +47,10 @@
             const response = await fetch('/recent_results?limit=50');
             if (response.ok) {
                 allImages = await response.json();
-                currentPage = 0; // Reset to first page on reload
-                renderGalleryPage(null); // Initial render, no transition
+                currentIndex = 0;
+                pageHistory = [];
+                currentRenderCount = 0;
+                renderGalleryPage(null); // Initial render
             } else {
                 console.error('Failed to fetch recent results:', response.statusText);
             }
@@ -52,27 +65,74 @@
         if (!galleryContainer) return;
         const parent = galleryContainer.parentElement;
 
+        // Calculate available width
+        // We need to account for the container padding/centering logic
+        // CSS: width 90%, gap 40px.
+        const gap = 40;
+        const availableWidth = window.innerWidth * 0.9;
+
+        let usedWidth = 0;
+        let itemsToRender = [];
+        let nextIndex = currentIndex;
+
+        // --- CONTENT-AWARE LAYOUT CALCULATION ---
+
+        if (direction === 'prev') {
+            if (pageHistory.length > 0) {
+                currentIndex = pageHistory.pop();
+            } else {
+                return; // Can't go back
+            }
+        } else if (direction === 'next') {
+            if (currentRenderCount > 0 && currentIndex + currentRenderCount < allImages.length) {
+                pageHistory.push(currentIndex);
+                currentIndex += currentRenderCount;
+            } else {
+                return; // End of list
+            }
+        }
+
+        // Now calculate what fits for the NEW currentIndex
+        for (let i = currentIndex; i < allImages.length; i++) {
+            const item = allImages[i];
+            const src = item.path || item;
+
+            const dims = await getImageDimensions(src);
+            const aspectRatio = dims.width / dims.height;
+            const renderWidth = aspectRatio * 240; // 240px is max-height in CSS
+
+            const itemCost = renderWidth + gap; // Width + Gap
+
+            // Check if it fits (always allow at least 1 item even if bigger than screen)
+            if (itemsToRender.length === 0 || (usedWidth + itemCost) < availableWidth) {
+                itemsToRender.push(item);
+                usedWidth += itemCost;
+            } else {
+                // Full
+                break;
+            }
+        }
+
+        currentRenderCount = itemsToRender.length;
+        if (currentRenderCount === 0) return; // Should not happen given logic above
+
+        // --- TRANSITION LOGIC ---
         if (direction) {
             isTransitioning = true;
-            isLoopRunning = false; // Stop physics loop
+            isLoopRunning = false;
 
-            // --- SIMULTANEOUS TRANSITION: CLONE OUTGOING ---
-            // Clone the current container to animate it out
             const outgoingContainer = galleryContainer.cloneNode(true);
             outgoingContainer.removeAttribute('id');
             outgoingContainer.style.pointerEvents = 'none';
-            outgoingContainer.style.zIndex = '10'; // Keep it visible on top
+            outgoingContainer.style.zIndex = '10';
 
-            // Append FIRST so it exists in DOM
             parent.appendChild(outgoingContainer);
 
-            // Use double rAF to ensure browser registers the element and effectively "paints" it
-            // before we add the transition class. This prevents instant disappearance.
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     const outgoingPhotos = outgoingContainer.querySelectorAll('.hanging-photo');
                     outgoingPhotos.forEach(el => {
-                        // Rely on !important in CSS to override physics transform
+                        el.style.transform = '';
                         if (direction === 'next') {
                             el.classList.add('slide-out-left');
                         } else {
@@ -83,21 +143,14 @@
             });
         }
 
-        // --- RENDER INCOMING (REAL CONTAINER) ---
         galleryContainer.innerHTML = '';
-        photos = []; // Reset animation array
+        photos = [];
 
-        const start = currentPage * itemsPerPage;
-        const end = start + itemsPerPage;
-        const photosToRender = allImages.slice(start, end);
-
-        photos = photosToRender.map(item => {
+        photos = itemsToRender.map(item => {
             const photoDiv = document.createElement('div');
             photoDiv.className = 'hanging-photo';
 
-            // --- PREPARE ENTRY POSITION ---
             if (direction) {
-                // Prepare off-screen position
                 if (direction === 'next') {
                     photoDiv.classList.add('prepare-slide-in-right');
                 } else {
@@ -141,21 +194,16 @@
             return photoObj;
         });
 
-        // --- ANIMATE IN ---
         if (direction) {
-            // Trigger reflow to ensure start positions are registered
             void galleryContainer.offsetWidth;
 
-            // Activate entry animation
             photos.forEach(p => {
                 p.element.classList.remove('prepare-slide-in-right', 'prepare-slide-in-left');
                 p.element.classList.add('slide-in-active');
             });
 
-            // Wait for transition to finish
-            await new Promise(r => setTimeout(r, 450)); // Slightly longer than CSS 0.4s to be safe
+            await new Promise(r => setTimeout(r, 450));
 
-            // Cleanup
             const outgoingContainer = parent.querySelector('.photo-gallery-container:not(#photo-gallery)');
             if (outgoingContainer) {
                 outgoingContainer.remove();
@@ -169,49 +217,40 @@
             isTransitioning = false;
         }
 
-        // Restart animation
-        mouseState.speed = 0; // Reset momentum
+        mouseState.speed = 0;
         isLoopRunning = true;
         animate();
     }
 
+    // Resize listener: Just re-render current index
+    window.addEventListener('resize', () => {
+        renderGalleryPage(null);
+    });
+
     // Scroll listener for pagination
     if (photoHangingGallery) {
         photoHangingGallery.addEventListener('wheel', (e) => {
-            // Prevent default scroll behavior if we are paginating
-            // But maybe we want normal scroll if not over the gallery?
-            // The gallery usually takes up the screen so preventDefault is good to stop page scroll
-            // e.preventDefault();
-
-            if (allImages.length <= itemsPerPage) return;
-            if (isTransitioning) return; // Ignore scroll during transition
-
-            const maxPage = Math.ceil(allImages.length / itemsPerPage) - 1;
+            if (allImages.length === 0) return;
+            if (isTransitioning) return;
 
             if (e.deltaY > 0) {
-                // Scroll Down -> Next Page
-                if (currentPage < maxPage) {
-                    currentPage++;
+                if (currentIndex + currentRenderCount < allImages.length) {
                     renderGalleryPage('next');
                 }
             } else {
-                // Scroll Up -> Prev Page
-                if (currentPage > 0) {
-                    currentPage--;
+                if (currentIndex > 0) {
                     renderGalleryPage('prev');
                 }
             }
         }, { passive: true });
 
-        // --- Swipe Support (Mobile) ---
+        // Swipe listeners (updated logic below by just calling renderGalleryPage)
         let touchStartX = 0;
         let touchStartY = 0;
 
         photoHangingGallery.addEventListener('touchstart', (e) => {
             touchStartX = e.changedTouches[0].screenX;
             touchStartY = e.changedTouches[0].screenY;
-            // Reset momentum on touch start to ensure taps register cleanly
-            // (otherwise stale speed from previous swipe might block click)
             mouseState.speed = 0;
         }, { passive: true });
 
@@ -223,21 +262,15 @@
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
 
-            // Horizontal Swipe Check (threshold > 50px, vertical < 100px)
             if (Math.abs(diffX) > 50 && Math.abs(diffY) < 100) {
                 if (diffX < 0) {
-                    // Swipe Left -> Next Page
-                    if (allImages.length > itemsPerPage) {
-                        const maxPage = Math.ceil(allImages.length / itemsPerPage) - 1;
-                        if (currentPage < maxPage) {
-                            currentPage++;
-                            renderGalleryPage('next');
-                        }
+                    // Next
+                    if (currentIndex + currentRenderCount < allImages.length) {
+                        renderGalleryPage('next');
                     }
                 } else {
-                    // Swipe Right -> Prev Page
-                    if (currentPage > 0) {
-                        currentPage--;
+                    // Prev
+                    if (currentIndex > 0) {
                         renderGalleryPage('prev');
                     }
                 }
