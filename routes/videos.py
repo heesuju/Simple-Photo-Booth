@@ -204,10 +204,15 @@ async def compose_video(
                 rotate_deg=rotation
             )
 
+            # Calculate centered position to account for rotation expansion
+            s_h, s_w, _ = sticker_np.shape
+            pos_x = int(sticker["x"]) - (s_w - int(sticker["width"])) // 2
+            pos_y = int(sticker["y"]) - (s_h - int(sticker["height"])) // 2
+
             sticker_clip = (
                 mpe.ImageClip(sticker_np, transparent=True)
                 .set_duration(min_duration)
-                .set_position((int(sticker["x"]), int(sticker["y"])))
+                .set_position((pos_x, pos_y))
             )
             sticker_clips.append(sticker_clip)
 
