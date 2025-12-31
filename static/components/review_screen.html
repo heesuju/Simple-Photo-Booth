@@ -1,8 +1,16 @@
 <div id="review-screen-container">
     <div class="review-container">
-        <div id="review-preview" class="preview-container">
-            <div id="review-photos-container"></div>
-            <img id="review-template-overlay" src="" alt="Template Overlay">
+        <div id="review-preview-wrapper">
+            <div id="review-preview" class="preview-container">
+                <div id="review-photos-container"></div>
+                <img id="review-template-overlay" src="" alt="Template Overlay">
+            </div>
+        </div>
+        <div id="zoom-controls">
+            <button id="zoom-out-btn">-</button>
+            <input type="range" id="zoom-slider" min="100" max="300" value="100" step="1">
+            <button id="zoom-in-btn">+</button>
+            <span id="zoom-level-indicator">100%</span>
         </div>
     </div>
 

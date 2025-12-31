@@ -114,7 +114,59 @@ window.eventBus.on('app:init', (appState) => {
         });
     });
 
-    const reviewPreviewEl = document.getElementById('review-preview');
+    // Zoom Controls Logic
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const zoomInBtn = document.getElementById('zoom-in-btn');
+    const zoomLevelIndicator = document.getElementById('zoom-level-indicator');
+
+    function updateZoom(value) {
+        value = Math.max(100, Math.min(300, parseInt(value)));
+        if (zoomSlider) zoomSlider.value = value;
+        if (zoomLevelIndicator) zoomLevelIndicator.textContent = `${value}%`;
+
+        const wrapper = document.getElementById('review-preview-wrapper');
+        const previewEl = document.getElementById('review-preview');
+        const img = document.getElementById('review-template-overlay');
+
+        if (wrapper && previewEl && img && img.naturalWidth) {
+            const zoomFactor = value / 100;
+            // Use client dimensions to exclude scrollbars for fit calculation
+            const wrapperWidth = wrapper.clientWidth;
+            const wrapperHeight = wrapper.clientHeight;
+
+            if (wrapperWidth === 0 || wrapperHeight === 0) return;
+
+            const imageRatio = img.naturalWidth / img.naturalHeight;
+            const wrapperRatio = wrapperWidth / wrapperHeight;
+
+            let fitWidth, fitHeight;
+            if (imageRatio > wrapperRatio) {
+                fitWidth = wrapperWidth;
+                fitHeight = wrapperWidth / imageRatio;
+            } else {
+                fitHeight = wrapperHeight;
+                fitWidth = wrapperHeight * imageRatio;
+            }
+
+            // Apply Zoom. Ensure we use at least 1px to avoid errors
+            previewEl.style.width = `${Math.max(1, fitWidth * zoomFactor)}px`;
+            previewEl.style.height = `${Math.max(1, fitHeight * zoomFactor)}px`;
+
+            // Trigger re-render of stickers/texts/photos to match new coordinate system
+            renderPhotoAssignments();
+            renderPlacedStickers();
+            renderPlacedTexts();
+        }
+    }
+
+    if (zoomSlider) {
+        zoomSlider.addEventListener('input', (e) => updateZoom(e.target.value));
+        zoomOutBtn.addEventListener('click', () => updateZoom(parseInt(zoomSlider.value) - 10));
+        zoomInBtn.addEventListener('click', () => updateZoom(parseInt(zoomSlider.value) + 10));
+    }
+
+    const reviewPreviewEl = document.getElementById('review-preview-wrapper'); // Change to wrapper
     if (reviewPreviewEl) {
         previewObserver.observe(reviewPreviewEl);
     }
@@ -955,6 +1007,8 @@ window.eventBus.on('app:init', (appState) => {
                     slider.value = 100;
                 }
             });
+            // Reset Zoom
+            updateZoom(100);
         }
         renderReviewThumbnails();
         renderPreview();
@@ -1370,9 +1424,15 @@ window.eventBus.on('app:init', (appState) => {
         t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path;
         t.className = 'preview-template-img';
         t.onload = () => {
-            renderPhotoAssignments();
-            renderPlacedStickers();
-            renderPlacedTexts();
+            // Apply current zoom to set correct container size before rendering children
+            const slider = document.getElementById('zoom-slider');
+            if (slider) updateZoom(slider.value);
+
+            if (!slider || slider.value === '100') {
+                renderPhotoAssignments();
+                renderPlacedStickers();
+                renderPlacedTexts();
+            }
         };
     }
 
