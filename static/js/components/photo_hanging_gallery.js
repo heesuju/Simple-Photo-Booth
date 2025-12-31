@@ -201,9 +201,48 @@
                     renderGalleryPage('prev');
                 }
             }
-        }, { passive: true }); // passive true means we can't use preventDefault, but good for performance.
-        // If we want to block page scroll we need passive: false.
-        // Given this is an absolute positioned overlay usually, let's stick to simple logic.
+        }, { passive: true });
+
+        // --- Swipe Support (Mobile) ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        photoHangingGallery.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            // Reset momentum on touch start to ensure taps register cleanly
+            // (otherwise stale speed from previous swipe might block click)
+            mouseState.speed = 0;
+        }, { passive: true });
+
+        photoHangingGallery.addEventListener('touchend', (e) => {
+            if (isTransitioning) return;
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            // Horizontal Swipe Check (threshold > 50px, vertical < 100px)
+            if (Math.abs(diffX) > 50 && Math.abs(diffY) < 100) {
+                if (diffX < 0) {
+                    // Swipe Left -> Next Page
+                    if (allImages.length > itemsPerPage) {
+                        const maxPage = Math.ceil(allImages.length / itemsPerPage) - 1;
+                        if (currentPage < maxPage) {
+                            currentPage++;
+                            renderGalleryPage('next');
+                        }
+                    }
+                } else {
+                    // Swipe Right -> Prev Page
+                    if (currentPage > 0) {
+                        currentPage--;
+                        renderGalleryPage('prev');
+                    }
+                }
+            }
+        }, { passive: true });
     }
 
     // --- Animation Logic ---
