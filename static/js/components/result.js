@@ -234,11 +234,10 @@ window.eventBus.on('app:init', (appState) => {
         if (!videoResult) {
           const d = new FormData();
 
-          // Generate session ID for progress tracking
-          // If we are viewing a past session, use a NEW tracking ID, but we operate on PAST session data
-          const progressIds = Math.random().toString(36).substring(2) + Date.now().toString(36);
-          d.append('session_id', progressIds);
-          console.log('[VideoProgress] Session ID:', progressIds);
+          // Use the actual session ID for persistence and progress tracking
+          const sessionId = imageResult.session_id || currentSessionId;
+          d.append('session_id', sessionId);
+          console.log('[VideoProgress] Session ID:', sessionId);
 
           // Template
           // Logic for past session vs new session
@@ -292,7 +291,7 @@ window.eventBus.on('app:init', (appState) => {
           // Start polling for progress
           const pollInterval = setInterval(async () => {
             try {
-              const progressRes = await fetch(`/video_progress/${progressIds}`);
+              const progressRes = await fetch(`/video_progress/${sessionId}`);
               const progressData = await progressRes.json();
               const progress = progressData.progress || 0;
 
