@@ -333,6 +333,9 @@ window.eventBus.on('app:init', (appState) => {
         const video = document.createElement('video');
         video.src = videoResult.result_path;
         video.controls = true;
+        video.autoplay = true;
+        video.loop = true;
+        video.muted = true;
         video.classList.add('fade-in');
         videoDisplay.appendChild(video);
 
