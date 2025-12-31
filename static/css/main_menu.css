@@ -1,3 +1,11 @@
+/* Main Menu Header */
+h2 {
+    text-align: center;
+    width: 100%;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+
 .layout-item {
     border: 0px solid #ddd;
     border-radius: 0px;
