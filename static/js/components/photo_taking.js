@@ -101,6 +101,7 @@ window.eventBus.on('app:init', (appState) => {
         0: iconManual,
         3: getNumberIcon(3),
         5: getNumberIcon(5),
+        7: getNumberIcon(7),
         10: getNumberIcon(10)
     };
 
