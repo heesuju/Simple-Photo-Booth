@@ -166,9 +166,19 @@ window.eventBus.on('app:init', (appState) => {
         zoomInBtn.addEventListener('click', () => updateZoom(parseInt(zoomSlider.value) + 10));
     }
 
-    const reviewPreviewEl = document.getElementById('review-preview-wrapper'); // Change to wrapper
-    if (reviewPreviewEl) {
-        previewObserver.observe(reviewPreviewEl);
+    // Ctrl + Scroll Zoom Logic
+    const reviewPreviewWrapper = document.getElementById('review-preview-wrapper'); // Change to wrapper
+    if (reviewPreviewWrapper) {
+        previewObserver.observe(reviewPreviewWrapper);
+
+        reviewPreviewWrapper.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault(); // Prevent browser zoom
+                const currentZoom = parseInt(zoomSlider.value);
+                const delta = e.deltaY > 0 ? -10 : 10;
+                updateZoom(currentZoom + delta);
+            }
+        });
     }
 
 
