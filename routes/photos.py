@@ -9,7 +9,7 @@ import qrcode
 import asyncio
 import httpx
 import aiofiles
-import shutil  # Added for copying files
+import shutil
 from typing import List, Optional
 from zipfile import ZipFile
 from urllib.parse import quote
@@ -21,6 +21,7 @@ from utils.common import get_ip_address
 from utils.filters import apply_filters
 from utils.drawing import draw_texts, draw_texts_on_pil
 from utils.image_processing import load_image_with_premultiplied_alpha, rotate_image
+from utils.session_manager import session_manager
 
 router = APIRouter()
 
@@ -60,8 +61,9 @@ async def zip_originals(photos: List[UploadFile] = File(...)):
 
 @router.post("/zip_session_originals")
 async def zip_session_originals(session_id: str = Form(...)):
-    session_json_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
-    if not os.path.exists(session_json_path):
+    # Verify session exists
+    session_data = await session_manager.get_session(session_id)
+    if not session_data:
         raise HTTPException(status_code=404, detail="Session not found")
 
     session_dir = os.path.join(SESSIONS_DIR, session_id)
@@ -73,8 +75,6 @@ async def zip_session_originals(session_id: str = Form(...)):
     zip_filename = f"originals_{session_id}.zip"
     zip_path = os.path.join(RESULTS_DIR, zip_filename)
 
-    # Use shutil.make_archive or ZipFile manually
-    # Manual ZipFile gives more control over internal structure
     with ZipFile(zip_path, 'w') as zf:
         for filename in os.listdir(photos_dir):
             file_path = os.path.join(photos_dir, filename)
@@ -243,16 +243,6 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
         height, width, _ = template_img.shape
         canvas = np.full((height, width, 3), 255, np.uint8)
 
-        # Parse video paths if provided (it comes as a stringified list or comma separated?)
-        # Based on how other lists are passed, it might be separate fields or a JSON string.
-        # But looking at result.js call, it's appending 'video_paths' multiple times?
-        # Actually in result.js for compose_video it appends multiple times.
-        # For compose_image, we haven't implemented sending video paths yet in JS.
-        # But let's handle the parameter. We will assume JS will send it as a JSON string or we handle it later.
-        # Actually in the plan I said "Pass data.videos".
-        # Let's assume passed as JSON string for consistency with others if I update JS to do so.
-        # Wait, if I use `video_paths: str = Form(None)`, I expect JSON string.
-        
         parsed_video_paths = []
         if video_paths:
              try:
@@ -432,9 +422,7 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             "timestamp": os.path.getmtime(result_path)
         }
         
-        session_json_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
-        async with aiofiles.open(session_json_path, 'w') as f:
-            await f.write(json.dumps(session_metadata, indent=4))
+        await session_manager.save_session(session_id, session_metadata)
 
         return JSONResponse(content={
             "result_path": f"/static/results/{result_filename}",
@@ -474,13 +462,10 @@ async def get_recent_results():
 
 @router.get("/session/{session_id}")
 async def get_session_data(session_id: str):
-    session_json_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
-    if not os.path.exists(session_json_path):
+    session_data = await session_manager.get_session(session_id)
+    if not session_data:
         raise HTTPException(status_code=404, detail="Session not found")
-        
-    async with aiofiles.open(session_json_path, 'r') as f:
-        content = await f.read()
-        return JSONResponse(content=json.loads(content))
+    return JSONResponse(content=session_data)
 
 
 @router.get("/ghosts")

@@ -70,6 +70,14 @@ window.eventBus.on('app:init', (appState) => {
       currentSessionData = sessionData;
       cachedVideoResult = null; // Reset video cache
 
+      if (sessionData.video_result_path) {
+        cachedVideoResult = {
+          result_path: sessionData.video_result_path,
+          qr_code_path: sessionData.video_qr_path || sessionData.qr_code_path,
+          session_id: sessionId
+        };
+      }
+
       // Reconstruct a mock result object for display
       const imageResult = {
         result_path: sessionData.result_path,

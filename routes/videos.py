@@ -15,6 +15,7 @@ from utils.common import get_ip_address
 from utils.image_processing import load_image_with_premultiplied_alpha
 from utils.drawing import draw_texts_on_pil
 from utils.video_processing import CustomProgressLogger
+from utils.session_manager import session_manager
 
 router = APIRouter()
 
@@ -218,6 +219,17 @@ async def compose_video(
         qr_filename = f"qr_{uuid.uuid4()}.png"
         qr_path = os.path.join(RESULTS_DIR, qr_filename)
         qr_img.save(qr_path)
+
+        # --- Update Session Metadata ---
+        try:
+            updates = {
+                "video_result_path": f"/static/results/{result_filename}",
+                "video_qr_path": f"/static/results/{qr_filename}"
+            }
+            await session_manager.update_session(session_id, updates)
+            print(f"Updated session {session_id} with video result.")
+        except Exception as e:
+            print(f"Failed to update session metadata with video path: {e}")
 
         return JSONResponse(
             content={
