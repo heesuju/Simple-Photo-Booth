@@ -460,7 +460,7 @@ window.eventBus.on('app:init', (appState) => {
 
     // --- CONTINUE EDITING ---
     continueEditingBtn.onclick = () => {
-      if (currentSessionId) return; // Should be hidden, but safety check
+      if (currentSessionData) return; // Should be hidden for past sessions
       cachedVideoResult = null;
       window.eventBus.dispatch('review:edit-existing');
     };
