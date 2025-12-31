@@ -29,6 +29,7 @@ window.eventBus.on('app:init', (appState) => {
       d.append('filters', JSON.stringify(appState.filters));
       d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
       d.append('remove_background', appState.removeBackground);
+      d.append('is_inverted', appState.isStreamInverted);
 
       // Pass video paths if available
       if (data.videos && data.videos.length > 0) {
@@ -99,7 +100,7 @@ window.eventBus.on('app:init', (appState) => {
         placedTexts: sessionData.texts,
         filters: sessionData.filters,
         removeBackground: sessionData.remove_background,
-        isStreamInverted: false // default
+        isStreamInverted: sessionData.is_inverted || false
       };
 
       displayFinalResult(imageResult, mockData, mockAppState);

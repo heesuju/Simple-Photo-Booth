@@ -208,7 +208,7 @@ from fastapi import Request
 
 
 @router.post("/compose_image")
-async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False), video_paths: str = Form(None)):
+async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False), video_paths: str = Form(None), is_inverted: bool = Form(False)):
     try:
         session_id = str(uuid.uuid4())
         
@@ -417,6 +417,7 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             "remove_background": remove_background,
             "photos": saved_photo_paths,
             "videos": parsed_video_paths,
+            "is_inverted": is_inverted,
             "result_path": f"/static/results/{result_filename}",
             "qr_code_path": f"/static/results/{qr_filename}",
             "timestamp": os.path.getmtime(result_path)
