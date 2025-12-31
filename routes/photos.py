@@ -436,7 +436,7 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
 
 
 @router.get("/recent_results")
-async def get_recent_results():
+async def get_recent_results(limit: int = 50, skip: int = 0):
     results_files = []
     for filename in os.listdir(RESULTS_DIR):
         if filename.endswith(".png") and 'qr' not in filename:
@@ -454,8 +454,8 @@ async def get_recent_results():
     # Sort by modification time, newest first
     results_files.sort(key=lambda x: x["mod_time"], reverse=True)
     
-    # Get the most recent 10 files (increased from 5 to show more history)
-    recent_items = results_files[:10]
+    # Apply pagination
+    recent_items = results_files[skip : skip + limit]
     
     return JSONResponse(content=recent_items)
 

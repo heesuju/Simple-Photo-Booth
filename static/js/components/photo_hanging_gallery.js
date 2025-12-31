@@ -20,31 +20,43 @@
     const mouseState = { x: 0, speed: 0 };
     let isLoopRunning = false;
 
+    // Pagination state
+    let allImages = [];
+    let currentPage = 0;
+    const itemsPerPage = 6;
+
     // --- Extracted Photo Loading Function ---
     async function loadGalleryPhotos() {
         const galleryContainer = document.getElementById('photo-gallery');
         if (!galleryContainer) return;
 
-        // Clear existing items
-        galleryContainer.innerHTML = '';
-        photos = []; // Reset photos array
-
-        let imageList = [];
         try {
-            const response = await fetch('/recent_results');
+            const response = await fetch('/recent_results?limit=50');
             if (response.ok) {
-                imageList = await response.json();
+                allImages = await response.json();
+                currentPage = 0; // Reset to first page on reload
+                renderGalleryPage();
             } else {
                 console.error('Failed to fetch recent results:', response.statusText);
             }
         } catch (error) {
             console.error('Error fetching recent results:', error);
         }
+    }
 
-        const maxItems = 6;
-        const photosToRender = imageList.slice(0, maxItems);
+    function renderGalleryPage() {
+        const galleryContainer = document.getElementById('photo-gallery');
+        if (!galleryContainer) return;
 
-        photos = photosToRender.map(item => { // Update shared photos array
+        galleryContainer.innerHTML = '';
+        photos = []; // Reset animation array
+
+        const start = currentPage * itemsPerPage;
+        const end = start + itemsPerPage;
+        const photosToRender = allImages.slice(start, end);
+
+        // Map and create elements (logic moved from loadGalleryPhotos)
+        photos = photosToRender.map(item => {
             const photoDiv = document.createElement('div');
             photoDiv.className = 'hanging-photo';
 
@@ -71,7 +83,6 @@
 
             galleryContainer.appendChild(photoDiv);
 
-            // Add hover listeners directly
             const photoObj = {
                 element: photoDiv,
                 angle: 0,
@@ -90,6 +101,36 @@
             isLoopRunning = true;
             animate();
         }
+    }
+
+    // Scroll listener for pagination
+    if (photoHangingGallery) {
+        photoHangingGallery.addEventListener('wheel', (e) => {
+            // Prevent default scroll behavior if we are paginating
+            // But maybe we want normal scroll if not over the gallery? 
+            // The gallery usually takes up the screen so preventDefault is good to stop page scroll
+            // e.preventDefault(); 
+
+            if (allImages.length <= itemsPerPage) return;
+
+            const maxPage = Math.ceil(allImages.length / itemsPerPage) - 1;
+
+            if (e.deltaY > 0) {
+                // Scroll Down -> Next Page
+                if (currentPage < maxPage) {
+                    currentPage++;
+                    renderGalleryPage();
+                }
+            } else {
+                // Scroll Up -> Prev Page
+                if (currentPage > 0) {
+                    currentPage--;
+                    renderGalleryPage();
+                }
+            }
+        }, { passive: true }); // passive true means we can't use preventDefault, but good for performance. 
+        // If we want to block page scroll we need passive: false.
+        // Given this is an absolute positioned overlay usually, let's stick to simple logic.
     }
 
     // --- Animation Logic ---
