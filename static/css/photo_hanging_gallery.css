@@ -10,15 +10,23 @@
     position: absolute;
     top: 20px;
     right: 20px;
-    padding: 10px 15px;
-    font-size: 16px;
+    padding: 12px;
+    font-size: 0;
+    /* Hide any text */
     cursor: pointer;
     background-color: var(--button-bg);
     color: var(--button-text-color);
     border: none;
-    border-radius: 5px;
+    border-radius: 50%;
+    /* Circle */
     z-index: 10;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .config-button:hover {

@@ -118,9 +118,17 @@
 }
 
 /* Timer controls and action buttons should be fixed-height rows beneath or above booth */
-#timer-controls,
-#action-buttons,
-#flash-toggle-controls {
+#camera-controls-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.5rem;
+    width: 100%;
+    min-height: 60px;
+}
+
+#action-buttons {
     height: 60px;
     min-height: 60px;
     display: flex;
@@ -129,16 +137,61 @@
     flex-shrink: 0;
     padding: 0 1rem;
     box-sizing: border-box;
-}
-
-/* keep buttons compact */
-#action-buttons {
     justify-content: center;
 }
 
+/* Adjust children to sit inside the row */
 #timer-controls,
-#flash-toggle-controls {
-    justify-content: flex-start;
+#flash-toggle-controls,
+#flip-camera-controls {
+    height: auto;
+    min-height: auto;
+    padding: 0;
+    width: auto;
+    justify-content: center;
+    gap: 0.5rem;
+
+    /* Ensure flex display is inherited/maintained */
+    display: flex;
+    align-items: center;
+}
+
+#timer-controls {
+    /* Special case for timer which has label+select */
+    display: flex;
+    align-items: center;
+}
+
+
+
+.icon-button {
+    background: none;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 50%;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    width: 48px;
+    height: 48px;
+}
+
+.icon-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.icon-button svg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+}
+
+.icon-button.active {
+    color: #FFD700;
+    /* Gold for Flash On */
 }
 
 /* === SIDEBAR (fixed width, internal scroll only) === */

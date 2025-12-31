@@ -8,7 +8,7 @@ window.eventBus.on('app:init', (appState) => {
     const photoUploadInput = document.getElementById('photo-upload-input');
     const photoUploadBtn = document.getElementById('photo-upload-btn');
     const flashToggleControls = document.getElementById('flash-toggle-controls');
-    const flashToggle = document.getElementById('flash-toggle');
+    const flashToggleBtn = document.getElementById('flash-toggle-btn');
     const flipCameraBtn = document.getElementById('flip-camera-btn');
 
     const ghostOverlay = document.getElementById('ghost-overlay');
@@ -20,7 +20,29 @@ window.eventBus.on('app:init', (appState) => {
             ghostImages = data;
         });
 
-    appState.useFlash = flashToggle.checked;
+    // Flash Logic
+    const flashOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`;
+    const flashOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.27 3L2 4.27l5 5V13h3v9l3.58-6.14L17.73 20 19 18.73 3.27 3zM17 10h-4l4-8H7v2.18l8.46 8.46L17 10z"/></svg>`;
+
+    appState.useFlash = true; // Default ON
+
+    const updateFlashUI = () => {
+        if (appState.useFlash) {
+            flashToggleBtn.innerHTML = flashOnIcon;
+            flashToggleBtn.classList.add('active');
+        } else {
+            flashToggleBtn.innerHTML = flashOffIcon;
+            flashToggleBtn.classList.remove('active');
+        }
+    };
+
+    // Initialize UI
+    updateFlashUI();
+
+    flashToggleBtn.addEventListener('click', () => {
+        appState.useFlash = !appState.useFlash;
+        updateFlashUI();
+    });
 
     // Drag & drop events
     dropArea.addEventListener('dragover', (e) => {
@@ -68,15 +90,17 @@ window.eventBus.on('app:init', (appState) => {
     photoUploadBtn.addEventListener('click', () => photoUploadInput.click());
     photoUploadInput.addEventListener('change', handlePhotoUpload);
 
-    flashToggle.addEventListener('change', (e) => {
-        appState.useFlash = e.target.checked;
-    });
+
 
     flipCameraBtn.addEventListener('click', () => {
         if (cameraStream.style.transform === 'scaleX(-1)') {
             cameraStream.style.transform = 'scaleX(1)';
+            flipCameraBtn.classList.remove('active');
+            appState.isStreamInverted = false;
         } else {
             cameraStream.style.transform = 'scaleX(-1)';
+            flipCameraBtn.classList.add('active');
+            appState.isStreamInverted = true;
         }
     });
 
@@ -139,8 +163,14 @@ window.eventBus.on('app:init', (appState) => {
             cameraStream.style.aspectRatio = `${r}`;
         }
 
-        appState.isStreamInverted = cameraStream.style.transform === 'scaleX(-1)';
-        cameraStream.play();
+        // Initialize Mirror Button State
+        if (cameraStream.style.transform === 'scaleX(-1)') {
+            flipCameraBtn.classList.add('active');
+            appState.isStreamInverted = true;
+        } else {
+            flipCameraBtn.classList.remove('active');
+            appState.isStreamInverted = false;
+        }
 
         updatePhotoStatus();
     }
