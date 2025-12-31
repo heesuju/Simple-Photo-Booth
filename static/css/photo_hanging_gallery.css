@@ -151,3 +151,34 @@
     animation: pan-vertical 60s linear infinite;
     z-index: 0;
 }
+
+/* Page Transitions */
+.hanging-photo.slide-out-left {
+    transform: translateX(-150vw) rotate(-20deg) !important;
+    transition: transform 0.4s ease-in, opacity 0.4s ease-in;
+    opacity: 0;
+}
+
+.hanging-photo.slide-out-right {
+    transform: translateX(150vw) rotate(20deg) !important;
+    transition: transform 0.4s ease-in, opacity 0.4s ease-in;
+    opacity: 0;
+}
+
+.hanging-photo.prepare-slide-in-right {
+    transform: translateX(150vw) !important;
+    opacity: 0;
+    transition: none;
+}
+
+.hanging-photo.prepare-slide-in-left {
+    transform: translateX(-150vw) !important;
+    opacity: 0;
+    transition: none;
+}
+
+.hanging-photo.slide-in-active {
+    transform: translateX(0) rotate(0deg) !important;
+    opacity: 1;
+    transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+}

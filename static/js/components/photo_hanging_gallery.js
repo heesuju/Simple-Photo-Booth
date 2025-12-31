@@ -25,6 +25,8 @@
     let currentPage = 0;
     const itemsPerPage = 6;
 
+    let isTransitioning = false;
+
     // --- Extracted Photo Loading Function ---
     async function loadGalleryPhotos() {
         const galleryContainer = document.getElementById('photo-gallery');
@@ -35,7 +37,7 @@
             if (response.ok) {
                 allImages = await response.json();
                 currentPage = 0; // Reset to first page on reload
-                renderGalleryPage();
+                renderGalleryPage(null); // Initial render, no transition
             } else {
                 console.error('Failed to fetch recent results:', response.statusText);
             }
@@ -44,10 +46,44 @@
         }
     }
 
-    function renderGalleryPage() {
+    async function renderGalleryPage(direction) {
+        if (isTransitioning) return;
         const galleryContainer = document.getElementById('photo-gallery');
         if (!galleryContainer) return;
+        const parent = galleryContainer.parentElement;
 
+        if (direction) {
+            isTransitioning = true;
+            isLoopRunning = false; // Stop physics loop
+
+            // --- SIMULTANEOUS TRANSITION: CLONE OUTGOING ---
+            // Clone the current container to animate it out
+            const outgoingContainer = galleryContainer.cloneNode(true);
+            outgoingContainer.removeAttribute('id');
+            outgoingContainer.style.pointerEvents = 'none';
+            outgoingContainer.style.zIndex = '10'; // Keep it visible on top
+
+            // Append FIRST so it exists in DOM
+            parent.appendChild(outgoingContainer);
+
+            // Use double rAF to ensure browser registers the element and effectively "paints" it
+            // before we add the transition class. This prevents instant disappearance.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const outgoingPhotos = outgoingContainer.querySelectorAll('.hanging-photo');
+                    outgoingPhotos.forEach(el => {
+                        // Rely on !important in CSS to override physics transform
+                        if (direction === 'next') {
+                            el.classList.add('slide-out-left');
+                        } else {
+                            el.classList.add('slide-out-right');
+                        }
+                    });
+                });
+            });
+        }
+
+        // --- RENDER INCOMING (REAL CONTAINER) ---
         galleryContainer.innerHTML = '';
         photos = []; // Reset animation array
 
@@ -55,10 +91,19 @@
         const end = start + itemsPerPage;
         const photosToRender = allImages.slice(start, end);
 
-        // Map and create elements (logic moved from loadGalleryPhotos)
         photos = photosToRender.map(item => {
             const photoDiv = document.createElement('div');
             photoDiv.className = 'hanging-photo';
+
+            // --- PREPARE ENTRY POSITION ---
+            if (direction) {
+                // Prepare off-screen position
+                if (direction === 'next') {
+                    photoDiv.classList.add('prepare-slide-in-right');
+                } else {
+                    photoDiv.classList.add('prepare-slide-in-left');
+                }
+            }
 
             const clip = document.createElement('img');
             clip.src = '/static/icons/clip.png';
@@ -96,22 +141,50 @@
             return photoObj;
         });
 
-        // Restart animation if needed
-        if (!isLoopRunning) {
-            isLoopRunning = true;
-            animate();
+        // --- ANIMATE IN ---
+        if (direction) {
+            // Trigger reflow to ensure start positions are registered
+            void galleryContainer.offsetWidth;
+
+            // Activate entry animation
+            photos.forEach(p => {
+                p.element.classList.remove('prepare-slide-in-right', 'prepare-slide-in-left');
+                p.element.classList.add('slide-in-active');
+            });
+
+            // Wait for transition to finish
+            await new Promise(r => setTimeout(r, 450)); // Slightly longer than CSS 0.4s to be safe
+
+            // Cleanup
+            const outgoingContainer = parent.querySelector('.photo-gallery-container:not(#photo-gallery)');
+            if (outgoingContainer) {
+                outgoingContainer.remove();
+            }
+
+            photos.forEach(p => {
+                p.element.classList.remove('slide-in-active');
+                p.element.style.transform = '';
+            });
+
+            isTransitioning = false;
         }
+
+        // Restart animation
+        mouseState.speed = 0; // Reset momentum
+        isLoopRunning = true;
+        animate();
     }
 
     // Scroll listener for pagination
     if (photoHangingGallery) {
         photoHangingGallery.addEventListener('wheel', (e) => {
             // Prevent default scroll behavior if we are paginating
-            // But maybe we want normal scroll if not over the gallery? 
+            // But maybe we want normal scroll if not over the gallery?
             // The gallery usually takes up the screen so preventDefault is good to stop page scroll
-            // e.preventDefault(); 
+            // e.preventDefault();
 
             if (allImages.length <= itemsPerPage) return;
+            if (isTransitioning) return; // Ignore scroll during transition
 
             const maxPage = Math.ceil(allImages.length / itemsPerPage) - 1;
 
@@ -119,16 +192,16 @@
                 // Scroll Down -> Next Page
                 if (currentPage < maxPage) {
                     currentPage++;
-                    renderGalleryPage();
+                    renderGalleryPage('next');
                 }
             } else {
                 // Scroll Up -> Prev Page
                 if (currentPage > 0) {
                     currentPage--;
-                    renderGalleryPage();
+                    renderGalleryPage('prev');
                 }
             }
-        }, { passive: true }); // passive true means we can't use preventDefault, but good for performance. 
+        }, { passive: true }); // passive true means we can't use preventDefault, but good for performance.
         // If we want to block page scroll we need passive: false.
         // Given this is an absolute positioned overlay usually, let's stick to simple logic.
     }
