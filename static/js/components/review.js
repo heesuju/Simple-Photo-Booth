@@ -113,6 +113,7 @@ window.eventBus.on('app:init', (appState) => {
         updatePreviewHighlights,
         updateAddFinalizeButtons,
         panelHistory,
+        showToast: window.showToast,
         stripContainer,
         stripBackBtn,
         genericAddBtn,
@@ -120,6 +121,11 @@ window.eventBus.on('app:init', (appState) => {
         reviewToolbar,
         clearSelections,
         renderPhotoAssignments
+    });
+
+    const reviewFilters = window.initReviewFilters(appState, {
+        renderPreview,
+        showToast: window.showToast
     });
 
     // Add ResizeObserver to handle layout changes (especially in mobile view)
@@ -199,10 +205,7 @@ window.eventBus.on('app:init', (appState) => {
 
     appState.selectedForStylizing = [];
 
-    removeBgCheckbox.addEventListener('change', (e) => {
-        appState.removeBackground = e.target.checked;
-        applyBackgroundRemovalPreview();
-    });
+
 
     finalizeBtn.addEventListener('click', () => window.eventBus.dispatch('review:finalize', { videos: appState.videoAssignments }));
     retakeBtn.addEventListener('click', () => {
@@ -293,48 +296,11 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    document.getElementById('add-preset-confirm-btn').addEventListener('click', () => {
-        const name = document.getElementById('new-preset-name').value;
-        if (!name) {
-            alert('Please enter a name for the preset.');
-            return;
-        }
-
-        const presetFilterControls = document.getElementById('preset-filter-controls');
-        const values = {};
-        presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
-            values[slider.dataset.filter] = parseInt(slider.value, 10);
-        });
-
-        addFilterPreset(name, values);
-    });
-
-    document.getElementById('add-preset-cancel-btn').addEventListener('click', () => {
-        document.getElementById('add-filter-preset-modal').className = 'modal-hidden';
-    });
-
-    async function addFilterPreset(name, values) {
-        try {
-            await fetch('/filter_presets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, filter_values: values })
-            });
-            document.getElementById('add-filter-preset-modal').className = 'modal-hidden';
-            loadFilterPresets();
-        } catch (e) {
-            console.error("Failed to add filter preset:", e);
-        }
-    }
 
 
 
-    filterControls.addEventListener('input', (e) => {
-        if (e.target.type === 'range') {
-            appState.filters[e.target.dataset.filter] = parseInt(e.target.value, 10);
-            applyPhotoFilters();
-        }
-    });
+
+
 
 
     reviewToolbar.addEventListener('click', (e) => {
@@ -421,7 +387,7 @@ window.eventBus.on('app:init', (appState) => {
             }
 
             if (panelType === 'filters') {
-                loadFilterPresets();
+                reviewFilters.loadFilterPresets();
             }
 
             updateAddFinalizeButtons();
@@ -476,122 +442,7 @@ window.eventBus.on('app:init', (appState) => {
     });
 
 
-    async function loadFilterPresets() {
-        try {
-            const response = await fetch('/filter_presets');
-            const presets = await response.json();
-            const presetStrip = document.getElementById('filter-preset-strip');
-            presetStrip.innerHTML = '';
 
-            const firstPhoto = appState.capturedPhotos[0];
-            const firstPhotoUrl = firstPhoto ? URL.createObjectURL(firstPhoto) : '';
-
-            const nonePresetContainer = document.createElement('div');
-            nonePresetContainer.className = 'filter-preset-container';
-
-            const nonePresetItem = document.createElement('div');
-            nonePresetItem.className = 'style-strip-item';
-
-            const noneThumbnail = document.createElement('img');
-            noneThumbnail.className = 'filter-preset-thumbnail';
-            noneThumbnail.src = firstPhotoUrl;
-
-            const noneName = document.createElement('div');
-            noneName.className = 'filter-preset-label';
-            noneName.textContent = 'None';
-
-            nonePresetItem.appendChild(noneThumbnail);
-            nonePresetContainer.appendChild(nonePresetItem);
-            nonePresetContainer.appendChild(noneName);
-
-            nonePresetContainer.addEventListener('click', () => {
-                appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
-                for (const filter in appState.filters) {
-                    const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
-                    if (slider) {
-                        slider.value = appState.filters[filter];
-                    }
-                }
-                applyPhotoFilters();
-            });
-            presetStrip.appendChild(nonePresetContainer);
-
-            presets.forEach(preset => {
-                const presetContainer = document.createElement('div');
-                presetContainer.className = 'filter-preset-container';
-
-                const presetItem = document.createElement('div');
-                presetItem.className = 'style-strip-item';
-
-                const thumbnail = document.createElement('img');
-                thumbnail.className = 'filter-preset-thumbnail';
-                thumbnail.src = firstPhotoUrl;
-                const values = preset.values;
-                thumbnail.style.filter = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
-
-                const name = document.createElement('div');
-                name.className = 'filter-preset-label';
-                name.textContent = preset.name;
-
-                presetItem.appendChild(thumbnail);
-                presetContainer.appendChild(presetItem);
-                presetContainer.appendChild(name);
-
-                presetContainer.addEventListener('click', () => applyFilterPreset(preset.values));
-                presetStrip.appendChild(presetContainer);
-            });
-        } catch (e) {
-            console.error("Failed to load filter presets:", e);
-        }
-    }
-
-    async function applyFilterPreset(values) {
-        appState.filters = { ...values };
-        for (const filter in values) {
-            const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
-            if (slider) {
-                slider.value = values[filter];
-            }
-        }
-        applyPhotoFilters(); // Apply CSS filters for instant preview
-
-        for (const pIdx of appState.selectedForRetake) {
-            const imageBlob = appState.originalPhotos[pIdx];
-            const formData = new FormData();
-            formData.append('file', imageBlob, 'photo.png');
-            formData.append('filters', JSON.stringify(values));
-
-            try {
-                const response = await fetch('/apply_filters_to_image', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to apply filters: ${errorText}`);
-                }
-
-                const newImageBlob = await response.blob();
-                const newImageUrl = URL.createObjectURL(newImageBlob);
-
-                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-                appState.capturedPhotos[pIdx] = newImageBlob;
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = newImageBlob;
-                }
-
-                const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumb) {
-                    thumb.src = newImageUrl;
-                }
-            } catch (error) {
-                console.error('Error applying filters:', error);
-                alert('An error occurred while applying filters. Please check the console for details.');
-            }
-        }
-        renderPreview();
-    }
 
     reviewScreenContainer.addEventListener('click', (e) => {
         const sidebar = document.getElementById('review-sidebar');
@@ -1234,7 +1085,7 @@ window.eventBus.on('app:init', (appState) => {
             wrapper.appendChild(btn);
             document.getElementById('review-photos-container').appendChild(wrapper);
         });
-        applyPhotoFilters();
+        reviewFilters.applyPhotoFilters();
         updatePreviewHighlights();
     }
 
@@ -1460,47 +1311,7 @@ window.eventBus.on('app:init', (appState) => {
         stickerImg.src = stickerData.sticker_path;
     }
 
-    function applyPhotoFilters() {
-        const baseFilterString = `brightness(${appState.filters.brightness}%) contrast(${appState.filters.contrast}%) saturate(${appState.filters.saturate}%) blur(${appState.filters.blur}px)`;
-        document.querySelectorAll('.preview-photo-img').forEach(img => {
-            img.style.filter = baseFilterString;
-        });
 
-        let wrapperFilterString = '';
-
-        if (appState.filters.sharpness > 0) {
-            const amount = appState.filters.sharpness / 100.0;
-            const kernel = [
-                0, -amount, 0,
-                -amount, 1 + 4 * amount, -amount,
-                0, -amount, 0
-            ].join(' ');
-            document.getElementById('sharpen-matrix').setAttribute('kernelMatrix', kernel);
-            wrapperFilterString += ` url(#sharpen-filter)`;
-        } else {
-            document.getElementById('sharpen-matrix').setAttribute('kernelMatrix', '0 0 0 0 1 0 0 0 0');
-        }
-
-        if (appState.filters.warmth !== 100) {
-            const amount = (appState.filters.warmth - 100) / 510.0;
-            const matrix = `1 0 0 0 ${amount} 0 1 0 0 0 0 0 1 0 ${-amount} 0 0 0 1 0`;
-            document.getElementById('warmth-matrix').setAttribute('values', matrix);
-            wrapperFilterString += ` url(#warmth-filter)`;
-        } else {
-            document.getElementById('warmth-matrix').setAttribute('values', '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0');
-        }
-
-        document.querySelectorAll('.preview-photo-wrapper').forEach(wrapper => {
-            wrapper.style.filter = wrapperFilterString.trim();
-            const grainAmount = appState.filters.grain / 100;
-            if (grainAmount > 0) {
-                wrapper.style.setProperty('--grain-opacity', grainAmount);
-                wrapper.classList.add('grain-effect');
-            } else {
-                wrapper.classList.remove('grain-effect');
-            }
-        });
-    }
 
     function updatePreviewHighlights() {
         // Clear all highlights first
@@ -1623,40 +1434,5 @@ window.eventBus.on('app:init', (appState) => {
         });
     }
 
-    async function applyBackgroundRemovalPreview() {
-        const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
-        const updatePromises = Array.from(photoWrappers).map(async (wrapper, index) => {
-            const imgElement = wrapper.querySelector('.preview-photo-img');
-            const originalPhotoBlob = appState.photoAssignments[index];
-            const originalPhotoIndex = appState.capturedPhotos.indexOf(originalPhotoBlob);
 
-            if (appState.removeBackground) {
-                imgElement.style.opacity = '0.5';
-                if (appState.bgRemovedPhotos[originalPhotoIndex]) {
-                    imgElement.src = appState.bgRemovedPhotos[originalPhotoIndex];
-                } else {
-                    const formData = new FormData();
-                    formData.append('file', originalPhotoBlob);
-                    try {
-                        const response = await fetch('/remove_background', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        if (!response.ok) throw new Error('Background removal failed');
-                        const newBlob = await response.blob();
-                        const newBlobUrl = URL.createObjectURL(newBlob);
-                        appState.bgRemovedPhotos[originalPhotoIndex] = newBlobUrl;
-                        imgElement.src = newBlobUrl;
-                    } catch (error) {
-                        console.error('Error removing background:', error);
-                        imgElement.src = URL.createObjectURL(originalPhotoBlob);
-                    }
-                }
-                imgElement.style.opacity = '1';
-            } else {
-                imgElement.src = URL.createObjectURL(originalPhotoBlob);
-            }
-        });
-        await Promise.all(updatePromises);
-    }
 });

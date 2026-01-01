@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '/static/js/components/main_menu.js',
             '/static/js/components/photo_taking.js',
             '/static/js/components/review_styles.js',
+            '/static/js/components/review_filters.js',
             '/static/js/components/review.js',
             '/static/js/components/result.js',
             '/static/js/components/template_edit.js',
