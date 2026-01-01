@@ -107,6 +107,21 @@ window.eventBus.on('app:init', (appState) => {
         renderStickers: renderPlacedStickers,
     });
 
+    const reviewStyles = window.initReviewStyles(appState, {
+        renderPreview,
+        renderReviewThumbnails,
+        updatePreviewHighlights,
+        updateAddFinalizeButtons,
+        panelHistory,
+        stripContainer,
+        stripBackBtn,
+        genericAddBtn,
+        finalizeBtn,
+        reviewToolbar,
+        clearSelections,
+        renderPhotoAssignments
+    });
+
     // Add ResizeObserver to handle layout changes (especially in mobile view)
     const previewObserver = new ResizeObserver(entries => {
         window.requestAnimationFrame(() => {
@@ -276,58 +291,7 @@ window.eventBus.on('app:init', (appState) => {
 
     fontUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_font', loadFontGallery));
 
-    addStyleCancelBtn.addEventListener('click', () => {
-        addStyleModal.className = 'modal-hidden';
-    });
 
-    addStyleConfirmBtn.addEventListener('click', async () => {
-        const newName = newStyleNameInput.value;
-        const newPrompt = newStylePromptInput.value;
-        if (!newName || !newPrompt) {
-            alert('Please enter a style name and prompt.');
-            return;
-        }
-        try {
-            await fetch('/add_style', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName, prompt: newPrompt })
-            });
-            addStyleModal.className = 'modal-hidden';
-            newStyleNameInput.value = '';
-            newStylePromptInput.value = '';
-            loadStylesStrip();
-        } catch (e) {
-            console.error("Failed to save style:", e);
-        }
-    });
-
-    document.getElementById('edit-style-confirm-btn').addEventListener('click', () => {
-        const styleId = document.getElementById('edit-style-id').value;
-        const name = document.getElementById('edit-style-name').value;
-        const prompt = document.getElementById('edit-style-prompt').value;
-        updateStyle(styleId, name, prompt);
-    });
-
-    document.getElementById('edit-style-cancel-btn').addEventListener('click', () => {
-        document.getElementById('edit-style-modal').className = 'modal-hidden';
-    });
-
-
-
-    async function updateStyle(styleId, name, prompt) {
-        try {
-            await fetch(`/styles/${styleId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, prompt })
-            });
-            document.getElementById('edit-style-modal').className = 'modal-hidden';
-            loadStylesStrip();
-        } catch (e) {
-            console.error("Failed to update style:", e);
-        }
-    }
 
     document.getElementById('add-preset-confirm-btn').addEventListener('click', () => {
         const name = document.getElementById('new-preset-name').value;
@@ -363,275 +327,7 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    async function loadStylesStrip() {
-        try {
-            const response = await fetch('/styles');
-            const styles = await response.json();
-            styleStripPanel.innerHTML = '';
 
-            const noneStyleContainer = document.createElement('div');
-            noneStyleContainer.className = 'style-item-container';
-            const noneStyleItem = document.createElement('button');
-            noneStyleItem.className = 'style-strip-item';
-            noneStyleItem.textContent = 'None';
-            noneStyleItem.addEventListener('click', async () => {
-                if (appState.selectedForStylizing.length === 0) {
-                    alert('Please select a photo to apply the style to.');
-                    return;
-                }
-                for (const pIdx of appState.selectedForStylizing) {
-                    let imageToAssign = appState.originalPhotos[pIdx];
-                    const currentCropData = appState.cropData[pIdx];
-
-                    if (currentCropData) {
-                        const templateHole = appState.templateInfo.holes[pIdx];
-                        const targetAspectRatio = templateHole.w / templateHole.h;
-                        const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentCropData);
-                        if (result) {
-                            imageToAssign = result.croppedBlob;
-                        }
-                    }
-
-                    const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-
-                    appState.capturedPhotos[pIdx] = imageToAssign;
-
-                    if (assignmentIndex !== -1) {
-                        appState.photoAssignments[assignmentIndex] = imageToAssign;
-                    }
-
-                    appState.isStylized[pIdx] = false;
-
-                    const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-                    if (thumbContainer) {
-                        const thumb = thumbContainer.querySelector('.photostrip-item');
-                        if (thumb) {
-                            thumb.src = URL.createObjectURL(imageToAssign);
-                        }
-                    }
-                }
-                renderPreview();
-            });
-            noneStyleContainer.appendChild(noneStyleItem);
-            styleStripPanel.appendChild(noneStyleContainer);
-
-            styles.forEach(style => {
-                const container = document.createElement('div');
-                container.className = 'strip-item';
-
-                const content = document.createElement('div');
-                content.className = 'strip-item-content';
-
-                const styleItem = document.createElement('button');
-                styleItem.className = 'style-strip-item';
-                styleItem.textContent = style.name;
-                styleItem.addEventListener('click', () => applyStyle(style.prompt));
-                content.appendChild(styleItem);
-
-                const actions = document.createElement('div');
-                actions.className = 'strip-item-actions';
-
-                const editButton = document.createElement('button');
-                editButton.textContent = '✏️';
-                editButton.title = 'Edit';
-                editButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openEditStyleModal(style);
-                });
-
-                const removeButton = document.createElement('button');
-                removeButton.textContent = '🗑️';
-                removeButton.title = 'Remove';
-                removeButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    removeStyle(style.id);
-                });
-
-                const retryButton = document.createElement('button');
-                retryButton.textContent = '🔄';
-                retryButton.title = 'Retry';
-                retryButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    retryStyle(style.prompt);
-                });
-
-                actions.appendChild(editButton);
-                actions.appendChild(removeButton);
-                actions.appendChild(retryButton);
-
-                container.appendChild(content);
-                container.appendChild(actions);
-                styleStripPanel.appendChild(container);
-            });
-
-
-        } catch (e) {
-            console.error("Failed to load styles:", e);
-        }
-    }
-
-    async function processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex) {
-        let imageToAssign = imageBlob;
-
-        try {
-            // Track loading state by photo index
-            appState.loadingPhotos.add(pIdx);
-            renderPhotoAssignments(); // Re-render to show loading state
-
-            const formData = new FormData();
-            formData.append('prompt', prompt);
-            formData.append('file', imageBlob, 'photo.png');
-
-            const response = await fetch('/process_and_stylize_image', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Stylization failed: ${errorText}`);
-            }
-
-            const newImageBlob = await response.blob();
-            appState.stylizedImagesCache[cacheKey] = newImageBlob;
-            imageToAssign = newImageBlob;
-
-            let currentStylizedCropData = appState.stylizedCropData[pIdx];
-            const templateHole = appState.templateInfo.holes[pIdx];
-            const targetAspectRatio = templateHole.w / templateHole.h;
-
-            if (!currentStylizedCropData) {
-                // Calculate default crop data if none exists
-                currentStylizedCropData = await appState.cropper.getDefaultCropData(newImageBlob, targetAspectRatio);
-                appState.stylizedCropData[pIdx] = currentStylizedCropData; // Save the newly calculated default crop data
-            }
-
-            if (currentStylizedCropData) {
-                const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentStylizedCropData);
-                if (result) {
-                    imageToAssign = result.croppedBlob;
-                }
-            }
-
-            appState.capturedPhotos[pIdx] = imageToAssign;
-
-            if (assignmentIndex !== -1) {
-                appState.photoAssignments[assignmentIndex] = imageToAssign;
-            }
-
-            appState.isStylized[pIdx] = true;
-            appState.selectedStylePrompt = prompt;
-
-            const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-            if (thumbContainer) {
-                const thumb = thumbContainer.querySelector('.photostrip-item');
-                if (thumb) {
-                    thumb.src = URL.createObjectURL(imageToAssign);
-                }
-            }
-        } catch (error) {
-            console.error('Error during stylization:', error);
-            showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
-        } finally {
-            // Remove loading state by photo index
-            appState.loadingPhotos.delete(pIdx);
-            renderPhotoAssignments(); // Re-render to remove loading state
-        }
-    }
-
-    async function retryStyle(prompt) {
-        if (appState.selectedForStylizing.length === 0) {
-            alert('Please select a photo to apply the style to.');
-            return;
-        }
-
-        for (const pIdx of appState.selectedForStylizing) {
-            const cacheKey = `${pIdx}-${prompt}`;
-            delete appState.stylizedImagesCache[cacheKey];
-
-            const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-            const imageBlob = appState.originalPhotos[pIdx];
-
-            await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
-        }
-
-        renderPreview();
-    }
-
-    function openEditStyleModal(style) {
-        const editStyleModal = document.getElementById('edit-style-modal');
-        const editStyleId = document.getElementById('edit-style-id');
-        const editStyleName = document.getElementById('edit-style-name');
-        const editStylePrompt = document.getElementById('edit-style-prompt');
-
-        editStyleId.value = style.id;
-        editStyleName.value = style.name;
-        editStylePrompt.value = style.prompt;
-
-        editStyleModal.className = 'modal-visible';
-    }
-
-    async function removeStyle(styleId) {
-        if (!confirm('Are you sure you want to delete this style?')) {
-            return;
-        }
-
-        try {
-            await fetch(`/styles?style_id=${styleId}`, {
-                method: 'DELETE'
-            });
-            loadStylesStrip();
-        } catch (e) {
-            console.error("Failed to remove style:", e);
-        }
-    }
-
-    async function applyStyle(prompt) {
-        if (appState.selectedForStylizing.length === 0) {
-            alert('Please select a photo to apply the style to.');
-            return;
-        }
-
-        for (const pIdx of appState.selectedForStylizing) {
-            const cacheKey = `${pIdx}-${prompt}`;
-            if (appState.stylizedImagesCache[cacheKey]) {
-                let imageToAssign = appState.stylizedImagesCache[cacheKey];
-                const currentStylizedCropData = appState.stylizedCropData[pIdx];
-
-                if (currentStylizedCropData) {
-                    const templateHole = appState.templateInfo.holes[pIdx];
-                    const targetAspectRatio = templateHole.w / templateHole.h;
-                    const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentStylizedCropData);
-                    if (result) {
-                        imageToAssign = result.croppedBlob;
-                    }
-                }
-
-                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-                appState.capturedPhotos[pIdx] = imageToAssign;
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = imageToAssign;
-                }
-                appState.isStylized[pIdx] = true;
-                appState.selectedStylePrompt = prompt;
-                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumbContainer) {
-                    const thumb = thumbContainer.querySelector('.photostrip-item');
-                    if (thumb) {
-                        thumb.src = URL.createObjectURL(imageToAssign);
-                    }
-                }
-                continue;
-            }
-
-            const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-            const imageBlob = appState.originalPhotos[pIdx];
-
-            await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
-        }
-
-        renderPreview();
-    }
 
     filterControls.addEventListener('input', (e) => {
         if (e.target.type === 'range') {
@@ -1261,7 +957,7 @@ window.eventBus.on('app:init', (appState) => {
             stylizeButton.title = 'Stylize Photo';
             stylizeButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                handleStylizeButtonClick(i, t);
+                reviewStyles.handleStylizeButtonClick(i);
             });
 
             const cropButton = document.createElement('button');
@@ -1542,49 +1238,7 @@ window.eventBus.on('app:init', (appState) => {
         updatePreviewHighlights();
     }
 
-    function handleStylizeButtonClick(photoIndex, photoEl) {
-        clearSelections();
-        appState.selectedForStylizing = [];
-        appState.selectedForStylizing.push(photoIndex);
-        showStylizePanel();
-        updatePreviewHighlights();
-    }
 
-    function showStylizePanel() {
-        const styleStrip = document.getElementById('style-strip-panel');
-        const stripContainer = document.getElementById('strip-container');
-        const stripBackBtn = document.getElementById('strip-back-btn');
-        const isVisible = styleStrip.classList.contains('show');
-        const genericAddBtn = document.getElementById('generic-add-btn');
-        const finalizeBtn = document.getElementById('finalize-btn');
-
-
-        // Close any currently open strip panel
-        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel'))
-            .find(p => p.classList.contains('show'));
-        if (currentOpenPanel) {
-            panelHistory.push(currentOpenPanel.dataset.panel);
-            currentOpenPanel.classList.remove('show');
-        }
-
-        // Hide all panels before toggling
-        document.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
-
-        if (!isVisible) {
-            styleStrip.classList.add('show');
-            loadStylesStrip(); // Load available styles
-            stripBackBtn.style.display = 'block';
-            genericAddBtn.style.display = 'block';
-            finalizeBtn.style.display = 'none';
-        } else {
-            stripBackBtn.style.display = 'none';
-            panelHistory = [];
-            updateAddFinalizeButtons();
-            // Clear selection when closing
-            appState.selectedForStylizing = [];
-            updatePreviewHighlights();
-        }
-    }
 
     function renderPlacedStickers() {
         document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
