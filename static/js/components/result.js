@@ -28,7 +28,8 @@ window.eventBus.on('app:init', (appState) => {
       d.append('texts', JSON.stringify(appState.placedTexts));
       d.append('filters', JSON.stringify(appState.filters));
       d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
-      d.append('remove_background', appState.removeBackground);
+      d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
+      d.append('background_colors', JSON.stringify(appState.backgroundColors || []));
       d.append('is_inverted', appState.isStreamInverted);
 
       // Pass video paths if available

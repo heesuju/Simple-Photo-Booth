@@ -128,6 +128,17 @@ window.eventBus.on('app:init', (appState) => {
         showToast: window.showToast
     });
 
+    const reviewBackgrounds = window.initReviewBackgrounds(appState, {
+        renderPreview,
+        renderReviewThumbnails,
+        stripContainer,
+        stripBackBtn,
+        genericAddBtn,
+        finalizeBtn,
+        showToast: window.showToast,
+        reviewToolbar
+    });
+
     // Add ResizeObserver to handle layout changes (especially in mobile view)
     const previewObserver = new ResizeObserver(entries => {
         window.requestAnimationFrame(() => {
@@ -554,7 +565,9 @@ window.eventBus.on('app:init', (appState) => {
             appState.stylizedCropData = {};
             appState.isStylized = new Array(appState.capturedPhotos.length).fill(false);
             appState.loadingPhotos = new Set();
-            appState.bgRemovedPhotos = {};
+            appState.backgroundColors = new Array(appState.capturedPhotos.length).fill(null);
+            appState.rawBgRemovedBlobs = {};
+            // appState.bgRemovedPhotos = {}; // Deprecated in favor of rawBgRemovedBlobs
             document.getElementById('remove-bg-checkbox').checked = false;
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
             document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
@@ -834,6 +847,13 @@ window.eventBus.on('app:init', (appState) => {
                     currentCropData = appState.cropData[i];
                 }
 
+                // Invalidate background removal cache since image content (potentially) changes
+                // Although crop technically runs on original, if we recrop, the displayed blob changes.
+                if (appState.rawBgRemovedBlobs && appState.rawBgRemovedBlobs[i]) {
+                    delete appState.rawBgRemovedBlobs[i];
+                    // Also clear color assignment? Maybe safe to keep color but re-apply removal on next render
+                }
+
                 appState.cropper.show(imageToCrop, targetAspectRatio, currentCropData).then(result => {
                     if (result) {
                         const oldBlob = appState.capturedPhotos[i];
@@ -857,6 +877,20 @@ window.eventBus.on('app:init', (appState) => {
             });
 
             actions.appendChild(stylizeButton);
+
+            const removeBgButton = document.createElement('button');
+            removeBgButton.textContent = '🪄';
+            removeBgButton.title = 'Remove/Color Background';
+            removeBgButton.style.fontSize = '1.2rem'; // Match look
+            if (appState.backgroundColors && appState.backgroundColors[i]) {
+                removeBgButton.style.border = '2px solid ' + (appState.backgroundColors[i] || 'transparent');
+            }
+            removeBgButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                reviewBackgrounds.showBackgroundPanel(i);
+            });
+            actions.appendChild(removeBgButton);
+
             actions.appendChild(cropButton);
 
             itemContainer.appendChild(content);
@@ -1086,6 +1120,10 @@ window.eventBus.on('app:init', (appState) => {
             document.getElementById('review-photos-container').appendChild(wrapper);
         });
         reviewFilters.applyPhotoFilters();
+        // Background removal preview application
+        if (typeof reviewBackgrounds !== 'undefined') {
+            reviewBackgrounds.applyBackgroundsToPreview();
+        }
         updatePreviewHighlights();
     }
 

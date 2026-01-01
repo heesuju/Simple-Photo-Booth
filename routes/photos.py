@@ -116,17 +116,7 @@ async def remove_background_api(file: UploadFile = File(...)):
         input_bytes = await file.read()
         output_bytes = remove(input_bytes, model='u2net_human_seg')
 
-        # Create a new image with a white background
-        foreground = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
-        background = Image.new("RGBA", foreground.size, (255, 255, 255, 255))
-        background.paste(foreground, (0, 0), foreground)
-
-        # Convert back to bytes
-        img_byte_arr = io.BytesIO()
-        background.convert("RGB").save(img_byte_arr, format='JPEG')
-        img_byte_arr = img_byte_arr.getvalue()
-
-        return StreamingResponse(io.BytesIO(img_byte_arr), media_type="image/jpeg")
+        return StreamingResponse(io.BytesIO(output_bytes), media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove background: {e}")
 
@@ -208,7 +198,7 @@ from fastapi import Request
 
 
 @router.post("/compose_image")
-async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), remove_background: bool = Form(False), video_paths: str = Form(None), is_inverted: bool = Form(False)):
+async def compose_image(request: Request, holes: str = Form(...), photos: List[UploadFile] = File(...), stickers: str = Form(...), texts: str = Form(None), filters: str = Form(...), transformations: str = Form(...), template_path: str = Form(None), template_file: UploadFile = File(None), background_colors: str = Form(None), video_paths: str = Form(None), is_inverted: bool = Form(False)):
     try:
         session_id = str(uuid.uuid4())
         
@@ -263,12 +253,28 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             async with aiofiles.open(saved_photo_path, 'wb') as f:
                 await f.write(photo_content)
             saved_photo_paths.append(f"/{saved_photo_path.replace(os.path.sep, '/')}")
+            
+            # --- Background Removal & Coloring ---
+            bg_color_hex = None
+            if background_colors:
+                try:
+                    bg_colors_list = json.loads(background_colors)
+                    if i < len(bg_colors_list):
+                        bg_color_hex = bg_colors_list[i]
+                except:
+                    pass
 
-            if remove_background:
-                # Remove background and place on a white canvas
+            if bg_color_hex:
+                # Remove background
                 output_bytes = remove(photo_content, model='u2net_human_seg')
                 foreground = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
-                background = Image.new("RGBA", foreground.size, (255, 255, 255, 255))
+                
+                # Create solid color background
+                # Hex to RGB
+                h = bg_color_hex.lstrip('#')
+                rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (255,) # Add alpha
+                
+                background = Image.new("RGBA", foreground.size, rgb)
                 background.paste(foreground, (0, 0), foreground)
                 
                 # Convert PIL image back to OpenCV format
@@ -414,7 +420,7 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             "filters": filter_data,
             "transformations": transform_data,
             "template_path": saved_template_path,
-            "remove_background": remove_background,
+            "background_colors": json.loads(background_colors) if background_colors else [],
             "photos": saved_photo_paths,
             "videos": parsed_video_paths,
             "is_inverted": is_inverted,
