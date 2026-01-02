@@ -6,26 +6,32 @@
 <div class="app-container">
     <div class="main-content">
         <div id="photo-booth">
-            <div id="mode-selection">
-                <button class="mode-btn active" data-mode="camera">카메라</button>
-                <button class="mode-btn" data-mode="upload">업로드</button>
-            </div>
+            <!-- Thumbnails Container (Moved here) -->
+            <div id="thumbnails-container"></div>
 
-            <video id="camera-stream" autoplay playsinline></video>
-            <div id="flash-overlay"></div>
-            <img id="ghost-overlay">
-
-            <div id="upload-area" style="display: none;">
-                <div id="drop-area" class="drop-area-full">
-                    <p>여기에 이미지를 드래그 앤 드롭하세요</p>
-                    <button id="photo-upload-btn">이미지 선택</button>
-                    <input type="file" id="photo-upload-input" accept="image/png, image/jpeg" multiple
-                        style="display: none;">
+            <!-- Camera Area (New Wrapper) -->
+            <div id="camera-area">
+                <div id="mode-selection">
+                    <button class="mode-btn active" data-mode="camera">카메라</button>
+                    <button class="mode-btn" data-mode="upload">업로드</button>
                 </div>
-            </div>
 
-            <canvas id="capture-canvas" style="display: none;"></canvas>
-            <div id="countdown-display" style="display: none;">3</div>
+                <video id="camera-stream" autoplay playsinline></video>
+                <div id="flash-overlay"></div>
+                <img id="ghost-overlay">
+
+                <div id="upload-area" style="display: none;">
+                    <div id="drop-area" class="drop-area-full">
+                        <p>여기에 이미지를 드래그 앤 드롭하세요</p>
+                        <button id="photo-upload-btn">이미지 선택</button>
+                        <input type="file" id="photo-upload-input" accept="image/png, image/jpeg" multiple
+                            style="display: none;">
+                    </div>
+                </div>
+
+                <canvas id="capture-canvas" style="display: none;"></canvas>
+                <div id="countdown-display" style="display: none;">3</div>
+            </div>
         </div>
 
         <div id="camera-controls-row">
@@ -64,10 +70,5 @@
             <button id="start-capture-btn">시작</button>
             <button id="capture-btn" style="display: none;">촬영</button>
         </div>
-    </div>
-
-    <div class="sidebar">
-        <h3>촬영된 사진</h3>
-        <div id="thumbnails-container"></div>
     </div>
 </div>
