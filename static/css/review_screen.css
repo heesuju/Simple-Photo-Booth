@@ -77,7 +77,6 @@
     display: flex;
     /* justify-content/align-items removed to prevent clipping when zoomed */
     background-color: var(--bg-dark);
-    border-radius: 5px;
 }
 
 #review-preview {
