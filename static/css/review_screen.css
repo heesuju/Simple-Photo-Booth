@@ -186,6 +186,31 @@
     opacity: 1;
 }
 
+#resize-handle-pc {
+    width: 10px;
+    cursor: ew-resize;
+    background: transparent;
+    border-left: 1px solid var(--border-color);
+    /* Visual border */
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+    margin-right: -5px;
+    /* Overlap slightly or just sit there? Let's make it sit there. */
+    /* Better: Use it as the left border. */
+    position: relative;
+    z-index: 10;
+}
+
+#resize-handle-pc:hover,
+#resize-handle-pc.active {
+    background-color: var(--highlight-color);
+    opacity: 0.5;
+}
+
+#resize-handle-mobile {
+    display: none;
+}
+
 @media (max-width: 900px) {
     #review-screen-container {
         flex-direction: column;
@@ -205,7 +230,10 @@
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
+        width: 100% !important;
+        /* Override potential JS resize styles */
+        min-width: 0;
+        /* Override desktop min-width */
         height: 100%;
         pointer-events: none;
         /* Let clicks pass through to preview */
@@ -213,6 +241,32 @@
         background: transparent;
         flex-direction: column;
         border: none;
+    }
+
+    #resize-handle-pc {
+        display: none;
+    }
+
+    #resize-handle-mobile {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 24px;
+        width: 100%;
+        cursor: ns-resize;
+        background-color: var(--header-bg);
+        /* Match sidebar bg */
+        border-top: 1px solid var(--border-color);
+        pointer-events: auto;
+        flex-shrink: 0;
+    }
+
+    #resize-handle-mobile .handle-bar {
+        width: 40px;
+        height: 4px;
+        background-color: var(--text-color);
+        opacity: 0.3;
+        border-radius: 2px;
     }
 
     /* Nav Rail: Fixed at bottom */

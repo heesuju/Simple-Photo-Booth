@@ -118,6 +118,107 @@ window.eventBus.on('app:init', (appState) => {
         renderPhotoAssignments
     });
 
+    // --- Sidebar Resize Logic ---
+    (function initResizeHandles() {
+        // PC Handle
+        const pcHandle = document.getElementById('resize-handle-pc');
+        const sidebar = document.getElementById('review-sidebar');
+
+        if (pcHandle && sidebar) {
+            let isResizing = false;
+
+            const startResize = (e) => {
+                isResizing = true;
+                pcHandle.classList.add('active');
+                e.preventDefault(); // Prevent selection
+            };
+
+            const stopResize = () => {
+                if (isResizing) {
+                    isResizing = false;
+                    pcHandle.classList.remove('active');
+                    renderPreview(); // Re-center/scale preview
+                }
+            };
+
+            const resize = (e) => {
+                if (!isResizing) return;
+                // Calculate new width: Sidebar is on right. Width = Window Width - Mouse X
+                // But handle is on Left of sidebar. So Mouse X is strictly the left edge.
+                // Width = window.innerWidth - e.clientX
+                // Constraint: Min width 300px, Max width 600px?
+                const newWidth = window.innerWidth - e.clientX;
+                if (newWidth >= 300 && newWidth <= 800) {
+                    sidebar.style.width = `${newWidth}px`;
+                    sidebar.style.minWidth = `${newWidth}px`;
+                }
+            };
+
+            pcHandle.addEventListener('mousedown', startResize);
+            window.addEventListener('mousemove', resize);
+            window.addEventListener('mouseup', stopResize);
+        }
+
+        // Mobile Handle
+        const mobileHandle = document.getElementById('resize-handle-mobile');
+        const sidebarContent = document.getElementById('sidebar-content');
+
+        if (mobileHandle && sidebarContent) {
+            let isResizingMobile = false;
+
+            const startResizeMobile = (e) => {
+                isResizingMobile = true;
+                e.preventDefault(); // Prevent scroll
+            };
+
+            const stopResizeMobile = () => {
+                if (isResizingMobile) {
+                    isResizingMobile = false;
+                }
+            };
+
+            const resizeMobile = (e) => {
+                if (!isResizingMobile) return;
+
+                // For touch events
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                // Height = Window Height - Touch Y - Nav Height (60)
+                // Wait, sidebar-content bottom is at 60px.
+                // So Top of content = Touch Y.
+                // Height = (Window Height - 60) - Touch Y?
+                // Actually simpler: Height = Window Height - clientY - 60 (nav height)
+
+                const navHeight = 60;
+                const availableHeight = window.innerHeight - navHeight;
+                let newHeight = availableHeight - clientY;
+
+                // Constraints:
+                // Min height: 100px? (Actions area)
+                // Max height: availableHeight (Full screen minus nav)
+
+                // Actually constraint is relative to sidebar-content position.
+                // We want to control the HEIGHT of 'sidebar-content'.
+                // Since it is 'bottom: 60px', setting height grows it upwards.
+
+                if (newHeight < 100) newHeight = 100;
+                if (newHeight > availableHeight) newHeight = availableHeight;
+
+                sidebarContent.style.height = `${newHeight}px`;
+                sidebarContent.style.maxHeight = 'none'; // Override CSS limit if dragging
+            };
+
+            mobileHandle.addEventListener('mousedown', startResizeMobile);
+            mobileHandle.addEventListener('touchstart', startResizeMobile, { passive: false });
+
+            window.addEventListener('mousemove', resizeMobile);
+            window.addEventListener('touchmove', resizeMobile, { passive: false });
+
+            window.addEventListener('mouseup', stopResizeMobile);
+            window.addEventListener('touchend', stopResizeMobile);
+        }
+    })();
+
     const reviewFilters = window.initReviewFilters(appState, {
         renderPreview,
         showToast: window.showToast
