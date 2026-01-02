@@ -190,7 +190,7 @@
 }
 
 .primary-action {
-    color: var(--highlight-color);
+    color: var(--text-color);
     /* Use accent color for checkmark */
 }
 
@@ -199,7 +199,7 @@
 }
 
 .primary-action svg {
-    fill: var(--highlight-color);
+    fill: var(--text-color);
     opacity: 1;
 }
 
