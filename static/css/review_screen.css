@@ -337,13 +337,13 @@
         left: 50%;
         transform: translate(-50%, -50%);
         /* Center over item */
-        width: 100%;
-        justify-content: space-between;
+        width: auto;
+        justify-content: center;
         /* Push to edges */
         pointer-events: none;
         /* Pass clicks to image */
         padding: 0 2px;
-        gap: 0;
+        gap: 20px;
     }
 
     .strip-item {
@@ -458,6 +458,18 @@
         white-space: nowrap;
         gap: 10px;
         width: 100%;
+    }
+
+    #review-thumbnails .strip-item {
+        width: auto;
+        padding: 0 10px;
+        border-radius: 0px !important;
+        border-bottom: none !important;
+    }
+
+    #review-thumbnails .strip-item:not(:last-child) {
+        border-bottom: none !important;
+        border-right: 1px solid var(--border-color);
     }
 
     .strip-item-content {
@@ -636,9 +648,22 @@
 }
 
 /* Drag and Drop for Photo Thumbnails */
+/* Specific styling for photo items to include separators */
+#review-thumbnails {
+    gap: 0 !important;
+}
+
 #review-thumbnails .strip-item {
     display: flex;
     align-items: center;
+    background: transparent !important;
+    border-radius: 0px !important;
+    padding: 1rem 0;
+    width: 100%;
+}
+
+#review-thumbnails .strip-item:not(:last-child) {
+    border-bottom: 1px solid var(--border-color);
 }
 
 .drag-handle {
