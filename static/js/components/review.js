@@ -131,7 +131,8 @@ window.eventBus.on('app:init', (appState) => {
         genericAddBtn,
         finalizeBtn,
         showToast: window.showToast,
-        reviewToolbar
+        reviewToolbar,
+        updatePreviewHighlights
     });
 
     // Add ResizeObserver to handle layout changes (especially in mobile view)
@@ -375,8 +376,8 @@ window.eventBus.on('app:init', (appState) => {
 
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
         if (currentOpenPanel) {
-            // If we are leaving the style panel, clear the specific selection for it
-            if (currentOpenPanel.id === 'style-strip-panel') {
+            // If we are leaving the style panel or background panel, clear the specific selection for it
+            if (currentOpenPanel.id === 'style-strip-panel' || currentOpenPanel.id === 'background-color-panel') {
                 appState.selectedForStylizing = [];
                 updatePreviewHighlights();
             }

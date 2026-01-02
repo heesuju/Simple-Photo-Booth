@@ -7,7 +7,8 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         genericAddBtn,
         finalizeBtn,
         showToast,
-        reviewToolbar
+        reviewToolbar,
+        updatePreviewHighlights
     } = callbacks;
 
     // State Initialization
@@ -268,12 +269,26 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         if (appState.rawBgRemovedBlobs[cacheKey]) {
             appState.currentBgRemovedBlobKey = appState.currentBgRemovedBlobKey || [];
             appState.currentBgRemovedBlobKey[index] = cacheKey;
+
+            // Highlight selected photo even on cache hit for consistent UX
+            appState.selectedForStylizing = [index];
+            if (updatePreviewHighlights) updatePreviewHighlights();
+
             applyBackgroundsToPreview();
             return;
         }
 
         try {
             if (showToast) showToast('Removing background...', 'info');
+
+            // Set loading state and highlight
+            appState.loadingPhotos = appState.loadingPhotos || new Set();
+            appState.loadingPhotos.add(index);
+            appState.selectedForStylizing = [index];
+
+            // Update UI to show loading spinner (via renderPreview -> renderPhotoAssignments)
+            // and highlight (via updatePreviewHighlights)
+            renderPreview();
 
             const currentBlob = appState.capturedPhotos[index];
             const formData = new FormData();
@@ -295,6 +310,12 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         } catch (e) {
             console.error(e);
             if (showToast) showToast('Failed to remove background', 'error');
+        } finally {
+            // Clear loading state
+            if (appState.loadingPhotos) {
+                appState.loadingPhotos.delete(index);
+            }
+            renderPreview();
         }
     }
 
