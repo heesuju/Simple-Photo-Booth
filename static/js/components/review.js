@@ -53,17 +53,7 @@ window.eventBus.on('app:init', (appState) => {
         draggedItem = null;
 
         if (dragEndIndex !== dragStartIndex) {
-            const [reorderedPhoto] = appState.capturedPhotos.splice(dragStartIndex, 1);
-            appState.capturedPhotos.splice(dragEndIndex, 0, reorderedPhoto);
-
-            const [reorderedVideo] = appState.capturedVideos.splice(dragStartIndex, 1);
-            appState.capturedVideos.splice(dragEndIndex, 0, reorderedVideo);
-
-            const [reorderedOriginalPhoto] = appState.originalPhotos.splice(dragStartIndex, 1);
-            appState.originalPhotos.splice(dragEndIndex, 0, reorderedOriginalPhoto);
-
-            appState.photoAssignments = [...appState.capturedPhotos];
-            appState.videoAssignments = [...appState.capturedVideos];
+            reorderPhotoData(dragStartIndex, dragEndIndex);
 
             renderReviewThumbnails();
             renderPreview();
@@ -116,6 +106,75 @@ window.eventBus.on('app:init', (appState) => {
         reviewToolbar,
         clearSelections,
         renderPhotoAssignments
+    });
+
+    // Global Action Buttons
+    const actionStylizeBtn = document.getElementById('action-stylize-btn');
+    const actionCropBtn = document.getElementById('action-crop-btn');
+    const actionRemoveBgBtn = document.getElementById('action-remove-bg-btn');
+
+    actionStylizeBtn.addEventListener('click', () => {
+        if (appState.selectedForRetake.length > 0) {
+            const pIdx = appState.selectedForRetake[0];
+            reviewStyles.handleStylizeButtonClick(pIdx);
+        }
+    });
+
+    actionRemoveBgBtn.addEventListener('click', () => {
+        if (appState.selectedForRetake.length > 0) {
+            const pIdx = appState.selectedForRetake[0];
+            reviewBackgrounds.showBackgroundPanel(pIdx);
+        }
+    });
+
+    actionCropBtn.addEventListener('click', () => {
+        if (appState.selectedForRetake.length > 0) {
+            const i = appState.selectedForRetake[0];
+            const templateHole = appState.templateInfo.holes[i];
+            // Safe check if holes mapping aligns with captured photos (usually yes)
+            if (!templateHole) return;
+
+            const targetAspectRatio = templateHole.w / templateHole.h;
+
+            let imageToCrop;
+            let currentCropData;
+            let cacheKey;
+
+            if (appState.isStylized[i]) {
+                cacheKey = `${i}-${appState.selectedStylePrompt || ''}`;
+                imageToCrop = appState.stylizedImagesCache[cacheKey] || appState.originalPhotos[i];
+                currentCropData = appState.stylizedCropData[i];
+            } else {
+                imageToCrop = appState.originalPhotos[i];
+                currentCropData = appState.cropData[i];
+            }
+
+            // Invalidate background removal cache
+            if (appState.rawBgRemovedBlobs && appState.rawBgRemovedBlobs[i]) {
+                delete appState.rawBgRemovedBlobs[i];
+            }
+
+            appState.cropper.show(imageToCrop, targetAspectRatio, currentCropData).then(result => {
+                if (result) {
+                    const oldBlob = appState.capturedPhotos[i];
+                    appState.capturedPhotos[i] = result.croppedBlob;
+
+                    if (appState.isStylized[i]) {
+                        appState.stylizedCropData[i] = result.cropData;
+                    } else {
+                        appState.cropData[i] = result.cropData;
+                    }
+
+                    const assignmentIndex = appState.photoAssignments.indexOf(oldBlob);
+                    if (assignmentIndex !== -1) {
+                        appState.photoAssignments[assignmentIndex] = result.croppedBlob;
+                    }
+
+                    renderReviewThumbnails();
+                    renderPreview();
+                }
+            });
+        }
     });
 
     // --- Sidebar Resize Logic ---
@@ -693,92 +752,135 @@ window.eventBus.on('app:init', (appState) => {
             t.addEventListener('click', (e) => handlePhotoSelection(i, e.currentTarget));
             content.appendChild(t);
 
-            const actions = document.createElement('div');
-            actions.className = 'strip-item-actions';
+            const reorderBtns = document.createElement('div');
+            reorderBtns.className = 'reorder-btns';
 
-            const stylizeButton = document.createElement('button');
-            stylizeButton.textContent = '🪄';
-            stylizeButton.title = 'Stylize Photo';
-            stylizeButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                reviewStyles.handleStylizeButtonClick(i);
-            });
-
-            const cropButton = document.createElement('button');
-            cropButton.textContent = '✂️';
-            cropButton.title = 'Crop Photo';
-            cropButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const templateHole = appState.templateInfo.holes[i];
-                const targetAspectRatio = templateHole.w / templateHole.h;
-
-                let imageToCrop;
-                let currentCropData;
-                let cacheKey;
-
-                if (appState.isStylized[i]) {
-                    // If stylized, use the uncropped stylized image from cache
-                    cacheKey = `${i}-${appState.selectedStylePrompt || ''}`;
-                    imageToCrop = appState.stylizedImagesCache[cacheKey] || appState.originalPhotos[i];
-                    currentCropData = appState.stylizedCropData[i];
-                } else {
-                    // If original, use the original photo
-                    imageToCrop = appState.originalPhotos[i];
-                    currentCropData = appState.cropData[i];
-                }
-
-                // Invalidate background removal cache since image content (potentially) changes
-                // Although crop technically runs on original, if we recrop, the displayed blob changes.
-                if (appState.rawBgRemovedBlobs && appState.rawBgRemovedBlobs[i]) {
-                    delete appState.rawBgRemovedBlobs[i];
-                    // Also clear color assignment? Maybe safe to keep color but re-apply removal on next render
-                }
-
-                appState.cropper.show(imageToCrop, targetAspectRatio, currentCropData).then(result => {
-                    if (result) {
-                        const oldBlob = appState.capturedPhotos[i];
-                        appState.capturedPhotos[i] = result.croppedBlob;
-
-                        if (appState.isStylized[i]) {
-                            appState.stylizedCropData[i] = result.cropData;
-                        } else {
-                            appState.cropData[i] = result.cropData;
-                        }
-
-                        const assignmentIndex = appState.photoAssignments.indexOf(oldBlob);
-                        if (assignmentIndex !== -1) {
-                            appState.photoAssignments[assignmentIndex] = result.croppedBlob;
-                        }
-
-                        renderReviewThumbnails();
-                        renderPreview();
-                    }
+            const upBtn = document.createElement('button');
+            upBtn.innerHTML = '&#9650;'; // Up Arrow
+            upBtn.className = 'reorder-btn up';
+            upBtn.title = 'Move Up/Left';
+            if (i === 0) {
+                upBtn.disabled = true;
+            } else {
+                upBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    movePhoto(i, -1);
                 });
-            });
-
-            actions.appendChild(stylizeButton);
-
-            const removeBgButton = document.createElement('button');
-            removeBgButton.textContent = '🪄';
-            removeBgButton.title = 'Remove/Color Background';
-            removeBgButton.style.fontSize = '1.2rem'; // Match look
-            if (appState.backgroundColors && appState.backgroundColors[i]) {
-                removeBgButton.style.border = '2px solid ' + (appState.backgroundColors[i] || 'transparent');
             }
-            removeBgButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                reviewBackgrounds.showBackgroundPanel(i);
-            });
-            actions.appendChild(removeBgButton);
+            reorderBtns.appendChild(upBtn);
 
-            actions.appendChild(cropButton);
+            const downBtn = document.createElement('button');
+            downBtn.innerHTML = '&#9660;'; // Down Arrow
+            downBtn.className = 'reorder-btn down';
+            downBtn.title = 'Move Down/Right';
+            if (i === appState.capturedPhotos.length - 1) {
+                downBtn.disabled = true;
+            } else {
+                downBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    movePhoto(i, 1);
+                });
+            }
+            reorderBtns.appendChild(downBtn);
 
             itemContainer.appendChild(content);
-            itemContainer.appendChild(actions);
+            itemContainer.appendChild(reorderBtns);
 
             c.appendChild(itemContainer);
         });
     }
+
+    function movePhoto(index, direction) {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= appState.capturedPhotos.length) return;
+
+        reorderPhotoData(index, targetIndex);
+
+        renderReviewThumbnails();
+        renderPreview();
+        updateAddFinalizeButtons();
+        updatePreviewHighlights();
+    }
+
+    function reorderPhotoData(fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+
+        const moveInArray = (arr) => {
+            if (!arr) return;
+            const [item] = arr.splice(fromIndex, 1);
+            arr.splice(toIndex, 0, item);
+        };
+
+        moveInArray(appState.capturedPhotos);
+        moveInArray(appState.originalPhotos);
+        moveInArray(appState.capturedVideos);
+        moveInArray(appState.cropData);
+        moveInArray(appState.isStylized);
+        moveInArray(appState.backgroundColors);
+        moveInArray(appState.isBgReplaced);
+        moveInArray(appState.bgRemovalEnabled);
+        moveInArray(appState.bgRemovalThresholds);
+        moveInArray(appState.bgRemovalBgThresholds);
+        moveInArray(appState.bgRemovalErodeSizes);
+
+        // Helper to reorder object maps keyed by index
+        const reorderMap = (obj) => {
+            if (!obj) return {};
+            const keys = Object.keys(obj).map(Number).sort((a, b) => a - b);
+            const maxIdx = appState.capturedPhotos.length; // Current length is correct
+            const newObj = {};
+
+            // Naive approach: Build full array representation
+            const arr = new Array(maxIdx).fill(undefined);
+            Object.entries(obj).forEach(([k, v]) => {
+                arr[parseInt(k)] = v;
+            });
+
+            const [item] = arr.splice(fromIndex, 1);
+            arr.splice(toIndex, 0, item);
+
+            arr.forEach((val, i) => {
+                if (val !== undefined) newObj[i] = val;
+            });
+            return newObj;
+        };
+
+        if (appState.stylizedCropData) appState.stylizedCropData = reorderMap(appState.stylizedCropData);
+        if (appState.rawBgRemovedBlobs) appState.rawBgRemovedBlobs = reorderMap(appState.rawBgRemovedBlobs);
+
+        // Reset Assignments to sequential order
+        appState.photoAssignments = [...appState.capturedPhotos];
+        appState.videoAssignments = [...appState.capturedVideos];
+
+        // Update Selection Indices
+        const updateIndex = (idx) => {
+            if (idx === fromIndex) return toIndex;
+            if (fromIndex < toIndex) {
+                // Moving Down (e.g. 0 -> 2): Items 1, 2 shift to 0, 1 (-1)
+                if (idx > fromIndex && idx <= toIndex) return idx - 1;
+            } else {
+                // Moving Up (e.g. 2 -> 0): Items 0, 1 shift to 1, 2 (+1)
+                if (idx >= toIndex && idx < fromIndex) return idx + 1;
+            }
+            return idx;
+        };
+
+        if (appState.selectedForRetake) {
+            appState.selectedForRetake = appState.selectedForRetake.map(updateIndex);
+        }
+        if (appState.selectedForStylizing) {
+            appState.selectedForStylizing = appState.selectedForStylizing.map(updateIndex);
+        }
+
+        // Handle selectedHole if needed? 
+        // selectedHole tracks index of hole. Hole index order doesn't change implicitly, but assignment changes.
+        // We reset assignments to sequential. So the hole at index X now has the new photo at index X.
+        // If I was targeting a "Photo", that photo moved to Y.
+        // Usually selectedHole highlights the hole, not the photo.
+        // So selectedHole logic stays valid (it selects the slot).
+    }
+
+
 
 
     async function loadSimilarTemplates() {
@@ -1045,14 +1147,31 @@ window.eventBus.on('app:init', (appState) => {
 
     function updateAddFinalizeButtons() {
         // Priority 1: Retake Selection
-        const hasSelection = appState.selectedForRetake.length > 0;
+        const count = appState.selectedForRetake.length;
+        const hasSelection = count > 0;
+
         if (hasSelection) {
-            retakeBtn.style.display = 'block';
+            retakeBtn.style.display = 'block'; // Back to block or flex if purely centering? 'block' with toolbar-btn styles works if it's flex internally. Actually 'toolbar-btn' is flex. So 'flex' or 'block' works if overridden by class? 
+            /* toolbar-btn is display: flex.
+               inline style display: block might break centering if not careful.
+               Let's set it to '' (empty) to let class take over? Or 'flex'.
+               Previous code used 'block' then 'flex'.
+               Let's use 'flex' to be safe with SVG centering.
+            */
+            retakeBtn.style.display = 'flex';
+
+            actionStylizeBtn.style.display = 'block';
+            actionCropBtn.style.display = 'block';
+            actionRemoveBgBtn.style.display = 'block';
+
             genericAddBtn.style.display = 'none';
             return;
         }
 
         retakeBtn.style.display = 'none';
+        actionStylizeBtn.style.display = 'none';
+        actionCropBtn.style.display = 'none';
+        actionRemoveBgBtn.style.display = 'none';
 
         // Priority 2: Open Panel Context
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));

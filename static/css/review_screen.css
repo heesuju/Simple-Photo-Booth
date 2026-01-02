@@ -130,10 +130,6 @@
 /* Nav Buttons Styles */
 .toolbar-btn {
     background-color: transparent;
-    /* Cleaner look for tabs */
-    width: 100%;
-    height: 60px;
-    /* Square-ish */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -144,6 +140,28 @@
     transition: background-color 0.2s;
     border-radius: 0;
     margin: 0;
+    position: relative;
+    /* Anchor for badge */
+}
+
+/* Specific sizing for Nav Rail buttons */
+#review-navigation .toolbar-btn {
+    width: 100%;
+    height: 60px;
+}
+
+/* Specific sizing for Action buttons */
+#review-actions-container .toolbar-btn {
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border-color);
+    background-color: var(--button-bg);
+    border-radius: 8px;
+    /* Give them some shape */
+}
+
+#review-actions-container .toolbar-btn:hover {
+    background-color: var(--button-hover-bg);
 }
 
 .toolbar-btn svg {
@@ -210,6 +228,47 @@
     display: none;
 }
 
+/* Reorder Buttons (Desktop default) */
+.reorder-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 8px;
+    opacity: 1;
+    /* Always visible */
+}
+
+/* .strip-item:hover .reorder-btns { opacity: 1; }  <-- Removed */
+
+.reorder-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 18px;
+    /* Bigger icon */
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.reorder-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: transparent;
+    border-color: transparent;
+}
+
+.reorder-btn:not(:disabled):hover {
+    color: var(--highlight-color);
+    background: transparent;
+}
+
 @media (max-width: 900px) {
     #review-screen-container {
         flex-direction: column;
@@ -264,8 +323,54 @@
         width: 40px;
         height: 4px;
         background-color: var(--text-color);
-        opacity: 0.3;
         border-radius: 2px;
+        opacity: 0.5;
+    }
+
+    /* Reorder Buttons Mobile: Overlay, always visible */
+    .reorder-btns {
+        opacity: 1;
+        flex-direction: row;
+        margin-left: 0;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        /* Center over item */
+        width: 100%;
+        justify-content: space-between;
+        /* Push to edges */
+        pointer-events: none;
+        /* Pass clicks to image */
+        padding: 0 2px;
+        gap: 0;
+    }
+
+    .strip-item {
+        position: relative;
+    }
+
+    .reorder-btn {
+        pointer-events: auto;
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+        background: transparent;
+        /* No bg as requested */
+        border-radius: 50%;
+        border: none;
+        color: white;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+        /* Contrast against image */
+    }
+
+    /* Rotate Up to Left, Down to Right */
+    .reorder-btn.up {
+        transform: rotate(-90deg);
+    }
+
+    .reorder-btn.down {
+        transform: rotate(-90deg);
     }
 
     /* Nav Rail: Fixed at bottom */
