@@ -19,18 +19,32 @@
 
 #review-sidebar {
     display: flex;
-    flex-direction: column;
-    width: 260px;
-    min-width: 260px;
+    flex-direction: row;
+    /* Content | Nav */
+    width: 300px;
+    /* Increased from 260px to accommodate rail */
+    min-width: 300px;
     background: var(--header-bg);
 }
 
-#review-toolbar {
+/* Main Content (Strip + Actions) */
+#sidebar-content {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    padding: 1rem;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+    /* Contain scrollbars */
+}
+
+/* Nav Rail */
+#review-navigation {
+    display: flex;
+    flex-direction: column;
+    width: 60px;
     background-color: var(--bg-color);
+    border-left: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 #strip-container {
@@ -40,12 +54,15 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 .strip-panel {
     display: none;
     flex-direction: column;
     gap: 1rem;
+    padding: 1rem;
+    /* Move padding here as strip-container lost it */
 }
 
 .strip-panel.show {
@@ -111,30 +128,62 @@
     text-align: right;
 }
 
+/* Nav Buttons Styles */
 .toolbar-btn {
-    background-color: var(--button-bg);
-    flex-grow: 1;
+    background-color: transparent;
+    /* Cleaner look for tabs */
+    width: 100%;
+    height: 60px;
+    /* Square-ish */
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 0.5rem;
-    /* Ensure some padding */
+    padding: 0;
     color: var(--text-color);
-    /* Ensure text color is applied for currentColor */
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-radius: 0;
+    margin: 0;
 }
 
 .toolbar-btn svg {
     width: 24px;
     height: 24px;
     fill: currentColor;
+    opacity: 0.7;
+}
+
+.toolbar-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .toolbar-btn.active {
     background-color: var(--button-hover-bg);
+    /* Or a specific active color */
+    /* border-left: 3px solid var(--highlight-color); Optional accent */
 }
 
-#review-sidebar.strip-active #review-toolbar {
-    display: none;
+.toolbar-btn.active svg {
+    opacity: 1;
+}
+
+#finalize-btn {
+    margin-top: auto;
+}
+
+.primary-action {
+    color: var(--highlight-color);
+    /* Use accent color for checkmark */
+}
+
+.primary-action:hover {
+    background-color: var(--button-hover-bg);
+}
+
+.primary-action svg {
+    fill: var(--highlight-color);
+    opacity: 1;
 }
 
 @media (max-width: 900px) {
@@ -143,31 +192,103 @@
     }
 
     .review-container {
-        height: auto;
+        width: 100%;
+        height: 100%;
+        /* Take full space */
+        padding-bottom: 60px;
+        /* Space for nav rail */
         flex-grow: 1;
     }
 
+    /* Sidebar becomes an overlay container */
     #review-sidebar {
-        flex-direction: column;
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
-        min-width: 0;
+        height: 100%;
+        pointer-events: none;
+        /* Let clicks pass through to preview */
+        z-index: 100;
+        background: transparent;
+        flex-direction: column;
+        border: none;
+    }
+
+    /* Nav Rail: Fixed at bottom */
+    #review-navigation {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 60px;
+        flex-direction: row;
+        pointer-events: auto;
+        /* Re-enable clicks */
         border-left: none;
         border-top: 1px solid var(--border-color);
-        order: 1;
-        /* Place at the bottom */
-        flex-shrink: 0;
-        /* Prevent the sidebar from shrinking */
+        /* justify-content: space-evenly; Removed to remove spacing */
+        background-color: var(--bg-color);
     }
 
-    #review-toolbar {
-        flex-direction: row;
-        padding: 0.5rem;
-        flex-shrink: 0;
+    /* Finalize Button: Fixed Top-Right */
+    #finalize-btn {
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        margin: 0;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: var(--button-bg);
+        border: 2px solid var(--border-color);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        z-index: 200;
+        pointer-events: auto;
     }
 
+    #finalize-btn svg {
+        width: 28px;
+        height: 28px;
+    }
+
+    /* Content (Strip + Actions): Overlay above nav */
+    #sidebar-content {
+        position: absolute;
+        bottom: 60px;
+        /* Above nav rail */
+        left: 0;
+        width: 100%;
+        max-height: 50vh;
+        /* Limit height */
+        background-color: rgba(30, 30, 30, 0.95);
+        /* Semi-transparent bg */
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--border-color);
+        pointer-events: auto;
+        transition: transform 0.3s ease;
+        /* If no content / hidden, it naturally collapses if empty, but we might need explicit handling */
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Ensure scrollability */
     #strip-container {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-direction: row;
+        /* Horizontal strip on mobile? User didn't specify, but typical. */
+        /* User said "strip container can be collapsed". 
+            If I make it row, it works well. 
+            If I keep it column, it's a list. 
+            Let's keep PC structure (column) inside the overlay? 
+            Or switch to row for better phone usage?
+            Previous mobile styles used 'flex-direction: row' for strip-panel.
+            Let's reinstate that for usability.
+         */
         height: auto;
-        min-height: 0;
+        flex-grow: 0;
     }
 
     .strip-panel {
@@ -175,11 +296,40 @@
         overflow-x: auto;
         overflow-y: hidden;
         height: auto;
-        flex-grow: 1;
+        padding: 0.5rem;
+        white-space: nowrap;
+        gap: 10px;
+        width: 100%;
     }
 
+    .strip-item-content {
+        width: 80px;
+        /* Smaller items */
+    }
+
+    .photostrip-item {
+        width: 80px;
+    }
+
+    /* Nav Buttons */
     .toolbar-btn {
-        margin: 0;
+        width: auto;
+        flex-grow: 1;
+        height: 100%;
+        border-bottom: none;
+    }
+
+    /* Action Container */
+    #review-actions-container {
+        padding: 0.5rem;
+        justify-content: center;
+        width: 100%;
+    }
+
+    #zoom-controls {
+        bottom: 75px;
+        /* Above 60px nav rail + spacing */
+        right: 1rem;
     }
 }
 

@@ -4,7 +4,7 @@ window.eventBus.on('app:init', (appState) => {
     const retakeBtn = document.getElementById('retake-btn');
     const filterControls = document.getElementById('filter-controls');
     const stickerUploadInput = document.getElementById('sticker-upload-input');
-    const reviewToolbar = document.getElementById('review-toolbar');
+    const reviewToolbar = document.getElementById('review-navigation');
 
     const reviewThumbnails = document.getElementById('review-thumbnails');
     let draggedItem = null;
@@ -225,7 +225,6 @@ window.eventBus.on('app:init', (appState) => {
         });
         appState.selectedForRetake = [];
         retakeBtn.style.display = 'none';
-        finalizeBtn.style.display = 'block';
     });
 
 
@@ -468,7 +467,6 @@ window.eventBus.on('app:init', (appState) => {
 
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
-            document.getElementById('finalize-btn').style.display = 'block';
             updatePreviewHighlights();
         }
     }
@@ -748,7 +746,6 @@ window.eventBus.on('app:init', (appState) => {
         panelHistory.push('templates');
         stripBackBtn.style.display = 'block';
         genericAddBtn.style.display = 'block';
-        finalizeBtn.style.display = 'none';
 
 
         // --- Color Swatches ---
@@ -950,7 +947,6 @@ window.eventBus.on('app:init', (appState) => {
         const hasSelection = appState.selectedForRetake.length > 0;
         if (hasSelection) {
             retakeBtn.style.display = 'block';
-            finalizeBtn.style.display = 'none';
             genericAddBtn.style.display = 'none';
             return;
         }
@@ -962,7 +958,6 @@ window.eventBus.on('app:init', (appState) => {
 
         if (!currentOpenPanel) {
             genericAddBtn.style.display = 'none';
-            finalizeBtn.style.display = 'block';
             return;
         }
 
@@ -972,10 +967,8 @@ window.eventBus.on('app:init', (appState) => {
 
         if (showAdd) {
             genericAddBtn.style.display = 'block';
-            finalizeBtn.style.display = 'none';
         } else {
             genericAddBtn.style.display = 'none';
-            finalizeBtn.style.display = 'block';
         }
     }
 

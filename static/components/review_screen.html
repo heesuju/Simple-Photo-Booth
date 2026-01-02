@@ -15,91 +15,104 @@
     </div>
 
     <div id="review-sidebar">
-        <div id="strip-container">
-            <div id="review-toolbar">
-                <button class="toolbar-btn" data-panel="photos" aria-label="Photos">
-                    <svg viewBox="0 0 24 24">
-                        <path
-                            d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-                    </svg>
-                </button>
-                <button class="toolbar-btn" data-panel="templates" aria-label="Templates">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" />
-                    </svg>
-                </button>
-                <button class="toolbar-btn" data-panel="stickers" aria-label="Stickers">
-                    <svg viewBox="0 0 24 24">
-                        <path
-                            d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9s.67 1.5 1.5 1.5zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
-                    </svg>
-                </button>
-                <button class="toolbar-btn" data-panel="filters" aria-label="Filters">
-                    <svg viewBox="0 0 24 24">
-                        <path
-                            d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
-                    </svg>
-                </button>
-                <button class="toolbar-btn" data-panel="add-text" aria-label="Text">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M5 4v3h5v12h3V7h5V4H5z" />
-                    </svg>
-                </button>
-            </div>
-            <button id="strip-back-btn" class="strip-back-btn" style="display: none;">&lt;</button>
-            <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
-            <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates"></div>
-            <div id="color-palette-panel" class="strip-panel photo-strip-scroll-box" data-panel="colors"></div>
-            <div id="style-strip-panel" class="strip-panel photo-strip-scroll-box" data-panel="styles"></div>
-            <div id="filter-preset-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters"></div>
-            <div id="sticker-gallery-strip" class="strip-panel photo-strip-scroll-box" data-panel="stickers">
-                <div id="sticker-category-gallery" class="gallery-container"></div>
-                <div id="sticker-gallery" class="gallery-container"></div>
-                <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
-            </div>
-            <div id="font-gallery-strip" class="strip-panel photo-strip-scroll-box" data-panel="add-text">
-                <div id="font-gallery" class="gallery-container"></div>
-            </div>
-            <div id="filter-controls-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters">
-                <div id="filter-controls">
-                    <div class="filter-slider">
-                        <label for="brightness">밝기</label>
-                        <input type="range" id="brightness" data-filter="brightness" min="0" max="200" value="100">
-                    </div>
-                    <div class="filter-slider">
-                        <label for="contrast">대비</label>
-                        <input type="range" id="contrast" data-filter="contrast" min="0" max="200" value="100">
-                    </div>
-                    <div class="filter-slider">
-                        <label for="saturation">채도</label>
-                        <input type="range" id="saturation" data-filter="saturate" min="0" max="200" value="100">
-                    </div>
-                    <div class="filter-slider">
-                        <label for="warmth">따뜻함</label>
-                        <input type="range" id="warmth" data-filter="warmth" min="0" max="200" value="100">
-                    </div>
-                    <div class="filter-slider">
-                        <label for="sharpness">선명도</label>
-                        <input type="range" id="sharpness" data-filter="sharpness" min="0" max="100" value="0">
-                    </div>
-                    <div class="filter-slider">
-                        <label for="blur">블러</label>
-                        <input type="range" id="blur" data-filter="blur" min="0" max="20" value="0">
-                    </div>
-                    <div class="filter-slider">
-                        <label for="grain">그레인</label>
-                        <input type="range" id="grain" data-filter="grain" min="0" max="100" value="0">
-                    </div>
+        <!-- Main Content Column -->
+        <div id="sidebar-content">
+            <!-- Panels Container -->
+            <div id="strip-container">
+                <button id="strip-back-btn" class="strip-back-btn" style="display: none;">&lt;</button>
+                <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
+                <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates">
+                </div>
+                <div id="color-palette-panel" class="strip-panel photo-strip-scroll-box" data-panel="colors"></div>
+                <div id="style-strip-panel" class="strip-panel photo-strip-scroll-box" data-panel="styles"></div>
+                <div id="filter-preset-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters"></div>
+                <div id="sticker-gallery-strip" class="strip-panel photo-strip-scroll-box" data-panel="stickers">
+                    <div id="sticker-category-gallery" class="gallery-container"></div>
+                    <div id="sticker-gallery" class="gallery-container"></div>
+                    <input type="file" id="sticker-upload-input" accept="image/png, image/jpeg" style="display: none;">
+                </div>
+                <div id="font-gallery-strip" class="strip-panel photo-strip-scroll-box" data-panel="add-text">
+                    <div id="font-gallery" class="gallery-container"></div>
+                </div>
+                <div id="filter-controls-strip" class="strip-panel photo-strip-scroll-box" data-panel="filters">
+                    <div id="filter-controls">
+                        <div class="filter-slider">
+                            <label for="brightness">밝기</label>
+                            <input type="range" id="brightness" data-filter="brightness" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="contrast">대비</label>
+                            <input type="range" id="contrast" data-filter="contrast" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="saturation">채도</label>
+                            <input type="range" id="saturation" data-filter="saturate" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="warmth">따뜻함</label>
+                            <input type="range" id="warmth" data-filter="warmth" min="0" max="200" value="100">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="sharpness">선명도</label>
+                            <input type="range" id="sharpness" data-filter="sharpness" min="0" max="100" value="0">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="blur">블러</label>
+                            <input type="range" id="blur" data-filter="blur" min="0" max="20" value="0">
+                        </div>
+                        <div class="filter-slider">
+                            <label for="grain">그레인</label>
+                            <input type="range" id="grain" data-filter="grain" min="0" max="100" value="0">
+                        </div>
 
+                    </div>
                 </div>
             </div>
-        </div>
-        <div id="review-actions-container">
-            <button id="retake-btn" style="display: none;">재촬영</button>
-            <div class="finalize-options">
+
+            <!-- Actions (Bottom of left column) -->
+            <div id="review-actions-container">
+                <button id="retake-btn" style="display: none;">재촬영</button>
                 <button id="generic-add-btn" style="display: none;">추가</button>
-                <button id="finalize-btn">최종 완료</button>
             </div>
+        </div>
+
+        <!-- Navigation Rail -->
+        <div id="review-navigation">
+            <button class="toolbar-btn" data-panel="photos" aria-label="Photos">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+                </svg>
+            </button>
+            <button class="toolbar-btn" data-panel="templates" aria-label="Templates">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" />
+                </svg>
+            </button>
+            <button class="toolbar-btn" data-panel="stickers" aria-label="Stickers">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9s.67 1.5 1.5 1.5zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+                </svg>
+            </button>
+            <button class="toolbar-btn" data-panel="filters" aria-label="Filters">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+                </svg>
+            </button>
+            <button class="toolbar-btn" data-panel="add-text" aria-label="Text">
+                <svg viewBox="0 0 24 24">
+                    <path d="M5 4v3h5v12h3V7h5V4H5z" />
+                </svg>
+            </button>
+
+            <!-- Finalize Button (Bottom) -->
+            <button id="finalize-btn" class="toolbar-btn primary-action" aria-label="Finalize">
+                <svg viewBox="0 0 24 24">
+                    <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+                </svg>
+            </button>
         </div>
     </div>
 
