@@ -14,12 +14,6 @@
     /* main spacing handled by inner elements */
 }
 
-/* If you are using both #app-content and .main-content, ensure the inner main-content
-   has padding as needed. */
-.main-content {
-    padding: 1rem;
-}
-
 /* === PHOTO BOOTH: Fills available space === */
 #photo-booth {
     position: relative;
@@ -30,7 +24,6 @@
     justify-content: center;
     background: var(--bg-dark);
     overflow: hidden;
-    border-radius: 8px;
 }
 
 /* === Video & Canvas maintain aspect ratio and fill height === */
@@ -133,6 +126,7 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    margin: 1rem;
     flex-shrink: 0;
     padding: 0 1rem;
     box-sizing: border-box;
@@ -306,12 +300,8 @@
     }
 
     /* main content full width; sidebar below */
-    .main-content,
-    #app-content {
-        padding: 0.75rem;
-    }
-
     .sidebar {
+        order: -1;
         width: 100%;
         min-width: 0;
         max-width: 100%;
