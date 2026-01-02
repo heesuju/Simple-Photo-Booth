@@ -102,11 +102,8 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         const toggleInput = document.createElement('input');
         toggleInput.type = 'checkbox';
         toggleInput.id = 'bg-replace-toggle';
-        toggleInput.checked = !!appState.isBgReplaced[photoIndex]; // Use state
-        // If color is set, assume toggle is on? Or explicit state?
-        // Let's rely on explicit state, but sync if color implies it.
-        // Actually, "Toggle" might just mean "Show Colors". 
-        // If toggle ON, we use selected color. If OFF, we use Transparent.
+        toggleInput.checked = !!appState.isBgReplaced[photoIndex];
+
 
         const toggleLabel = document.createElement('label');
         toggleLabel.htmlFor = 'bg-replace-toggle';
@@ -128,82 +125,25 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         toggleInput.addEventListener('change', (e) => {
             appState.isBgReplaced[photoIndex] = e.target.checked;
             paletteContainer.style.display = e.target.checked ? 'flex' : 'none';
-            // Wait, if we toggle ON, we should probably select a default color if none is selected?
-            // If OFF, we effectively treat color as "transparent" or null
             applyBackgroundsToPreview();
         });
 
-        // Add "Transparent/Reset" (Original) option logic?
-        // Actually, if we just want "Original Photo" (No BG removal at all), that's different.
-        // But tool is "Remove Background".
-        // Let's assume opening the tool enables BG removal (transparent).
-        // If I want to revert to original photo logic, maybe a "Reset" button?
-        // User asked for "Remove Background" option for a photo.
-        // If they assume "None" restored original, we should keep that behavior.
-        // But if palette is hidden, how do they select "None"?
-        // Maybe "Toggle OFF" means "Use Transparent BG".
-        // Where is "Don't Remove Background"?
-        // Let's parse user request: "remove background option... slider... color palettes shown only when replace toggled"
-        // This suggests: 
-        // 1. Tool always removes background (using threshold). 
-        // 2. Toggle controls *Replacement* (filling with color).
-        // 3. What stops removal? Maybe a "Restore Original" button at the top?
-
-        // Let's add "Restore Original" button separately.
-        const restoreBtn = document.createElement('button');
-        restoreBtn.textContent = '원본 복구';
-        restoreBtn.style.padding = '5px 10px';
-        restoreBtn.style.marginBottom = '10px';
-        restoreBtn.onclick = () => {
-            // Disable removal for this photo?
-            // We can signal this by setting threshold to -1? Or just a separate state?
-            // Or we just clear `rawBgRemovedBlobs` and set a flag.
-            // But simpler: just set color to null and maybe we need an explicit "isBgRemoved" flag per photo.
-            // We don't have that yet, relying on color presence or tool usage.
-            // If we want "Original", we should probably clear the `appState.rawBgRemovedBlobs` cache usage for this index.
-            // But `applyBackgroundsToPreview` checks `rawBgRemovedBlobs`.
-            // We need a way to say "Do not apply".
-            // Let's assume `appState.bgRemovalActive[i]`?
-            // For now, let's keep it simple: Start removal on slider move or toggle?
-            // Or manual "Remove" button?
-            // User said "appear when clicking remove background option".
-            // So entering this panel implies removal.
-        };
-        // backgroundPanel.appendChild(restoreBtn); 
-        // Actually, let's assume if threshold is 0 and toggle is off, it's just removed transparently.
-        // If they want original, maybe they click "Original" in palette if visible?
-        // But palette is hidden.
-        // Let's add a "None" swatch equivalent or "Original" button inside palette?
-        // If toggle is "Replace Color", implies "Fill". 
-        // Let's just enforce: Tool Open = Removed BG (Transparent). Toggle + Color = Colored.
-
-        // How to revert to fully original? 
-        // Maybe the "Threshold" slider could have an "Off" state?
-        // Or we assume they use "Undo" or we provide a clear "Revert" button.
-        // Let's add a "Restore Original" button at the very top.
+        // "Restore Original" button
         const revertBtn = document.createElement('button');
         revertBtn.className = 'style-strip-item'; // repurpose style
         revertBtn.style.width = '100%';
         revertBtn.style.textAlign = 'center';
         revertBtn.textContent = '원본 사진 사용 (배경 제거 취소)';
         revertBtn.onclick = () => {
-            // We need to implement a way to "turn off" bg removal.
-            // Currently `applyBackgroundsToPreview` uses `rawBgRemovedBlobs`.
-            // If we delete the blob from cache, it tries to fetch it again?
-            // We need an explicit `appState.bgRemovalEnabled` array.
             appState.bgRemovalEnabled = appState.bgRemovalEnabled || [];
             appState.bgRemovalEnabled[photoIndex] = false;
             applyBackgroundsToPreview();
-            // Also update UI?
             stripBackBtn.click(); // Close panel?
         };
         backgroundPanel.appendChild(revertBtn);
 
         // Ensure enabled when interacting
         if (!appState.bgRemovalEnabled) appState.bgRemovalEnabled = [];
-        // If we are showing the panel, maybe we shouldn't auto-enable until they touch something?
-        // OR if they clicked the wand, they probably want to edit.
-        // Let's auto-enable if not already enabled.
         if (!appState.bgRemovalEnabled[photoIndex]) {
             appState.bgRemovalEnabled[photoIndex] = true;
             fetchAndApplyBackgroundRemoval(photoIndex);
@@ -214,7 +154,7 @@ window.initReviewBackgrounds = (appState, callbacks) => {
             const r = await fetch('/colors');
             const colors = await r.json();
 
-            // "Transparent" option (Clear color)?
+            // "Transparent" option (Clear color)
             const clearOption = document.createElement('div');
             clearOption.className = 'palette-swatch';
             clearOption.style.backgroundColor = '#ddd';
@@ -330,11 +270,6 @@ window.initReviewBackgrounds = (appState, callbacks) => {
 
             const img = wrapper.querySelector('.preview-photo-img');
 
-            // Logic:
-            // 1. If bgRemovalEnabled[pIdx] is false (or undefined), use original.
-            // 2. If enabled, use rawBgRemovedBlobs[currentKey].
-            // 3. If isBgReplaced[pIdx] is true AND backgroundColors[pIdx] is set, use color.
-
             const isEnabled = appState.bgRemovalEnabled && appState.bgRemovalEnabled[pIdx];
 
             if (isEnabled) {
@@ -352,8 +287,7 @@ window.initReviewBackgrounds = (appState, callbacks) => {
                         wrapper.style.backgroundColor = 'transparent';
                     }
                 } else {
-                    // Fallback if processing or not ready? 
-                    // Keep original or loading? (Ideally loading, but original for now)
+                    // Fallback (e.g., if processing)
                 }
             } else {
                 // Restore Original

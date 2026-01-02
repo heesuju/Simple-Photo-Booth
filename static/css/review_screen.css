@@ -250,25 +250,19 @@
     border: 2px solid transparent;
     cursor: pointer;
     transition: background-color 0.2s, border-color 0.2s;
-    pointer-events: none;
-    /* Disabled by default */
+    pointer-events: auto;
     margin: 0;
     padding: 0;
 }
 
-#review-toolbar:has(.toolbar-btn[data-panel="photos"].active)~.review-main-content .preview-photo-button {
-    pointer-events: auto;
-    /* Enabled only when photos tab is active */
-}
-
 .preview-photo-button:hover {
-    background-color: var(--button-hover-bg);
+    background-color: rgba(255, 255, 255, 0.2);
     border-color: transparent;
 }
 
 .preview-photo-button.selected {
-    background-color: var(--button-hover-bg);
-    border-color: transparent;
+    background-color: transparent;
+    border: 4px solid var(--button-bg);
 }
 
 .preview-photo-wrapper.loading .preview-photo-button::after {

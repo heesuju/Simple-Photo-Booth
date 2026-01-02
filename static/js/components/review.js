@@ -406,8 +406,8 @@ window.eventBus.on('app:init', (appState) => {
 
             updateAddFinalizeButtons();
 
-            // Clear stylizing selection when fully closing panels
-            appState.selectedForStylizing = [];
+            // Clear stylizing selection when fully closing panels, BUT keep processing ones
+            appState.selectedForStylizing = appState.selectedForStylizing.filter(pIdx => appState.loadingPhotos.has(pIdx));
             updatePreviewHighlights();
         }
     });
@@ -418,7 +418,10 @@ window.eventBus.on('app:init', (appState) => {
     reviewScreenContainer.addEventListener('click', (e) => {
         const sidebar = document.getElementById('review-sidebar');
         if (sidebar.classList.contains('strip-active')) {
-            if (!sidebar.contains(e.target) && !e.target.closest('.modal-content') && !e.target.closest('.modal-dialog')) {
+            if (!sidebar.contains(e.target) &&
+                !e.target.closest('.modal-content') &&
+                !e.target.closest('.modal-dialog') &&
+                !e.target.classList.contains('preview-photo-button')) {
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
                 sidebar.classList.remove('strip-active');
                 const currentActiveBtn = reviewToolbar.querySelector('.active');
@@ -427,9 +430,7 @@ window.eventBus.on('app:init', (appState) => {
                 }
                 stripBackBtn.style.display = 'none';
                 panelHistory = [];
-                // Clear stylizing selections
-                appState.selectedForStylizing = [];
-                updatePreviewHighlights();
+                clearSelections();
                 updateAddFinalizeButtons();
             }
         }
@@ -442,8 +443,8 @@ window.eventBus.on('app:init', (appState) => {
         }
         appState.selectedHole = { element: null, index: -1 };
 
-        // Clear stylizing selections
-        appState.selectedForStylizing = [];
+        // Clear stylizing selections, preserving processing ones
+        appState.selectedForStylizing = appState.selectedForStylizing.filter(pIdx => appState.loadingPhotos.has(pIdx));
         updatePreviewHighlights();
 
         // Clear disabled thumbnail
@@ -456,12 +457,19 @@ window.eventBus.on('app:init', (appState) => {
         // Clear photos selected for retake
         if (appState.selectedForRetake.length > 0) {
             appState.selectedForRetake.forEach(pIdx => {
-                const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumb) thumb.classList.remove('selected');
+                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumbContainer) {
+                    const img = thumbContainer.querySelector('.photostrip-item');
+                    if (img) img.classList.remove('selected');
+                }
             });
+            // Also clear all preview button highlights
+            document.querySelectorAll('.preview-photo-button.selected').forEach(btn => btn.classList.remove('selected'));
+
             appState.selectedForRetake = [];
             retakeBtn.style.display = 'none';
             document.getElementById('finalize-btn').style.display = 'block';
+            updatePreviewHighlights();
         }
     }
 
@@ -898,56 +906,32 @@ window.eventBus.on('app:init', (appState) => {
 
 
     function handleHoleSelection(el, hIdx) {
+        // UX: Auto-open 'Photos' panel so user can see list
+        const photoBtn = reviewToolbar.querySelector('[data-panel="photos"]');
+        if (photoBtn && !photoBtn.classList.contains('active')) {
+            photoBtn.click();
+        }
+
+        // Identify the photo assigned to this hole
+        const photoInHole = appState.photoAssignments[hIdx];
+        const pIdx = appState.capturedPhotos.indexOf(photoInHole);
+
+        if (pIdx === -1) return;
+
+        // Sync logic: Select this photo for retake
+        // If we want to mimic "clicking the strip item":
         const thumbnailsContainer = document.getElementById('review-thumbnails');
-
-        // Clear previously disabled thumbnail
-        if (appState.disabledThumbnailIndex !== -1) {
-            const oldThumb = thumbnailsContainer.children[appState.disabledThumbnailIndex];
-            if (oldThumb) oldThumb.classList.remove('disabled');
-            appState.disabledThumbnailIndex = -1;
-        }
-
-        // Clear any photos selected for retake
-        if (appState.selectedForRetake.length > 0) {
-            appState.selectedForRetake.forEach(pIdx => {
-                const thumb = thumbnailsContainer.children[pIdx];
-                if (thumb) thumb.classList.remove('selected');
-            });
-            appState.selectedForRetake = [];
-            retakeBtn.style.display = 'none';
-            document.getElementById('finalize-btn').style.display = 'block';
-        }
-
-        // Handle hole selection
-        if (appState.selectedHole.element) {
-            appState.selectedHole.element.classList.remove('selected');
-        }
-
-        if (appState.selectedHole.index === hIdx) {
-            appState.selectedHole = { element: null, index: -1 };
-        } else {
-            el.classList.add('selected');
-            appState.selectedHole = { element: el, index: hIdx };
-
-            // Disable the corresponding thumbnail
-            const photoInHole = appState.photoAssignments[hIdx];
-            const thumbIndex = appState.capturedPhotos.indexOf(photoInHole);
-            if (thumbIndex !== -1) {
-                const thumbToDisable = thumbnailsContainer.children[thumbIndex];
-                if (thumbToDisable) thumbToDisable.classList.add('disabled');
-                appState.disabledThumbnailIndex = thumbIndex;
+        const thumb = thumbnailsContainer.children[pIdx];
+        if (thumb) {
+            const thumbImg = thumb.querySelector('.photostrip-item');
+            if (thumbImg) {
+                handlePhotoSelection(pIdx, thumbImg);
             }
         }
     }
 
     function handlePhotoSelection(pIdx, el) {
-        // If a hole is selected, perform the swap.
-        if (appState.selectedHole.index !== -1) {
-            handleSwap(appState.selectedHole.index, pIdx);
-            return;
-        }
-
-        // If no hole is selected, handle multi-selection for retake.
+        // Toggle selection for retake
         const selectedIndex = appState.selectedForRetake.indexOf(pIdx);
         if (selectedIndex > -1) {
             appState.selectedForRetake.splice(selectedIndex, 1);
@@ -956,7 +940,6 @@ window.eventBus.on('app:init', (appState) => {
             appState.selectedForRetake.push(pIdx);
             el.classList.add('selected');
         }
-
 
         updateAddFinalizeButtons();
         updatePreviewHighlights();
