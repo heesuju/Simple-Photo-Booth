@@ -114,6 +114,19 @@
 .toolbar-btn {
     background-color: var(--button-bg);
     flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem;
+    /* Ensure some padding */
+    color: var(--text-color);
+    /* Ensure text color is applied for currentColor */
+}
+
+.toolbar-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
 }
 
 .toolbar-btn.active {
