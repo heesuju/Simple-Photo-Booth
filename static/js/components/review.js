@@ -485,7 +485,7 @@ window.eventBus.on('app:init', (appState) => {
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
                 sidebar.classList.remove('strip-active');
                 clearSelections();
-                stripBackBtn.style.display = 'none';
+                // stripBackBtn.style.display = 'none'; // Removed as button is hidden
                 panelHistory = [];
                 updateAddFinalizeButtons();
                 return;
@@ -513,7 +513,7 @@ window.eventBus.on('app:init', (appState) => {
             if (targetStrip) {
                 targetStrip.classList.add('show');
                 sidebar.classList.add('strip-active');
-                stripBackBtn.style.display = 'block';
+                // stripBackBtn.style.display = 'block'; // Removed as button is hidden
             }
 
             if (panelType === 'filters') {
@@ -524,52 +524,8 @@ window.eventBus.on('app:init', (appState) => {
         }
     });
 
-    stripBackBtn.addEventListener('click', () => {
-        const stickerGallery = document.getElementById('sticker-gallery');
-        const categoryGallery = document.getElementById('sticker-category-gallery');
+    // stripBackBtn listener removed as button is hidden
 
-        if (stickerGallery.style.display === 'flex') {
-            reviewDecorations.loadStickerGallery();
-            return;
-        }
-
-        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
-        if (currentOpenPanel) {
-            // If we are leaving the style panel or background panel, clear the specific selection for it
-            if (currentOpenPanel.id === 'style-strip-panel' || currentOpenPanel.id === 'background-color-panel') {
-                appState.selectedForStylizing = [];
-                updatePreviewHighlights();
-            }
-            currentOpenPanel.classList.remove('show');
-        }
-
-        const lastPanelType = panelHistory.pop();
-        if (lastPanelType) {
-            const targetStrip = stripContainer.querySelector(`.strip-panel[data-panel="${lastPanelType}"]`);
-            if (targetStrip) {
-                targetStrip.classList.add('show');
-                const correspondingButton = reviewToolbar.querySelector(`[data-panel=${lastPanelType}]`);
-                if (correspondingButton) {
-                    reviewToolbar.querySelector('.active').classList.remove('active');
-                    correspondingButton.classList.add('active');
-                }
-            }
-            updateAddFinalizeButtons();
-        } else {
-            stripBackBtn.style.display = 'none';
-            document.getElementById('review-sidebar').classList.remove('strip-active');
-            const currentActiveBtn = reviewToolbar.querySelector('.active');
-            if (currentActiveBtn) {
-                currentActiveBtn.classList.remove('active');
-            }
-
-            updateAddFinalizeButtons();
-
-            // Clear stylizing selection when fully closing panels, BUT keep processing ones
-            appState.selectedForStylizing = appState.selectedForStylizing.filter(pIdx => appState.loadingPhotos.has(pIdx));
-            updatePreviewHighlights();
-        }
-    });
 
 
 
@@ -587,7 +543,7 @@ window.eventBus.on('app:init', (appState) => {
                 if (currentActiveBtn) {
                     currentActiveBtn.classList.remove('active');
                 }
-                stripBackBtn.style.display = 'none';
+                // stripBackBtn.style.display = 'none'; // Removed as button is hidden
                 panelHistory = [];
                 clearSelections();
                 updateAddFinalizeButtons();
