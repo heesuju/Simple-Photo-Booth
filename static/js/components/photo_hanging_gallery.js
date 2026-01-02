@@ -61,8 +61,17 @@
 
     async function renderGalleryPage(direction) {
         if (isTransitioning) return;
+
+        // Lock immediately to prevent double-swipes/scrolls
+        if (direction) {
+            isTransitioning = true;
+        }
+
         const galleryContainer = document.getElementById('photo-gallery');
-        if (!galleryContainer) return;
+        if (!galleryContainer) {
+            if (direction) isTransitioning = false;
+            return;
+        }
         const parent = galleryContainer.parentElement;
 
         // Calculate available width
@@ -81,6 +90,7 @@
             if (pageHistory.length > 0) {
                 currentIndex = pageHistory.pop();
             } else {
+                if (direction) isTransitioning = false;
                 return; // Can't go back
             }
         } else if (direction === 'next') {
@@ -88,6 +98,7 @@
                 pageHistory.push(currentIndex);
                 currentIndex += currentRenderCount;
             } else {
+                if (direction) isTransitioning = false;
                 return; // End of list
             }
         }
@@ -104,7 +115,8 @@
             const itemCost = renderWidth + gap; // Width + Gap
 
             // Check if it fits (always allow at least 1 item even if bigger than screen)
-            if (itemsToRender.length === 0 || (usedWidth + itemCost) < availableWidth) {
+            // AND limit to max 6 photos
+            if ((itemsToRender.length === 0 || (usedWidth + itemCost) < availableWidth) && itemsToRender.length < 6) {
                 itemsToRender.push(item);
                 usedWidth += itemCost;
             } else {
@@ -114,11 +126,15 @@
         }
 
         currentRenderCount = itemsToRender.length;
-        if (currentRenderCount === 0) return; // Should not happen given logic above
+        if (currentRenderCount === 0) {
+            // Should not happen given logic above, unless list empty?
+            if (direction) isTransitioning = false;
+            return;
+        }
 
         // --- TRANSITION LOGIC ---
         if (direction) {
-            isTransitioning = true;
+            // isTransitioning was set at start
             isLoopRunning = false;
 
             const outgoingContainer = galleryContainer.cloneNode(true);
