@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '/static/js/components/review_styles.js',
             '/static/js/components/review_filters.js',
             '/static/js/components/review_backgrounds.js',
+            '/static/js/components/review_decorations.js',
             '/static/js/components/review.js',
             '/static/js/components/result.js',
             '/static/js/components/template_edit.js',
