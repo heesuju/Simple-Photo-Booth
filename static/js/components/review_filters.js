@@ -9,7 +9,7 @@ window.initReviewFilters = (appState, callbacks) => {
     const addPresetConfirmBtn = document.getElementById('add-preset-confirm-btn');
     const addPresetCancelBtn = document.getElementById('add-preset-cancel-btn');
     const addFilterPresetModal = document.getElementById('add-filter-preset-modal');
-    const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
+    // const removeBgCheckbox = document.getElementById('remove-bg-checkbox'); // Removed
     const filterPresetStrip = document.getElementById('filter-preset-strip');
 
     // Attach Event Listeners
@@ -46,12 +46,7 @@ window.initReviewFilters = (appState, callbacks) => {
         });
     }
 
-    if (removeBgCheckbox) {
-        removeBgCheckbox.addEventListener('change', (e) => {
-            appState.removeBackground = e.target.checked;
-            applyBackgroundRemovalPreview();
-        });
-    }
+
 
     // --- Core Functions ---
 
@@ -231,49 +226,13 @@ window.initReviewFilters = (appState, callbacks) => {
         });
     }
 
-    async function applyBackgroundRemovalPreview() {
-        const photoWrappers = document.querySelectorAll('.preview-photo-wrapper');
-        const updatePromises = Array.from(photoWrappers).map(async (wrapper, index) => {
-            const imgElement = wrapper.querySelector('.preview-photo-img');
-            const originalPhotoBlob = appState.photoAssignments[index];
-            const originalPhotoIndex = appState.capturedPhotos.indexOf(originalPhotoBlob);
 
-            if (appState.removeBackground) {
-                imgElement.style.opacity = '0.5';
-                if (appState.bgRemovedPhotos[originalPhotoIndex]) {
-                    imgElement.src = appState.bgRemovedPhotos[originalPhotoIndex];
-                } else {
-                    const formData = new FormData();
-                    formData.append('file', originalPhotoBlob);
-                    try {
-                        const response = await fetch('/remove_background', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        if (!response.ok) throw new Error('Background removal failed');
-                        const newBlob = await response.blob();
-                        const newBlobUrl = URL.createObjectURL(newBlob);
-                        appState.bgRemovedPhotos[originalPhotoIndex] = newBlobUrl;
-                        imgElement.src = newBlobUrl;
-                    } catch (error) {
-                        console.error('Error removing background:', error);
-                        imgElement.src = URL.createObjectURL(originalPhotoBlob);
-                    }
-                }
-                imgElement.style.opacity = '1';
-            } else {
-                imgElement.src = URL.createObjectURL(originalPhotoBlob);
-            }
-        });
-        await Promise.all(updatePromises);
-    }
 
     // Public API
     return {
         loadFilterPresets,
         addFilterPreset,
         applyFilterPreset,
-        applyPhotoFilters,
-        applyBackgroundRemovalPreview
+        applyPhotoFilters
     };
 };

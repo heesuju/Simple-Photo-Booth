@@ -530,6 +530,17 @@ window.eventBus.on('app:init', (appState) => {
                                 delete appState.stylizedImagesCache[key];
                             }
                         }
+
+                        // Reset per-photo states for the retaken photo
+                        if (appState.isStylized) appState.isStylized[originalIndex] = false;
+                        if (appState.backgroundColors) appState.backgroundColors[originalIndex] = null;
+                        if (appState.rawBgRemovedBlobs) delete appState.rawBgRemovedBlobs[originalIndex];
+                        if (appState.bgRemovalThresholds) appState.bgRemovalThresholds[originalIndex] = 240;
+                        if (appState.bgRemovalBgThresholds) appState.bgRemovalBgThresholds[originalIndex] = 10;
+                        if (appState.bgRemovalErodeSizes) appState.bgRemovalErodeSizes[originalIndex] = 10;
+                        if (appState.isBgReplaced) appState.isBgReplaced[originalIndex] = false;
+                        if (appState.bgRemovalEnabled) appState.bgRemovalEnabled[originalIndex] = false;
+                        if (appState.currentBgRemovedBlobKey) delete appState.currentBgRemovedBlobKey[originalIndex];
                     });
                     appState.isRetaking = false;
                     appState.photosToRetake = [];

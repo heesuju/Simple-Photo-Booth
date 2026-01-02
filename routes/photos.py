@@ -111,10 +111,26 @@ async def apply_filters_to_image(file: UploadFile = File(...), filters: str = Fo
 
 
 @router.post("/remove_background")
-async def remove_background_api(file: UploadFile = File(...)):
+async def remove_background_api(file: UploadFile = File(...), threshold: int = Form(0), bg_threshold: int = Form(10), erode_size: int = Form(10)):
     try:
         input_bytes = await file.read()
-        output_bytes = remove(input_bytes, model='u2net_human_seg')
+        if threshold > 0:
+            # Alpha Matting
+            t_fg = max(10, min(threshold, 250))
+            t_bg = max(0, min(bg_threshold, 250))
+            t_erode = max(0, min(erode_size, 50)) # Cap erode size to prevent errors
+            
+            output_bytes = remove(
+                input_bytes, 
+                model='u2net_human_seg',
+                alpha_matting=True,
+                alpha_matting_foreground_threshold=t_fg,
+                alpha_matting_background_threshold=t_bg, 
+                alpha_matting_erode_size=t_erode
+            )
+        else:
+             # Default fast mode
+             output_bytes = remove(input_bytes, model='u2net_human_seg')
 
         return StreamingResponse(io.BytesIO(output_bytes), media_type="image/png")
     except Exception as e:

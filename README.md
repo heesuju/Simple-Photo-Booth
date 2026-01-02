@@ -51,6 +51,8 @@ This is a web-based photobooth application built with FastAPI and vanilla JavaSc
 │   │       ├── photo_taking.js
 │   │       ├── result.js
 │   │       ├── review.js
+│   │       ├── review_styles.js # Handles style generation/application logic
+│   │       ├── review_filters.js # Handles filter presets and CSS/SVG filters logic
 │   │       ├── transformable.js # Handles move/rotate/scale logic for items
 │   │       ├── template_edit.js
 │   │       └── shared/
@@ -98,7 +100,8 @@ The application is a single-page application (SPA) where different "screens" are
         *   Allows users to drag-and-drop to swap photos between slots.
         *   Fetches and displays available stickers and allows adding text.
         *   Uses `transformable.js` to handle moving, resizing, and rotating stickers and text on the canvas.
-        *   Applies CSS and SVG filters in real-time to the photo previews.
+        *   **`review_styles.js`**: Reusable component that handles all AI styling logic (Style Strip, Add/Edit Styles, processing).
+        *   **`review_filters.js`**: Reusable component that handles filter presets, CSS/SVG filter application, and background removal.
     *   **Result (`result.js`)**:
         *   On finalization, it sends all the data (photos, template info, sticker placements, filter values, video clips) to the backend's `/compose_image` and `/compose_video` endpoints.
         *   Displays the final generated image, a download button, and the QR code provided by the backend.

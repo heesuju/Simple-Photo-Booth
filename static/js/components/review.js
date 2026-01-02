@@ -567,8 +567,13 @@ window.eventBus.on('app:init', (appState) => {
             appState.loadingPhotos = new Set();
             appState.backgroundColors = new Array(appState.capturedPhotos.length).fill(null);
             appState.rawBgRemovedBlobs = {};
-            // appState.bgRemovedPhotos = {}; // Deprecated in favor of rawBgRemovedBlobs
-            document.getElementById('remove-bg-checkbox').checked = false;
+            appState.bgRemovalThresholds = new Array(appState.capturedPhotos.length).fill(240);
+            appState.bgRemovalBgThresholds = new Array(appState.capturedPhotos.length).fill(10);
+            appState.bgRemovalErodeSizes = new Array(appState.capturedPhotos.length).fill(10);
+            appState.isBgReplaced = new Array(appState.capturedPhotos.length).fill(false);
+            appState.bgRemovalEnabled = new Array(appState.capturedPhotos.length).fill(false);
+            appState.currentBgRemovedBlobKey = [];
+
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
             document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
                 if (slider.dataset.filter === 'sharpness' || slider.dataset.filter === 'blur' || slider.dataset.filter === 'grain') {
