@@ -4,7 +4,6 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         renderReviewThumbnails,
         stripContainer,
         stripBackBtn,
-        genericAddBtn,
         finalizeBtn,
         showToast,
         reviewToolbar,
@@ -185,7 +184,6 @@ window.initReviewBackgrounds = (appState, callbacks) => {
 
         backgroundPanel.classList.add('show');
         stripBackBtn.style.display = 'block';
-        genericAddBtn.style.display = 'none';
         finalizeBtn.style.display = 'none';
     }
 

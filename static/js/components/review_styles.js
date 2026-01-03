@@ -355,8 +355,6 @@ window.initReviewStyles = (appState, callbacks) => {
         const stripContainer = document.getElementById('strip-container');
         const stripBackBtn = document.getElementById('strip-back-btn');
         const isVisible = styleStripPanel.classList.contains('show');
-        const genericAddBtn = document.getElementById('generic-add-btn');
-        const finalizeBtn = document.getElementById('finalize-btn');
 
 
         // Close any currently open strip panel
@@ -374,8 +372,6 @@ window.initReviewStyles = (appState, callbacks) => {
             styleStripPanel.classList.add('show');
             loadStylesStrip(); // Load available styles
             stripBackBtn.style.display = 'block';
-            genericAddBtn.style.display = 'block';
-            finalizeBtn.style.display = 'none';
         } else {
             stripBackBtn.style.display = 'none';
             // panelHistory = []; // Resetting panel history? In review.js it did.

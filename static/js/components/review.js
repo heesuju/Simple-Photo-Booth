@@ -78,7 +78,6 @@ window.eventBus.on('app:init', (appState) => {
     const stripBackBtn = document.getElementById('strip-back-btn');
     let panelHistory = [];
     const removeBgCheckbox = document.getElementById('remove-bg-checkbox');
-    const genericAddBtn = document.getElementById('generic-add-btn');
     const fontGallery = document.getElementById('font-gallery');
     const fontUploadInput = document.createElement('input');
     fontUploadInput.type = 'file';
@@ -115,7 +114,6 @@ window.eventBus.on('app:init', (appState) => {
         showToast: window.showToast,
         stripContainer,
         stripBackBtn,
-        genericAddBtn,
         finalizeBtn,
         reviewToolbar,
         clearSelections,
@@ -353,7 +351,6 @@ window.eventBus.on('app:init', (appState) => {
         renderReviewThumbnails,
         stripContainer,
         stripBackBtn,
-        genericAddBtn,
         finalizeBtn,
         showToast: window.showToast,
         reviewToolbar,
@@ -454,74 +451,74 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    genericAddBtn.addEventListener('click', () => {
-        const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
-        if (!currentOpenPanel) return;
+    // genericAddBtn.addEventListener('click', () => {
+    //     const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
+    //     if (!currentOpenPanel) return;
 
-        const panelId = currentOpenPanel.id;
-        const panelType = currentOpenPanel.dataset.panel;
+    //     const panelId = currentOpenPanel.id;
+    //     const panelType = currentOpenPanel.dataset.panel;
 
-        if (panelId === 'style-strip-panel') { // Styles
-            // Toggle logic for styles if needed, or open modal
-            const addStyleModal = document.getElementById('add-style-modal');
-            if (addStyleModal) addStyleModal.className = 'modal-visible';
-        } else if (panelType === 'filters') { // Filters
-            const addPresetModal = document.getElementById('add-filter-preset-modal');
-            // Pre-populate logic from old addPresetBtn click handler
-            const presetFilterControls = document.getElementById('preset-filter-controls');
-            const filterControls = document.getElementById('filter-controls');
-            presetFilterControls.innerHTML = filterControls.innerHTML;
+    //     if (panelId === 'style-strip-panel') { // Styles
+    //         // Toggle logic for styles if needed, or open modal
+    //         const addStyleModal = document.getElementById('add-style-modal');
+    //         if (addStyleModal) addStyleModal.className = 'modal-visible';
+    //     } else if (panelType === 'filters') { // Filters
+    //         const addPresetModal = document.getElementById('add-filter-preset-modal');
+    //         // Pre-populate logic from old addPresetBtn click handler
+    //         const presetFilterControls = document.getElementById('preset-filter-controls');
+    //         const filterControls = document.getElementById('filter-controls');
+    //         presetFilterControls.innerHTML = filterControls.innerHTML;
 
-            const presetPreview = document.getElementById('preset-preview');
-            const firstPhoto = appState.capturedPhotos[0];
-            if (firstPhoto) {
-                const imageUrl = URL.createObjectURL(firstPhoto);
-                presetPreview.style.backgroundImage = `url(${imageUrl})`;
+    //         const presetPreview = document.getElementById('preset-preview');
+    //         const firstPhoto = appState.capturedPhotos[0];
+    //         if (firstPhoto) {
+    //             const imageUrl = URL.createObjectURL(firstPhoto);
+    //             presetPreview.style.backgroundImage = `url(${imageUrl})`;
 
-                const updatePreviewFilters = () => {
-                    const values = {};
-                    presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
-                        values[slider.dataset.filter] = parseInt(slider.value, 10);
-                    });
-                    const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
-                    presetPreview.style.filter = filterString;
-                };
+    //             const updatePreviewFilters = () => {
+    //                 const values = {};
+    //                 presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
+    //                     values[slider.dataset.filter] = parseInt(slider.value, 10);
+    //                 });
+    //                 const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
+    //                 presetPreview.style.filter = filterString;
+    //             };
 
-                presetFilterControls.addEventListener('input', updatePreviewFilters);
-                updatePreviewFilters();
-            }
-            addPresetModal.className = 'modal-visible';
+    //             presetFilterControls.addEventListener('input', updatePreviewFilters);
+    //             updatePreviewFilters();
+    //         }
+    //         addPresetModal.className = 'modal-visible';
 
-        } else if (panelType === 'stickers') { // Stickers
-            const categoryGallery = document.getElementById('sticker-category-gallery');
-            if (categoryGallery.style.display !== 'none') {
-                document.getElementById('add-sticker-category-modal').className = 'modal-visible';
-            } else {
-                stickerUploadInput.click();
-            }
-        } else if (panelId === 'color-palette-panel') { // Template Colors
-            colorPicker.show().then(result => {
-                if (result) {
-                    // We need the template object here... 
-                    // showColorPalettePanel saves context? No. 
-                    // We need to know which template we are editing. 
-                    // Let's store currentTemplate in appState or closure? 
-                    // showColorPalettePanel is called with template.
-                    if (appState.currentEditingTemplate) {
-                        if (result.saved) {
-                            showColorPalettePanel(appState.currentEditingTemplate);
-                        }
-                        recolorTemplateAndApply(appState.currentEditingTemplate, result.color);
-                        // User might want to try multiple colors.
-                        // But if we want to follow 'swatch click' behavior:
-                        // stripBackBtn.click();
-                    }
-                }
-            });
-        } else if (panelType === 'add-text') { // Fonts
-            fontUploadInput.click();
-        }
-    });
+    //     } else if (panelType === 'stickers') { // Stickers
+    //         const categoryGallery = document.getElementById('sticker-category-gallery');
+    //         if (categoryGallery.style.display !== 'none') {
+    //             document.getElementById('add-sticker-category-modal').className = 'modal-visible';
+    //         } else {
+    //             stickerUploadInput.click();
+    //         }
+    //     } else if (panelId === 'color-palette-panel') { // Template Colors
+    //         colorPicker.show().then(result => {
+    //             if (result) {
+    //                 // We need the template object here... 
+    //                 // showColorPalettePanel saves context? No. 
+    //                 // We need to know which template we are editing. 
+    //                 // Let's store currentTemplate in appState or closure? 
+    //                 // showColorPalettePanel is called with template.
+    //                 if (appState.currentEditingTemplate) {
+    //                     if (result.saved) {
+    //                         showColorPalettePanel(appState.currentEditingTemplate);
+    //                     }
+    //                     recolorTemplateAndApply(appState.currentEditingTemplate, result.color);
+    //                     // User might want to try multiple colors.
+    //                     // But if we want to follow 'swatch click' behavior:
+    //                     // stripBackBtn.click();
+    //                 }
+    //             }
+    //         });
+    //     } else if (panelType === 'add-text') { // Fonts
+    //         fontUploadInput.click();
+    //     }
+    // });
 
     fontUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_font', reviewDecorations.loadFontGallery));
 
@@ -981,8 +978,6 @@ window.eventBus.on('app:init', (appState) => {
     async function showColorPalettePanel(template) {
         const templatePanel = document.getElementById('template-gallery-review');
         const colorPanel = document.getElementById('color-palette-panel');
-        const genericAddBtn = document.getElementById('generic-add-btn');
-        const finalizeBtn = document.getElementById('finalize-btn');
 
         // Store current template for Generic Add Button context
         appState.currentEditingTemplate = template;
@@ -992,7 +987,6 @@ window.eventBus.on('app:init', (appState) => {
 
         panelHistory.push('templates');
         stripBackBtn.style.display = 'block';
-        genericAddBtn.style.display = 'block';
 
         // --- Add "+ button" as first item ---
         const addColorBtn = document.createElement('div');
@@ -1233,8 +1227,6 @@ window.eventBus.on('app:init', (appState) => {
             actionCropBtn.style.display = 'block';
             actionRemoveBgBtn.style.display = 'block';
             actionTemplateColorBtn.style.display = 'none';
-
-            genericAddBtn.style.display = 'none';
             return;
         }
 
@@ -1247,20 +1239,7 @@ window.eventBus.on('app:init', (appState) => {
         // Priority 2: Open Panel Context
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
 
-        if (!currentOpenPanel) {
-            genericAddBtn.style.display = 'none';
-            return;
-        }
-
-        // If panel is open, check if it needs the "Add" button
-        const type = currentOpenPanel.dataset.panel;
-        const showAdd = ['styles', 'filters', 'stickers', 'add-text', 'colors'].includes(type);
-
-        if (showAdd) {
-            genericAddBtn.style.display = 'block';
-        } else {
-            genericAddBtn.style.display = 'none';
-        }
+        const type = currentOpenPanel?.dataset.panel;
 
         if (type === 'templates' && appState.templateInfo && appState.templateInfo.is_default) {
             actionTemplateColorBtn.style.display = 'flex';
