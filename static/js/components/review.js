@@ -541,8 +541,14 @@ window.eventBus.on('app:init', (appState) => {
             const currentActiveBtn = reviewToolbar.querySelector('.active');
             const sidebar = document.getElementById('review-sidebar');
 
-            // If clicking the same button, close its panel and clear selections
+            // If clicking the same button, close its panel and clear selections (mobile only)
             if (currentActiveBtn === e.target) {
+                // In PC mode, keep one panel active at all times
+                if (window.innerWidth > 900) {
+                    return; // Do nothing - prevent closing
+                }
+
+                // Mobile: allow closing
                 e.target.classList.remove('active');
                 stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
                 sidebar.classList.remove('strip-active');
@@ -611,6 +617,11 @@ window.eventBus.on('app:init', (appState) => {
 
 
     reviewScreenContainer.addEventListener('click', (e) => {
+        // Only close panels on outside click in mobile mode
+        if (window.innerWidth > 900) {
+            return; // PC mode: keep panels open
+        }
+
         const sidebar = document.getElementById('review-sidebar');
         if (sidebar.classList.contains('strip-active')) {
             if (!sidebar.contains(e.target) &&
@@ -758,6 +769,20 @@ window.eventBus.on('app:init', (appState) => {
         renderPreview();
         reviewDecorations.loadStickerGallery();
         loadSimilarTemplates();
+
+        // PC mode: Show photos panel by default
+        if (window.innerWidth > 900) {
+            const photoBtn = reviewToolbar.querySelector('[data-panel="photos"]');
+            const photoPanel = stripContainer.querySelector('[data-panel="photos"]');
+            const sidebar = document.getElementById('review-sidebar');
+
+            if (photoBtn && photoPanel) {
+                photoBtn.classList.add('active');
+                photoPanel.classList.add('show');
+                sidebar.classList.add('strip-active');
+                updateAddFinalizeButtons();
+            }
+        }
     }
 
 
