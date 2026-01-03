@@ -663,7 +663,27 @@ window.eventBus.on('app:init', (appState) => {
         window.handleFileUpload(e, '/upload_sticker', reviewDecorations.loadStickerGallery, currentCategory);
     });
 
-    window.addEventListener('resize', renderPreview);
+    // Track previous viewport state to detect mobile/PC transitions
+    let wasMobileView = window.innerWidth <= 900;
+
+    window.addEventListener('resize', () => {
+        const isMobileView = window.innerWidth <= 900;
+
+        // If transitioning from mobile to PC view, clear inline styles
+        if (wasMobileView && !isMobileView) {
+            const sidebarContent = document.getElementById('sidebar-content');
+            if (sidebarContent) {
+                // Clear all mobile-specific inline styles
+                sidebarContent.style.height = '';
+                sidebarContent.style.maxHeight = '';
+                sidebarContent.style.display = '';
+                sidebarContent.style.transition = '';
+            }
+        }
+
+        wasMobileView = isMobileView;
+        renderPreview();
+    });
 
     document.addEventListener('click', (e) => {
         reviewDecorations.checkActiveTransformableClick(e);
