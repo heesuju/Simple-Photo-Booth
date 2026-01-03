@@ -438,31 +438,37 @@
     #strip-container {
         order: 2;
         width: 100%;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow: visible;
         flex-direction: row;
-        /* Horizontal strip on mobile? User didn't specify, but typical. */
-        /* User said "strip container can be collapsed". 
-            If I make it row, it works well. 
-            If I keep it column, it's a list. 
-            Let's keep PC structure (column) inside the overlay? 
-            Or switch to row for better phone usage?
-            Previous mobile styles used 'flex-direction: row' for strip-panel.
-            Let's reinstate that for usability.
-         */
-        height: auto;
-        flex-grow: 0;
+        flex-grow: 1;
+        min-height: 0;
     }
 
     .strip-panel {
         flex-direction: row;
         overflow-x: auto;
         overflow-y: hidden;
-        height: auto;
         padding: 0.5rem;
-        white-space: nowrap;
         gap: 10px;
         width: 100%;
+        height: 100%;
+    }
+
+    #color-palette-panel {
+        display: grid !important;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(auto-fill, 90px);
+        gap: 10px;
+        overflow-x: auto;
+        overflow-y: hidden !important;
+        max-height: 100%;
+        padding: 0.5rem;
+    }
+
+    #review-thumbnails {
+        flex-wrap: nowrap !important;
+        white-space: nowrap;
+        height: auto !important;
     }
 
     #review-thumbnails .strip-item {

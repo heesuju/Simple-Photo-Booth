@@ -935,7 +935,13 @@ window.eventBus.on('app:init', (appState) => {
             console.error("Failed to load colors:", e);
         }
 
-
+        // Enable horizontal scroll with mouse wheel (mobile only)
+        colorPanel.addEventListener('wheel', (e) => {
+            if (window.innerWidth <= 900 && e.deltaY !== 0) {
+                e.preventDefault();
+                colorPanel.scrollLeft += e.deltaY;
+            }
+        }, { passive: false });
 
 
         colorPanel.classList.add('show');
