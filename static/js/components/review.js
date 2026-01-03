@@ -1209,6 +1209,8 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function updateAddFinalizeButtons() {
+        const actionsContainer = document.getElementById('review-actions-container');
+
         // Priority 1: Retake Selection
         const count = appState.selectedForRetake.length;
         const hasSelection = count > 0;
@@ -1227,6 +1229,9 @@ window.eventBus.on('app:init', (appState) => {
             actionCropBtn.style.display = 'block';
             actionRemoveBgBtn.style.display = 'block';
             actionTemplateColorBtn.style.display = 'none';
+
+            // Show container when actions are visible
+            actionsContainer.style.display = 'flex';
             return;
         }
 
@@ -1243,6 +1248,10 @@ window.eventBus.on('app:init', (appState) => {
 
         if (type === 'templates' && appState.templateInfo && appState.templateInfo.is_default) {
             actionTemplateColorBtn.style.display = 'flex';
+            actionsContainer.style.display = 'flex';
+        } else {
+            // Hide container when no actions are visible
+            actionsContainer.style.display = 'none';
         }
     }
 
