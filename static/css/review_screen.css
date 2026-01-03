@@ -459,7 +459,7 @@
         height: 100%;
     }
 
-    #color-palette-panel {
+    #color-palette-panel.show {
         display: grid !important;
         grid-auto-flow: column;
         grid-template-rows: repeat(auto-fill, 90px);

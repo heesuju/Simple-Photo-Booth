@@ -232,6 +232,13 @@ window.eventBus.on('app:init', (appState) => {
         if (mobileHandle && sidebarContent) {
             let isResizingMobile = false;
 
+            // Define three snap positions as percentages of available height
+            const SNAP_POSITIONS = {
+                COLLAPSED: 0,     // Completely hidden
+                NORMAL: 0.35,     // 35% of available height
+                BIG: 0.75         // 75% of available height
+            };
+
             const startResizeMobile = (e) => {
                 isResizingMobile = true;
                 e.preventDefault(); // Prevent scroll
@@ -240,6 +247,54 @@ window.eventBus.on('app:init', (appState) => {
             const stopResizeMobile = () => {
                 if (isResizingMobile) {
                     isResizingMobile = false;
+
+                    // Snap to nearest position
+                    const navHeight = 60;
+                    const availableHeight = window.innerHeight - navHeight;
+                    const currentHeight = parseInt(sidebarContent.style.height) || 0;
+                    const currentRatio = currentHeight / availableHeight;
+
+                    // Find nearest snap position
+                    let targetPosition = SNAP_POSITIONS.NORMAL;
+                    let minDistance = Math.abs(currentRatio - SNAP_POSITIONS.NORMAL);
+
+                    if (Math.abs(currentRatio - SNAP_POSITIONS.COLLAPSED) < minDistance) {
+                        targetPosition = SNAP_POSITIONS.COLLAPSED;
+                        minDistance = Math.abs(currentRatio - SNAP_POSITIONS.COLLAPSED);
+                    }
+
+                    if (Math.abs(currentRatio - SNAP_POSITIONS.BIG) < minDistance) {
+                        targetPosition = SNAP_POSITIONS.BIG;
+                    }
+
+                    // Apply snap position
+                    const targetHeight = targetPosition * availableHeight;
+                    sidebarContent.style.height = `${targetHeight}px`;
+                    sidebarContent.style.transition = 'height 0.3s ease';
+
+                    // If collapsed, hide sidebar completely and clear active states
+                    if (targetPosition === SNAP_POSITIONS.COLLAPSED) {
+                        sidebarContent.style.display = 'none';
+
+                        // Clear all active panels
+                        const sidebar = document.getElementById('review-sidebar');
+                        stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
+                        sidebar.classList.remove('strip-active');
+                        const currentActiveBtn = reviewToolbar.querySelector('.active');
+                        if (currentActiveBtn) {
+                            currentActiveBtn.classList.remove('active');
+                        }
+                        panelHistory = [];
+                        clearSelections();
+                        updateAddFinalizeButtons();
+                    } else {
+                        sidebarContent.style.display = 'flex';
+                    }
+
+                    // Remove transition after animation completes
+                    setTimeout(() => {
+                        sidebarContent.style.transition = '';
+                    }, 300);
                 }
             };
 
@@ -249,29 +304,18 @@ window.eventBus.on('app:init', (appState) => {
                 // For touch events
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-                // Height = Window Height - Touch Y - Nav Height (60)
-                // Wait, sidebar-content bottom is at 60px.
-                // So Top of content = Touch Y.
-                // Height = (Window Height - 60) - Touch Y?
-                // Actually simpler: Height = Window Height - clientY - 60 (nav height)
-
                 const navHeight = 60;
                 const availableHeight = window.innerHeight - navHeight;
                 let newHeight = availableHeight - clientY;
 
-                // Constraints:
-                // Min height: 100px? (Actions area)
-                // Max height: availableHeight (Full screen minus nav)
-
-                // Actually constraint is relative to sidebar-content position.
-                // We want to control the HEIGHT of 'sidebar-content'.
-                // Since it is 'bottom: 60px', setting height grows it upwards.
-
-                if (newHeight < 100) newHeight = 100;
+                // Allow resizing from 0 to full available height
+                if (newHeight < 0) newHeight = 0;
                 if (newHeight > availableHeight) newHeight = availableHeight;
 
                 sidebarContent.style.height = `${newHeight}px`;
                 sidebarContent.style.maxHeight = 'none'; // Override CSS limit if dragging
+                sidebarContent.style.display = 'flex'; // Ensure visible while dragging
+                sidebarContent.style.transition = ''; // Disable transition during drag
             };
 
             mobileHandle.addEventListener('mousedown', startResizeMobile);
@@ -521,6 +565,24 @@ window.eventBus.on('app:init', (appState) => {
                 targetStrip.classList.add('show');
                 sidebar.classList.add('strip-active');
                 // stripBackBtn.style.display = 'block'; // Removed as button is hidden
+
+                // In mobile view, expand sidebar to normal size if collapsed
+                if (window.innerWidth <= 900) {
+                    const sidebarContent = document.getElementById('sidebar-content');
+                    const navHeight = 60;
+                    const availableHeight = window.innerHeight - navHeight;
+                    const normalHeight = availableHeight * 0.35; // 35% (normal size)
+
+                    // Make sidebar visible and set to normal size
+                    sidebarContent.style.display = 'flex';
+                    sidebarContent.style.height = `${normalHeight}px`;
+                    sidebarContent.style.transition = 'height 0.3s ease';
+
+                    // Remove transition after animation
+                    setTimeout(() => {
+                        sidebarContent.style.transition = '';
+                    }, 300);
+                }
             }
 
             if (panelType === 'filters') {
