@@ -1,4 +1,18 @@
 window.eventBus.on('app:init', (appState) => {
+    // Set actual viewport height for mobile browsers
+    // Mobile browsers' 100vh includes space behind address bars, causing bottom content to be hidden
+    const setAppHeight = () => {
+        const doc = document.documentElement;
+        doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+
+    // Set on load
+    setAppHeight();
+
+    // Update on resize and orientation change
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', setAppHeight);
+
     const reviewScreenContainer = document.getElementById('review-screen-container');
     const finalizeBtn = document.getElementById('finalize-btn');
     const retakeBtn = document.getElementById('retake-btn');

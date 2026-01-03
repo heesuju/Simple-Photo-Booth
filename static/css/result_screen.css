@@ -22,7 +22,9 @@
 #result-display img,
 #video-result-display video {
   max-height: 100vh;
-  /* Fit to viewport height */
+  /* Fallback */
+  max-height: var(--app-height, 100vh);
+  /* Use actual viewport height on mobile */
   max-width: 100%;
   object-fit: contain;
   /* Maintain aspect ratio */
@@ -33,6 +35,9 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* Fallback */
+  height: var(--app-height, 100vh);
+  /* Use actual viewport height on mobile */
   width: 100vw;
   background-color: var(--bg-color);
   font-family: "Inter", sans-serif;
@@ -142,6 +147,9 @@
   #result-container {
     flex-direction: column;
     height: 100vh;
+    /* Fallback */
+    height: var(--app-height, 100vh);
+    /* Use actual viewport height on mobile */
     /* ensure container fills viewport */
   }
 

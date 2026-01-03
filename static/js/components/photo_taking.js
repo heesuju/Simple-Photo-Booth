@@ -1,4 +1,12 @@
 window.eventBus.on('app:init', (appState) => {
+    // Set actual viewport height for mobile browsers
+    const setAppHeight = () => {
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', setAppHeight);
+
     const appContent = document.getElementById('app-content');
     const startCaptureBtn = document.getElementById('start-capture-btn');
     const captureBtn = document.getElementById('capture-btn');

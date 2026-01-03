@@ -3,6 +3,9 @@
     display: flex;
     flex-direction: row;
     height: 100vh;
+    /* Fallback for browsers that don't support custom properties */
+    height: var(--app-height, 100vh);
+    /* Use actual viewport height on mobile */
     width: 100vw;
     position: relative;
     overflow: hidden;

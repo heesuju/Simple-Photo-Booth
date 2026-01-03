@@ -1,4 +1,12 @@
 (function () {
+    // Set actual viewport height for mobile browsers
+    const setAppHeight = () => {
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', setAppHeight);
+
     const photoHangingGallery = document.querySelector('.photo-hanging-gallery');
     if (!photoHangingGallery) return;
 

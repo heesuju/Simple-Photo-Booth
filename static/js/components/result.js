@@ -1,4 +1,11 @@
 window.eventBus.on('app:init', (appState) => {
+  // Set actual viewport height for mobile browsers
+  const setAppHeight = () => {
+    document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+  };
+  setAppHeight();
+  window.addEventListener('resize', setAppHeight);
+  window.addEventListener('orientationchange', setAppHeight);
 
   let cachedVideoResult = null; // store composed video after first creation
   let currentSessionId = null; // Store ID when viewing a past session
