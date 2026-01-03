@@ -102,8 +102,12 @@ window.eventBus.on('app:init', (appState) => {
     const reviewDecorations = window.initReviewDecorations(appState, {
         getPreviewScaling: window.getPreviewScaling,
         renderPreview,
-        showToast: window.showToast
+        showToast: window.showToast,
+        get updatePanelHeader() { return updatePanelHeader; } // Getter for late binding
     });
+
+    // Forward declare updatePanelHeader so it can be passed to modules
+    let updatePanelHeader;
 
     const reviewStyles = window.initReviewStyles(appState, {
         renderPreview,
@@ -117,7 +121,8 @@ window.eventBus.on('app:init', (appState) => {
         finalizeBtn,
         reviewToolbar,
         clearSelections,
-        renderPhotoAssignments
+        renderPhotoAssignments,
+        get updatePanelHeader() { return updatePanelHeader; } // Getter for late binding
     });
 
     // Global Action Buttons
@@ -606,11 +611,57 @@ window.eventBus.on('app:init', (appState) => {
                 reviewFilters.loadFilterPresets();
             }
 
+            // Update panel header with label
+            updatePanelHeader(panelType);
             updateAddFinalizeButtons();
         }
     });
 
-    // stripBackBtn listener removed as button is hidden
+    stripBackBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        const currentPanel = stripContainer.querySelector('.strip-panel.show');
+        if (!currentPanel) return;
+
+        const currentPanelType = currentPanel.dataset.panel;
+        const sidebar = document.getElementById('review-sidebar');
+
+        const parentPanelMap = {
+            'styles': 'photos',
+            'colors': 'templates',
+        };
+
+        if (currentPanelType === 'stickers') {
+            const categoryGallery = document.getElementById('sticker-category-gallery');
+            if (categoryGallery.dataset.category) {
+                reviewDecorations.loadStickerGallery(null);
+                return;
+            }
+        }
+
+        const parentPanelType = parentPanelMap[currentPanelType];
+        if (parentPanelType) {
+            currentPanel.classList.remove('show');
+
+            const parentPanel = stripContainer.querySelector(`.strip-panel[data-panel="${parentPanelType}"]`);
+            if (parentPanel) {
+                parentPanel.classList.add('show');
+                sidebar.classList.add('strip-active');
+
+                const currentActiveBtn = reviewToolbar.querySelector('.active');
+                if (currentActiveBtn) {
+                    currentActiveBtn.classList.remove('active');
+                }
+                const parentBtn = reviewToolbar.querySelector(`[data-panel="${parentPanelType}"]`);
+                if (parentBtn) {
+                    parentBtn.classList.add('active');
+                }
+
+                updatePanelHeader(parentPanelType);
+                updateAddFinalizeButtons();
+            }
+        }
+    });
 
 
 
@@ -641,6 +692,39 @@ window.eventBus.on('app:init', (appState) => {
             }
         }
     });
+
+    // Helper function to update panel header (label + back button)
+    // Assign to the forward-declared variable so modules can access it
+    updatePanelHeader = function (panelType, options = {}) {
+        const panelLabel = document.getElementById('panel-label');
+        const backBtn = document.getElementById('strip-back-btn');
+
+        // Panel label mapping
+        const labelMap = {
+            'photos': 'Photos',
+            'styles': 'Photo Styles',
+            'templates': 'Templates',
+            'colors': 'Template Colors',
+            'stickers': 'Stickers',
+            'filters': 'Filter Presets',
+            'add-text': 'Text'
+        };
+
+        // Check if this is a 2nd level panel (should show back button)
+        const secondLevelPanels = ['styles', 'colors'];
+        const showBackBtn = secondLevelPanels.includes(panelType) || options.showBack;
+
+        // Update label text
+        const labelText = options.customLabel || labelMap[panelType] || '';
+        panelLabel.textContent = labelText;
+
+        // Show/hide back button
+        if (showBackBtn && panelHistory.length > 0) {
+            backBtn.style.display = 'flex';
+        } else {
+            backBtn.style.display = 'none';
+        }
+    };
 
     function clearSelections() {
         // Clear selected hole in preview
@@ -780,6 +864,7 @@ window.eventBus.on('app:init', (appState) => {
                 photoBtn.classList.add('active');
                 photoPanel.classList.add('show');
                 sidebar.classList.add('strip-active');
+                updatePanelHeader('photos');
                 updateAddFinalizeButtons();
             }
         }

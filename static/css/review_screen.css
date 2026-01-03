@@ -60,6 +60,57 @@
     width: 100%;
 }
 
+/* Panel Header (Back Button + Label) */
+#panel-header {
+    display: flex !important;
+    /* Always visible */
+    flex-direction: row;
+    /* Horizontal layout */
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    max-height: 40px;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.strip-back-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    /* Always flex for icon centering */
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+    width: 28px;
+    /* Fixed width */
+    height: 28px;
+    /* Fixed height */
+}
+
+.strip-back-btn:hover {
+    background-color: var(--button-hover-bg);
+}
+
+.strip-back-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+#panel-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-color);
+    opacity: 0.9;
+}
+
+
 .strip-panel {
     display: none;
     flex-direction: column;

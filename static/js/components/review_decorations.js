@@ -252,6 +252,14 @@ window.initReviewDecorations = (appState, callbacks) => {
                     stickerGallery.appendChild(i);
                 });
 
+                // Update panel header with category name and back button
+                if (callbacks.updatePanelHeader) {
+                    callbacks.updatePanelHeader('stickers', {
+                        customLabel: selectedCategory,
+                        showBack: true
+                    });
+                }
+
             } else {
                 categoryGallery.style.display = 'flex';
                 stickerGallery.style.display = 'none';
@@ -278,6 +286,11 @@ window.initReviewDecorations = (appState, callbacks) => {
                     i.appendChild(m);
                     categoryGallery.appendChild(i);
                 });
+
+                // Update panel header to show "Stickers" (no back button)
+                if (callbacks.updatePanelHeader) {
+                    callbacks.updatePanelHeader('stickers');
+                }
             }
         } catch (e) {
             console.error(e);

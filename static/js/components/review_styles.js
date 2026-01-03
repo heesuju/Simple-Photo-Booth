@@ -353,7 +353,6 @@ window.initReviewStyles = (appState, callbacks) => {
 
     function showStylizePanel() {
         const stripContainer = document.getElementById('strip-container');
-        const stripBackBtn = document.getElementById('strip-back-btn');
         const isVisible = styleStripPanel.classList.contains('show');
 
 
@@ -371,9 +370,12 @@ window.initReviewStyles = (appState, callbacks) => {
         if (!isVisible) {
             styleStripPanel.classList.add('show');
             loadStylesStrip(); // Load available styles
-            stripBackBtn.style.display = 'block';
+
+            // Update panel header to show "Photo Styles" with back button
+            if (callbacks.updatePanelHeader) {
+                callbacks.updatePanelHeader('styles');
+            }
         } else {
-            stripBackBtn.style.display = 'none';
             // panelHistory = []; // Resetting panel history? In review.js it did.
             // We can't reassign separate arrayRef. We can clear it.
             if (panelHistory) panelHistory.length = 0;

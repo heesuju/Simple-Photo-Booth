@@ -27,7 +27,16 @@
 
             <!-- Panels Container -->
             <div id="strip-container">
-                <button id="strip-back-btn" class="strip-back-btn" style="display: none !important;">&lt;</button>
+                <!-- Panel Header (Back Button + Label) -->
+                <div id="panel-header" style="display: none;">
+                    <button id="strip-back-btn" class="strip-back-btn" style="display: none;">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <span id="panel-label"></span>
+                </div>
+
                 <div id="review-thumbnails" class="strip-panel photo-strip-scroll-box" data-panel="photos"></div>
                 <div id="template-gallery-review" class="strip-panel photo-strip-scroll-box" data-panel="templates">
                 </div>
