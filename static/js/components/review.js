@@ -112,6 +112,7 @@ window.eventBus.on('app:init', (appState) => {
     const actionStylizeBtn = document.getElementById('action-stylize-btn');
     const actionCropBtn = document.getElementById('action-crop-btn');
     const actionRemoveBgBtn = document.getElementById('action-remove-bg-btn');
+    const actionTemplateColorBtn = document.getElementById('action-template-color-btn');
 
     actionStylizeBtn.addEventListener('click', () => {
         if (appState.selectedForRetake.length > 0) {
@@ -124,6 +125,12 @@ window.eventBus.on('app:init', (appState) => {
         if (appState.selectedForRetake.length > 0) {
             const pIdx = appState.selectedForRetake[0];
             reviewBackgrounds.showBackgroundPanel(pIdx);
+        }
+    });
+
+    actionTemplateColorBtn.addEventListener('click', () => {
+        if (appState.templateInfo && appState.templateInfo.is_default) {
+            showColorPalettePanel(appState.templateInfo);
         }
     });
 
@@ -866,22 +873,7 @@ window.eventBus.on('app:init', (appState) => {
                 }
                 content.appendChild(i);
 
-                const actions = document.createElement('div');
-                actions.className = 'strip-item-actions';
-
-                if (t.is_default) {
-                    const colorButton = document.createElement('button');
-                    colorButton.textContent = '🎨';
-                    colorButton.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        showColorPalettePanel(t);
-                    });
-                    actions.appendChild(colorButton);
-                }
-
                 itemContainer.appendChild(content);
-                itemContainer.appendChild(actions);
-
                 c.appendChild(itemContainer);
             });
         } catch (e) {
@@ -906,6 +898,24 @@ window.eventBus.on('app:init', (appState) => {
         stripBackBtn.style.display = 'block';
         genericAddBtn.style.display = 'block';
 
+        // --- Add "+ button" as first item ---
+        const addColorBtn = document.createElement('div');
+        addColorBtn.className = 'palette-add-btn';
+        addColorBtn.textContent = '+';
+        addColorBtn.addEventListener('click', () => {
+            if (!window._reviewColorPicker) {
+                window._reviewColorPicker = window.initColorPicker(appState);
+            }
+            window._reviewColorPicker.show().then(result => {
+                if (result) {
+                    if (result.saved) {
+                        showColorPalettePanel(template); // Reload to show new saved color
+                    }
+                    recolorTemplateAndApply(template, result.color);
+                }
+            });
+        });
+        colorPanel.appendChild(addColorBtn);
 
         // --- Color Swatches ---
         try {
@@ -965,6 +975,7 @@ window.eventBus.on('app:init', (appState) => {
         appState.templateInfo = newTemplate;
         renderPreview();
         loadSimilarTemplates(); // Re-render the strip to update the highlight
+        updateAddFinalizeButtons();
     }
 
     function recolorTemplateAndApply(template, color) {
@@ -1119,6 +1130,7 @@ window.eventBus.on('app:init', (appState) => {
             actionStylizeBtn.style.display = 'block';
             actionCropBtn.style.display = 'block';
             actionRemoveBgBtn.style.display = 'block';
+            actionTemplateColorBtn.style.display = 'none';
 
             genericAddBtn.style.display = 'none';
             return;
@@ -1128,6 +1140,7 @@ window.eventBus.on('app:init', (appState) => {
         actionStylizeBtn.style.display = 'none';
         actionCropBtn.style.display = 'none';
         actionRemoveBgBtn.style.display = 'none';
+        actionTemplateColorBtn.style.display = 'none';
 
         // Priority 2: Open Panel Context
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
@@ -1145,6 +1158,10 @@ window.eventBus.on('app:init', (appState) => {
             genericAddBtn.style.display = 'block';
         } else {
             genericAddBtn.style.display = 'none';
+        }
+
+        if (type === 'templates' && appState.templateInfo && appState.templateInfo.is_default) {
+            actionTemplateColorBtn.style.display = 'flex';
         }
     }
 

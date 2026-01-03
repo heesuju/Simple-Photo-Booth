@@ -662,7 +662,20 @@
     gap: 10px;
 }
 
-#color-palette-panel,
+#color-palette-panel {
+    display: none;
+    /* Hidden by default, shown with .show class */
+    flex-wrap: wrap;
+    overflow: auto;
+    flex-direction: row !important;
+    align-content: flex-start;
+    /* Align to top instead of stretching */
+}
+
+#color-palette-panel.show {
+    display: flex;
+}
+
 #style-strip-panel,
 #filter-preset-strip {
     overflow: auto;
