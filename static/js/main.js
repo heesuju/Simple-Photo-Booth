@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '/static/js/components/shared.js',
             '/static/js/components/main_menu.js',
             '/static/js/components/photo_taking.js',
+            '/static/js/components/photo_transform_manager.js',
             '/static/js/components/review_styles.js',
             '/static/js/components/review_filters.js',
             '/static/js/components/review_backgrounds.js',
@@ -103,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCapturing: false,
         captureMode: 'camera',
         filters: { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 },
+        transformManager: null, // Initialized in initApp
         photosToRetake: [],
     };
 
@@ -144,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadHtmlComponents();
         await loadJsComponents();
         appState.cropper = window.initCropper(appState);
+        appState.transformManager = new window.PhotoTransformManager(appState);
         appState.settingsModal = window.initSettingsModal(appState);
 
         let initialTheme = 'light';

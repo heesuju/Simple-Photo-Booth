@@ -5,12 +5,12 @@ window.initReviewStyles = (appState, callbacks) => {
         updatePreviewHighlights,
         updateAddFinalizeButtons,
         panelHistory,
-        showToast,
+        showToast = window.showToast,
         clearSelections,
         renderPhotoAssignments
     } = callbacks;
 
-    // DOM Elements (fetched here to ensure they exist when init is called)
+    // DOM Elements
     const styleStripPanel = document.getElementById('style-strip-panel');
     const addStyleModal = document.getElementById('add-style-modal');
     const addStyleConfirmBtn = document.getElementById('add-style-confirm-btn');
@@ -105,15 +105,20 @@ window.initReviewStyles = (appState, callbacks) => {
                 styleItem.textContent = style.name;
 
                 // Check if this style is currently applied to any selected photos
+                // Using TransformManager
                 const isApplied = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => {
-                    return appState.isStylized[pIdx] && appState.selectedStylePrompt === style.prompt;
+                    if (appState.transformManager) {
+                        const t = appState.transformManager.getTransform(pIdx);
+                        return t && t.base.type === 'stylized' && t.base.stylePrompt === style.prompt;
+                    }
+                    return false;
                 });
 
                 if (isApplied) {
                     styleItem.classList.add('selected');
                 }
 
-                styleItem.addEventListener('click', () => applyStyle(style.prompt));
+                styleItem.addEventListener('click', () => applyStyle(style.prompt, style.id));
 
                 const menuButton = document.createElement('button');
                 menuButton.className = 'style-menu-button';
@@ -138,7 +143,7 @@ window.initReviewStyles = (appState, callbacks) => {
                 retryOption.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dropdown.classList.remove('show');
-                    retryStyle(style.prompt);
+                    retryStyle(style.prompt, style.id);
                 });
 
                 const removeOption = document.createElement('button');
@@ -156,12 +161,9 @@ window.initReviewStyles = (appState, callbacks) => {
 
                 menuButton.addEventListener('click', (e) => {
                     e.stopPropagation();
-
-                    // Close all other open dropdowns
                     document.querySelectorAll('.style-menu-dropdown.show').forEach(d => {
                         if (d !== dropdown) d.classList.remove('show');
                     });
-
                     dropdown.classList.toggle('show');
                 });
 
@@ -171,30 +173,22 @@ window.initReviewStyles = (appState, callbacks) => {
                 styleStripPanel.appendChild(container);
             });
 
-            // Close dropdown when clicking outside
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.style-menu-button') && !e.target.closest('.style-menu-dropdown')) {
                     document.querySelectorAll('.style-menu-dropdown.show').forEach(d => d.classList.remove('show'));
                 }
             });
 
-
         } catch (e) {
             console.error("Failed to load styles:", e);
         }
     }
 
-    async function processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex) {
-        let imageToAssign = imageBlob;
-
+    async function processAndAssignImage(pIdx, imageBlob, prompt, styleId, assignmentIndex) {
         try {
-            // Track loading state by photo index
             appState.loadingPhotos.add(pIdx);
-            renderPhotoAssignments(); // Re-render to show loading state (Needs renderPhotoAssignments to be available? No, renderPreview covers it? No, assignments are separate)
-            // Wait, review.js has renderPhotoAssignments. renderPreview calls it. 
-            // I should use renderPreview if renderPhotoAssignments is not exposed, but renderPreview checks loading.
-            // Actually, renderPhotoAssignments is what I need. renderPreview calls it.
-            // If I call renderPreview, it should work.
+            // Updating UI done by check in renderPreview if needed, but we can force update
+            renderPreview();
 
             const formData = new FormData();
             formData.append('prompt', prompt);
@@ -211,72 +205,62 @@ window.initReviewStyles = (appState, callbacks) => {
             }
 
             const newImageBlob = await response.blob();
-            appState.stylizedImagesCache[cacheKey] = newImageBlob;
-            imageToAssign = newImageBlob;
 
-            let currentStylizedCropData = appState.stylizedCropData[pIdx];
-            const templateHole = appState.templateInfo.holes[pIdx];
-            const targetAspectRatio = templateHole.w / templateHole.h;
+            // USE TRANSFORM MANAGER
+            if (appState.transformManager) {
+                appState.transformManager.setStylizedDecoration(pIdx, prompt, styleId, newImageBlob);
 
-            if (!currentStylizedCropData) {
-                // Calculate default crop data if none exists
-                currentStylizedCropData = await appState.cropper.getDefaultCropData(newImageBlob, targetAspectRatio);
-                appState.stylizedCropData[pIdx] = currentStylizedCropData; // Save the newly calculated default crop data
-            }
+                // Compose final image (applies existing crop)
+                const composedBlob = await appState.transformManager.compose(pIdx);
 
-            if (currentStylizedCropData) {
-                const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentStylizedCropData);
-                if (result) {
-                    imageToAssign = result.croppedBlob;
+                appState.capturedPhotos[pIdx] = composedBlob;
+                if (assignmentIndex !== -1) {
+                    appState.photoAssignments[assignmentIndex] = composedBlob;
                 }
+
+                // Update Thumbnail
+                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+                if (thumbContainer) {
+                    const thumb = thumbContainer.querySelector('.photostrip-item');
+                    if (thumb) {
+                        thumb.src = URL.createObjectURL(composedBlob);
+                    }
+                }
+            } else {
+                console.error("Transform Manager not initialized");
             }
 
-            appState.capturedPhotos[pIdx] = imageToAssign;
-
-            if (assignmentIndex !== -1) {
-                appState.photoAssignments[assignmentIndex] = imageToAssign;
-            }
-
-            appState.isStylized[pIdx] = true;
             appState.selectedStylePrompt = prompt;
 
-            const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-            if (thumbContainer) {
-                const thumb = thumbContainer.querySelector('.photostrip-item');
-                if (thumb) {
-                    thumb.src = URL.createObjectURL(imageToAssign);
-                }
-            }
         } catch (error) {
             console.error('Error during stylization:', error);
-            // showToast is a global or callback? I put it in callbacks.
-            if (callbacks.showToast) {
-                callbacks.showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
+            if (showToast) {
+                showToast('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.', 'error', 4000);
             } else {
-                console.warn('showToast callback not provided');
                 alert('스타일 적용 실패했습니다. 잠시 후에 다시 시도해주세요.');
             }
         } finally {
-            // Remove loading state by photo index
             appState.loadingPhotos.delete(pIdx);
-            renderPreview(); // Re-render to remove loading state
+            renderPreview();
         }
     }
 
-    async function retryStyle(prompt) {
+    async function retryStyle(prompt, styleId) {
         if (appState.selectedForStylizing.length === 0) {
             alert('Please select a photo to apply the style to.');
             return;
         }
 
         for (const pIdx of appState.selectedForStylizing) {
-            const cacheKey = `${pIdx}-${prompt}`;
-            delete appState.stylizedImagesCache[cacheKey];
+            // Force re-fetch by not using cache (manager doesn't invalidate automatically on 'retry', we arguably want to overwrite)
+            // But processAndAssignImage always fetches new. 
+            // We just need to pass the ORIGINAL base logic. 
+            // The logic: processAndAssignImage takes imageBlob. Should be original.
 
-            const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
             const imageBlob = appState.originalPhotos[pIdx];
+            const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
 
-            await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
+            await processAndAssignImage(pIdx, imageBlob, prompt, styleId, assignmentIndex);
         }
 
         renderPreview();
@@ -304,48 +288,32 @@ window.initReviewStyles = (appState, callbacks) => {
         }
     }
 
-    async function applyStyle(prompt) {
+    async function applyStyle(prompt, styleId) {
         if (appState.selectedForStylizing.length === 0) {
             alert('Please select a photo to apply the style to.');
             return;
         }
 
         for (const pIdx of appState.selectedForStylizing) {
-            const cacheKey = `${pIdx}-${prompt}`;
-            if (appState.stylizedImagesCache[cacheKey]) {
-                let imageToAssign = appState.stylizedImagesCache[cacheKey];
-                const currentStylizedCropData = appState.stylizedCropData[pIdx];
+            // Check if already has this style in manager?
+            // If cached, just set it.
+            // Manager cache is inside manager.
+            // processAndAssignImage fetches.
 
-                if (currentStylizedCropData) {
-                    const templateHole = appState.templateInfo.holes[pIdx];
-                    const targetAspectRatio = templateHole.w / templateHole.h;
-                    const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentStylizedCropData);
-                    if (result) {
-                        imageToAssign = result.croppedBlob;
-                    }
-                }
-
-                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-                appState.capturedPhotos[pIdx] = imageToAssign;
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = imageToAssign;
-                }
-                appState.isStylized[pIdx] = true;
-                appState.selectedStylePrompt = prompt;
-                const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumbContainer) {
-                    const thumb = thumbContainer.querySelector('.photostrip-item');
-                    if (thumb) {
-                        thumb.src = URL.createObjectURL(imageToAssign);
-                    }
-                }
-                continue;
-            }
+            // To support "Apply existing cached style":
+            // transformManager doesn't expose "check cache" easily outside, 
+            // but setStylizedDecoration updates state.
+            // BUT we don't hold MULTIPLE stylized versions in memory per photo in this design 
+            // (only current stylized blob).
+            // So if we switch style, we probably re-fetch or need to implement multi-cache in manager.
+            // Phase 2 implementation only has ONE `stylizedBlob` per photo.
+            // If user switches Style A -> Style B -> Style A, we likely re-fetch A.
+            // That's acceptable for now.
 
             const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
             const imageBlob = appState.originalPhotos[pIdx];
 
-            await processAndAssignImage(pIdx, imageBlob, prompt, cacheKey, assignmentIndex);
+            await processAndAssignImage(pIdx, imageBlob, prompt, styleId, assignmentIndex);
         }
 
         renderPreview();
@@ -356,72 +324,72 @@ window.initReviewStyles = (appState, callbacks) => {
         const stripContainer = document.getElementById('strip-container');
         const isVisible = styleStripPanel.classList.contains('show');
 
-
-        // Close any currently open strip panel
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel'))
             .find(p => p.classList.contains('show'));
         if (currentOpenPanel) {
-            if (panelHistory) panelHistory.push(currentOpenPanel.dataset.panel); // Use callback reference if possible, but panelHistory is passed by reference
+            if (panelHistory) panelHistory.push(currentOpenPanel.dataset.panel);
             currentOpenPanel.classList.remove('show');
         }
 
-        // Hide all panels before toggling
         document.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
 
         if (!isVisible) {
             styleStripPanel.classList.add('show');
-            loadStylesStrip(); // Load available styles
+            loadStylesStrip();
 
-            // Update panel header to show "Photo Styles" with back button
             if (callbacks.updatePanelHeader) {
                 callbacks.updatePanelHeader('styles');
             }
-
-            // Update action buttons visibility
             updateAddFinalizeButtons();
         } else {
             if (panelHistory) panelHistory.length = 0;
-
             updateAddFinalizeButtons();
-            // Clear selection when closing
             appState.selectedForStylizing = [];
             updatePreviewHighlights();
         }
     }
 
     async function resetPhotoStyle(pIdx) {
-        let imageToAssign = appState.originalPhotos[pIdx];
-        const currentCropData = appState.cropData[pIdx];
+        if (!appState.transformManager) return;
 
-        if (currentCropData) {
-            const templateHole = appState.templateInfo.holes[pIdx];
-            const targetAspectRatio = templateHole.w / templateHole.h;
-            const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentCropData);
-            if (result) {
-                imageToAssign = result.croppedBlob;
+        // 1. Capture the currently displayed blob (Stylized) BEFORE we reset state
+        const oldBlob = appState.capturedPhotos[pIdx];
+
+        // 2. Reset state in Manager
+        appState.transformManager.resetToOriginal(pIdx);
+
+        // 3. Get new blob (Original + Original Crop if any)
+        const newBlob = await appState.transformManager.compose(pIdx);
+
+        // 4. Update Captured Photos Source
+        appState.capturedPhotos[pIdx] = newBlob;
+
+        // 5. Update Assignments (References)
+        // Check both photoAssignments and videoAssignments (just in case they are linked? No, videos separate)
+        let updatedCount = 0;
+        for (let i = 0; i < appState.photoAssignments.length; i++) {
+            if (appState.photoAssignments[i] === oldBlob) {
+                appState.photoAssignments[i] = newBlob;
+                updatedCount++;
             }
         }
 
-        const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+        // Fallback: If no assignment found via equality (reference lost?), use pIdx mapping if possible?
+        // But usually reference equality works if we didn't mutate capturedPhotos prematurely.
+        // We captured oldBlob from capturedPhotos[pIdx] at start. So it should match.
 
-        appState.capturedPhotos[pIdx] = imageToAssign;
-
-        if (assignmentIndex !== -1) {
-            appState.photoAssignments[assignmentIndex] = imageToAssign;
-        }
-
-        appState.isStylized[pIdx] = false;
-
-        const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-        if (thumbContainer) {
-            const thumb = thumbContainer.querySelector('.photostrip-item');
+        // 6. Update Thumbnail
+        const thumbContainer = document.getElementById('review-thumbnails');
+        if (thumbContainer && thumbContainer.children[pIdx]) {
+            const thumb = thumbContainer.children[pIdx].querySelector('.photostrip-item');
             if (thumb) {
-                thumb.src = URL.createObjectURL(imageToAssign);
+                thumb.src = URL.createObjectURL(newBlob);
             }
         }
 
+        // 7. Force UI Update
         renderPreview();
-        loadStylesStrip();
+        loadStylesStrip(); // To update selected state in strip
     }
 
     // Public API

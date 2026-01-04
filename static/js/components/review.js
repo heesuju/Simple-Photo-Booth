@@ -118,7 +118,6 @@ window.eventBus.on('app:init', (appState) => {
         showToast: window.showToast,
         stripContainer,
         stripBackBtn,
-        finalizeBtn,
         reviewToolbar,
         clearSelections,
         renderPhotoAssignments,
@@ -165,53 +164,45 @@ window.eventBus.on('app:init', (appState) => {
         reviewFilters.resetFilters();
     });
 
-    actionCropBtn.addEventListener('click', () => {
+    actionCropBtn.addEventListener('click', async () => {
         if (appState.selectedForRetake.length > 0) {
             const i = appState.selectedForRetake[0];
             const templateHole = appState.templateInfo.holes[i];
-            // Safe check if holes mapping aligns with captured photos (usually yes)
+
             if (!templateHole) return;
 
             const targetAspectRatio = templateHole.w / templateHole.h;
 
-            let imageToCrop;
-            let currentCropData;
-            let cacheKey;
+            if (appState.transformManager) {
+                try {
+                    const imageToCrop = await appState.transformManager.getPreCropBlob(i);
+                    const transform = appState.transformManager.getTransform(i);
+                    const currentCropData = transform.crop.enabled ? transform.crop.data : null;
 
-            if (appState.isStylized[i]) {
-                cacheKey = `${i}-${appState.selectedStylePrompt || ''}`;
-                imageToCrop = appState.stylizedImagesCache[cacheKey] || appState.originalPhotos[i];
-                currentCropData = appState.stylizedCropData[i];
-            } else {
-                imageToCrop = appState.originalPhotos[i];
-                currentCropData = appState.cropData[i];
-            }
+                    appState.cropper.show(imageToCrop, targetAspectRatio, currentCropData).then(async result => {
+                        if (result) {
+                            const oldBlob = appState.capturedPhotos[i];
 
-            // Invalidate background removal cache
-            if (appState.rawBgRemovedBlobs && appState.rawBgRemovedBlobs[i]) {
-                delete appState.rawBgRemovedBlobs[i];
-            }
+                            appState.transformManager.setCrop(i, result.cropData);
+                            const composedBlob = await appState.transformManager.compose(i);
 
-            appState.cropper.show(imageToCrop, targetAspectRatio, currentCropData).then(result => {
-                if (result) {
-                    const oldBlob = appState.capturedPhotos[i];
-                    appState.capturedPhotos[i] = result.croppedBlob;
+                            appState.capturedPhotos[i] = composedBlob;
 
-                    if (appState.isStylized[i]) {
-                        appState.stylizedCropData[i] = result.cropData;
-                    } else {
-                        appState.cropData[i] = result.cropData;
-                    }
+                            // Update photo assignments
+                            for (let j = 0; j < appState.photoAssignments.length; j++) {
+                                if (appState.photoAssignments[j] === oldBlob) {
+                                    appState.photoAssignments[j] = composedBlob;
+                                }
+                            }
 
-                    const assignmentIndex = appState.photoAssignments.indexOf(oldBlob);
-                    if (assignmentIndex !== -1) {
-                        appState.photoAssignments[assignmentIndex] = result.croppedBlob;
-                    }
-
-                    renderReviewThumbnails();
-                    renderPreview();
+                            renderReviewThumbnails();
+                            renderPreview();
+                        }
+                    });
+                } catch (e) {
+                    console.error("Error preparing crop:", e);
                 }
-            });
+            }
         }
     });
 
@@ -371,7 +362,6 @@ window.eventBus.on('app:init', (appState) => {
         renderReviewThumbnails,
         stripContainer,
         stripBackBtn,
-        finalizeBtn,
         showToast: window.showToast,
         reviewToolbar,
         updatePreviewHighlights
@@ -456,7 +446,31 @@ window.eventBus.on('app:init', (appState) => {
 
 
 
-    finalizeBtn.addEventListener('click', () => window.eventBus.dispatch('review:finalize', { videos: appState.videoAssignments }));
+    finalizeBtn.addEventListener('click', async () => {
+        let bakedAssignments = [];
+        if (appState.transformManager) {
+            if (window.showToast) window.showToast('Preparing final images...', 'info');
+            // Bake filters for each assigned photo
+            for (let i = 0; i < appState.photoAssignments.length; i++) {
+                const blob = appState.photoAssignments[i];
+                const pIdx = appState.capturedPhotos.indexOf(blob);
+                if (pIdx !== -1) {
+                    const baked = await appState.transformManager.getFinalBlob(pIdx);
+                    bakedAssignments.push(baked);
+                } else {
+                    bakedAssignments.push(blob);
+                }
+            }
+        } else {
+            bakedAssignments = appState.photoAssignments;
+        }
+
+        window.eventBus.dispatch('review:finalize', {
+            videos: appState.videoAssignments,
+            photoAssignments: bakedAssignments,
+            filters: {} // Send empty filters to prevent double application by backend
+        });
+    });
     retakeBtn.addEventListener('click', () => {
         window.eventBus.dispatch('review:retake', { indices: appState.selectedForRetake });
 
@@ -816,22 +830,31 @@ window.eventBus.on('app:init', (appState) => {
         appState.originalPhotos = data.originalPhotos;
         appState.cropData = data.cropData;
         appState.capturedVideos = data.videos;
+
+        if (appState.transformManager) {
+            appState.transformManager.init(data.photos.length);
+            if (data.cropData) {
+                data.cropData.forEach((cd, i) => {
+                    appState.transformManager.setCrop(i, cd);
+                });
+            }
+        }
+
         window.eventBus.dispatch('screen:show', 'review-screen');
         showReviewScreen(false); // false = this is the first time, so reset edits
     });
 
     window.eventBus.on('review:edit-existing', () => {
-        document.getElementById('finalize-btn').disabled = false;
         window.eventBus.dispatch('screen:show', 'review-screen');
         showReviewScreen(true); // true = keep existing edits
     });
 
     window.eventBus.on('review:home', () => {
-        document.getElementById('finalize-btn').disabled = false;
         window.eventBus.dispatch('screen:show', 'photo-hanging-gallery');
     });
 
     function showReviewScreen(isContinuingEditing = false) {
+        if (finalizeBtn) finalizeBtn.disabled = false;
         if (!isContinuingEditing) {
             appState.photoAssignments = [...appState.capturedPhotos];
             appState.videoAssignments = [...appState.capturedVideos];
@@ -841,18 +864,7 @@ window.eventBus.on('app:init', (appState) => {
             appState.placedTexts = [];
             appState.activeTransformable = null;
             appState.removeBackground = false;
-            appState.stylizedImagesCache = {};
-            appState.stylizedCropData = {};
-            appState.isStylized = new Array(appState.capturedPhotos.length).fill(false);
             appState.loadingPhotos = new Set();
-            appState.backgroundColors = new Array(appState.capturedPhotos.length).fill(null);
-            appState.rawBgRemovedBlobs = {};
-            appState.bgRemovalThresholds = new Array(appState.capturedPhotos.length).fill(240);
-            appState.bgRemovalBgThresholds = new Array(appState.capturedPhotos.length).fill(10);
-            appState.bgRemovalErodeSizes = new Array(appState.capturedPhotos.length).fill(10);
-            appState.isBgReplaced = new Array(appState.capturedPhotos.length).fill(false);
-            appState.bgRemovalEnabled = new Array(appState.capturedPhotos.length).fill(false);
-            appState.currentBgRemovedBlobKey = [];
 
             appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
             document.querySelectorAll('#filter-controls input[type="range"]').forEach(slider => {
@@ -987,6 +999,10 @@ window.eventBus.on('app:init', (appState) => {
     function reorderPhotoData(fromIndex, toIndex) {
         if (fromIndex === toIndex) return;
 
+        if (appState.transformManager) {
+            appState.transformManager.reorder(fromIndex, toIndex);
+        }
+
         const moveInArray = (arr) => {
             if (!arr) return;
             const [item] = arr.splice(fromIndex, 1);
@@ -997,38 +1013,6 @@ window.eventBus.on('app:init', (appState) => {
         moveInArray(appState.originalPhotos);
         moveInArray(appState.capturedVideos);
         moveInArray(appState.cropData);
-        moveInArray(appState.isStylized);
-        moveInArray(appState.backgroundColors);
-        moveInArray(appState.isBgReplaced);
-        moveInArray(appState.bgRemovalEnabled);
-        moveInArray(appState.bgRemovalThresholds);
-        moveInArray(appState.bgRemovalBgThresholds);
-        moveInArray(appState.bgRemovalErodeSizes);
-
-        // Helper to reorder object maps keyed by index
-        const reorderMap = (obj) => {
-            if (!obj) return {};
-            const keys = Object.keys(obj).map(Number).sort((a, b) => a - b);
-            const maxIdx = appState.capturedPhotos.length; // Current length is correct
-            const newObj = {};
-
-            // Naive approach: Build full array representation
-            const arr = new Array(maxIdx).fill(undefined);
-            Object.entries(obj).forEach(([k, v]) => {
-                arr[parseInt(k)] = v;
-            });
-
-            const [item] = arr.splice(fromIndex, 1);
-            arr.splice(toIndex, 0, item);
-
-            arr.forEach((val, i) => {
-                if (val !== undefined) newObj[i] = val;
-            });
-            return newObj;
-        };
-
-        if (appState.stylizedCropData) appState.stylizedCropData = reorderMap(appState.stylizedCropData);
-        if (appState.rawBgRemovedBlobs) appState.rawBgRemovedBlobs = reorderMap(appState.rawBgRemovedBlobs);
 
         // Reset Assignments to sequential order
         appState.photoAssignments = [...appState.capturedPhotos];
@@ -1259,6 +1243,9 @@ window.eventBus.on('app:init', (appState) => {
             if (pIdx !== -1 && appState.loadingPhotos.has(pIdx)) {
                 wrapper.classList.add('loading');
             }
+            if (pIdx !== -1) {
+                wrapper.dataset.photoIndex = pIdx;
+            }
 
             wrapper.style.left = `${offsetX + h.x * scale}px`;
             wrapper.style.top = `${offsetY + h.y * scale}px`;
@@ -1374,7 +1361,13 @@ window.eventBus.on('app:init', (appState) => {
             actionsContainer.style.display = 'flex';
         } else if (type === 'styles' || type === 'backgrounds') {
             // Show reset button in styles and backgrounds panels if any selected photo has a style
-            const hasStylizedPhoto = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => appState.isStylized[pIdx]);
+            const hasStylizedPhoto = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => {
+                if (appState.transformManager) {
+                    const t = appState.transformManager.getTransform(pIdx);
+                    return t && t.base.type === 'stylized';
+                }
+                return false;
+            });
             if (hasStylizedPhoto) {
                 actionResetStyleBtn.style.display = 'block';
                 actionsContainer.style.display = 'flex';

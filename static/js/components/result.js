@@ -33,8 +33,8 @@ window.eventBus.on('app:init', (appState) => {
       d.append('holes', JSON.stringify(appState.templateInfo.holes));
       d.append('stickers', JSON.stringify(appState.placedStickers));
       d.append('texts', JSON.stringify(appState.placedTexts));
-      d.append('filters', JSON.stringify(appState.filters));
-      d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
+      const filtersToSend = data.filters !== undefined ? data.filters : appState.filters;
+      d.append('filters', JSON.stringify(filtersToSend));
       d.append('transformations', JSON.stringify(appState.templateInfo.transformations));
       d.append('background_colors', JSON.stringify(appState.backgroundColors || []));
       d.append('is_inverted', appState.isStreamInverted);
@@ -44,7 +44,8 @@ window.eventBus.on('app:init', (appState) => {
         d.append('video_paths', JSON.stringify(data.videos));
       }
 
-      appState.photoAssignments.forEach((b, i) => {
+      const photosToUse = data.photoAssignments || appState.photoAssignments;
+      photosToUse.forEach((b, i) => {
         d.append('photos', b, `photo_${i}.jpg`);
       });
 
@@ -140,8 +141,15 @@ window.eventBus.on('app:init', (appState) => {
     resultTitle.textContent = '완성!';
     resultStatus.textContent = '이미지가 성공적으로 생성되었습니다.';
 
-    // Hide generated button if no stylized images
-    if (Object.keys(appState.stylizedImagesCache).length === 0) {
+    // Check for stylized images using TransformManager OR Legacy Cache
+    let hasStylizedImages = false;
+    if (appState.transformManager) {
+      hasStylizedImages = appState.transformManager.transforms.some(t => t.base.type === 'stylized');
+    } else if (appState.stylizedImagesCache) {
+      hasStylizedImages = Object.keys(appState.stylizedImagesCache).length > 0;
+    }
+
+    if (!hasStylizedImages) {
       downloadGeneratedBtn.style.display = 'none';
     } else {
       downloadGeneratedBtn.style.display = 'block';
@@ -437,11 +445,34 @@ window.eventBus.on('app:init', (appState) => {
         downloadGeneratedBtn.textContent = '압축 중...';
 
         const formData = new FormData();
-        for (const key in appState.stylizedImagesCache) {
-          const photoBlob = appState.stylizedImagesCache[key];
-          const [photoIndex, prompt] = key.split('-');
-          const safePrompt = prompt.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
-          formData.append('photos', photoBlob, `photo_${photoIndex}_${safePrompt}.jpg`);
+        let addedCount = 0;
+
+        // Use TransformManager if available
+        if (appState.transformManager) {
+          appState.transformManager.transforms.forEach((t, i) => {
+            if (t.base.type === 'stylized' && appState.transformManager.caches[i].stylizedBlob) {
+              const blob = appState.transformManager.caches[i].stylizedBlob;
+              // Get prompt (clean it)
+              const prompt = t.base.stylePrompt || 'styled';
+              const safePrompt = prompt.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
+              formData.append('photos', blob, `photo_${i}_${safePrompt}.jpg`);
+              addedCount++;
+            }
+          });
+        } else if (appState.stylizedImagesCache) {
+          // Legacy Fallback
+          for (const key in appState.stylizedImagesCache) {
+            const photoBlob = appState.stylizedImagesCache[key];
+            const [photoIndex, prompt] = key.split('-');
+            const safePrompt = prompt.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 20);
+            formData.append('photos', photoBlob, `photo_${photoIndex}_${safePrompt}.jpg`);
+            addedCount++;
+          }
+        }
+
+        if (addedCount === 0) {
+          alert('생성된 이미지가 없습니다.');
+          return;
         }
 
         const response = await fetch('/zip_originals', { method: 'POST', body: formData });

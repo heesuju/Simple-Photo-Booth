@@ -4,20 +4,15 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         renderReviewThumbnails,
         stripContainer,
         stripBackBtn,
-        finalizeBtn,
-        showToast,
+        showToast = window.showToast,
         reviewToolbar,
-        updatePreviewHighlights
+        updatePreviewHighlights,
+        renderPhotoAssignments
     } = callbacks;
 
-    // State Initialization
-    appState.backgroundColors = appState.backgroundColors || new Array(appState.capturedPhotos.length).fill(null);
-    appState.bgRemovalThresholds = appState.bgRemovalThresholds || new Array(appState.capturedPhotos.length).fill(0);
-    appState.isBgReplaced = appState.isBgReplaced || new Array(appState.capturedPhotos.length).fill(false);
+    // Use transformManager instead of local arrays
 
-    // Cache for raw BG removed blobs
-    // Key: `${photoIndex}-${fg}-${bg}-${erode}` -> Blob
-    appState.rawBgRemovedBlobs = appState.rawBgRemovedBlobs || {};
+    // ... cache for rawBgRemovedBlobs is now inside transformManager ...
 
     const backgroundPanel = document.createElement('div');
     backgroundPanel.id = 'background-color-panel';
@@ -34,61 +29,54 @@ window.initReviewBackgrounds = (appState, callbacks) => {
 
         stripContainer.querySelectorAll('.strip-panel').forEach(p => p.classList.remove('show'));
 
-        // 1. Threshold Controls
+        if (!appState.transformManager) {
+            console.error("Transform Manager not initialized");
+            return;
+        }
 
+        const transform = appState.transformManager.getTransform(photoIndex) || { background: { settings: {} } };
+        const bgSettings = transform.background.settings || {};
+
+        // Defaults
+        const fgVal = bgSettings.threshold !== undefined ? bgSettings.threshold : 240;
+        const bgVal = bgSettings.bg_threshold !== undefined ? bgSettings.bg_threshold : 10;
+        const erodeVal = bgSettings.erode_size !== undefined ? bgSettings.erode_size : 10;
+
+        // 1. Threshold Controls
         function createSlider(label, min, max, value, onChange) {
             const container = document.createElement('div');
             container.className = 'filter-slider';
-
             const labelEl = document.createElement('label');
             labelEl.textContent = `${label}: ${value}`;
-
             const input = document.createElement('input');
             input.type = 'range';
             input.min = min;
             input.max = max;
             input.value = value;
-
             input.addEventListener('input', (e) => {
                 const val = parseInt(e.target.value);
                 labelEl.textContent = `${label}: ${val}`;
                 onChange(val);
             });
-
             container.appendChild(labelEl);
             container.appendChild(input);
             return container;
         }
 
         // FG Threshold
-        backgroundPanel.appendChild(createSlider(
-            '오브젝트 감지 민감도 (FG)', 0, 250,
-            appState.bgRemovalThresholds[photoIndex] || 240,
-            (val) => {
-                appState.bgRemovalThresholds[photoIndex] = val;
-                triggerDebouncedUpdate(photoIndex);
-            }
-        ));
+        backgroundPanel.appendChild(createSlider('오브젝트 감지 민감도 (FG)', 0, 250, fgVal, (val) => {
+            updateBgSettings(photoIndex, { threshold: val });
+        }));
 
         // BG Threshold
-        backgroundPanel.appendChild(createSlider(
-            '배경 노이즈 제거 (BG)', 0, 250,
-            appState.bgRemovalBgThresholds[photoIndex] || 10,
-            (val) => {
-                appState.bgRemovalBgThresholds[photoIndex] = val;
-                triggerDebouncedUpdate(photoIndex);
-            }
-        ));
+        backgroundPanel.appendChild(createSlider('배경 노이즈 제거 (BG)', 0, 250, bgVal, (val) => {
+            updateBgSettings(photoIndex, { bg_threshold: val });
+        }));
 
         // Erode Size
-        backgroundPanel.appendChild(createSlider(
-            '가장자리 다듬기 (Erode)', 0, 50,
-            appState.bgRemovalErodeSizes[photoIndex] || 10,
-            (val) => {
-                appState.bgRemovalErodeSizes[photoIndex] = val;
-                triggerDebouncedUpdate(photoIndex);
-            }
-        ));
+        backgroundPanel.appendChild(createSlider('가장자리 다듬기 (Erode)', 0, 50, erodeVal, (val) => {
+            updateBgSettings(photoIndex, { erode_size: val });
+        }));
 
         // 2. Replace Background Toggle
         const toggleContainer = document.createElement('div');
@@ -101,8 +89,7 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         const toggleInput = document.createElement('input');
         toggleInput.type = 'checkbox';
         toggleInput.id = 'bg-replace-toggle';
-        toggleInput.checked = !!appState.isBgReplaced[photoIndex];
-
+        toggleInput.checked = transform.background.replaced; // Use manager state
 
         const toggleLabel = document.createElement('label');
         toggleLabel.htmlFor = 'bg-replace-toggle';
@@ -115,37 +102,44 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         // 3. Collapsible Palette
         const paletteContainer = document.createElement('div');
         paletteContainer.id = 'bg-palette-container';
-        paletteContainer.style.display = toggleInput.checked ? 'flex' : 'none'; // Flex for wrapping
+        paletteContainer.style.display = toggleInput.checked ? 'flex' : 'none';
         paletteContainer.style.flexWrap = 'wrap';
         paletteContainer.style.gap = '10px';
         paletteContainer.style.marginTop = '10px';
-        paletteContainer.style.overflowY = 'auto'; // ensure scroll if needed
+        paletteContainer.style.overflowY = 'auto';
 
-        toggleInput.addEventListener('change', (e) => {
-            appState.isBgReplaced[photoIndex] = e.target.checked;
-            paletteContainer.style.display = e.target.checked ? 'flex' : 'none';
-            applyBackgroundsToPreview();
+        toggleInput.addEventListener('change', async (e) => {
+            const replaced = e.target.checked;
+            paletteContainer.style.display = replaced ? 'flex' : 'none';
+            // Update manager
+            appState.transformManager.setBgReplacement(photoIndex, replaced, transform.background.replacementColor);
+            await updateComposedImage(photoIndex);
         });
 
         // "Restore Original" button
         const revertBtn = document.createElement('button');
-        revertBtn.className = 'style-strip-item'; // repurpose style
+        revertBtn.className = 'style-strip-item';
         revertBtn.style.width = '100%';
         revertBtn.style.textAlign = 'center';
         revertBtn.textContent = '원본 사진 사용 (배경 제거 취소)';
-        revertBtn.onclick = () => {
-            appState.bgRemovalEnabled = appState.bgRemovalEnabled || [];
-            appState.bgRemovalEnabled[photoIndex] = false;
-            applyBackgroundsToPreview();
-            stripBackBtn.click(); // Close panel?
+        revertBtn.onclick = async () => {
+            // Disable BG removal logic
+            appState.transformManager.setBackgroundRemoval(photoIndex, false);
+            await updateComposedImage(photoIndex);
+            stripBackBtn.click();
         };
         backgroundPanel.appendChild(revertBtn);
 
         // Ensure enabled when interacting
-        if (!appState.bgRemovalEnabled) appState.bgRemovalEnabled = [];
-        if (!appState.bgRemovalEnabled[photoIndex]) {
-            appState.bgRemovalEnabled[photoIndex] = true;
-            fetchAndApplyBackgroundRemoval(photoIndex);
+        if (!transform.background.enabled) {
+            // Check cache or fetch
+            // If we enable, we must ensure we have the blob.
+            // If cache exists, set enabled=true. Else fetch.
+            // Manager doesn't auto-fetch.
+            appState.transformManager.setBackgroundRemoval(photoIndex, true, {
+                threshold: fgVal, bg_threshold: bgVal, erode_size: erodeVal
+            });
+            fetchAndApplyBackgroundRemoval(photoIndex); // Fetch initial if needed
         }
 
         // Palette Swatches
@@ -153,16 +147,16 @@ window.initReviewBackgrounds = (appState, callbacks) => {
             const r = await fetch('/colors');
             const colors = await r.json();
 
-            // "Transparent" option (Clear color)
+            // Transparent Option
             const clearOption = document.createElement('div');
             clearOption.className = 'palette-swatch';
             clearOption.style.backgroundColor = '#ddd';
             clearOption.style.backgroundImage = 'radial-gradient(#aaa 1px, transparent 1px)';
             clearOption.style.backgroundSize = '5px 5px';
             clearOption.title = 'Transparent (No Fill)';
-            clearOption.addEventListener('click', () => {
-                appState.backgroundColors[currentPhotoIndex] = null;
-                applyBackgroundsToPreview();
+            clearOption.addEventListener('click', async () => {
+                appState.transformManager.setBgReplacement(photoIndex, true, null);
+                await updateComposedImage(photoIndex);
             });
             paletteContainer.appendChild(clearOption);
 
@@ -170,9 +164,9 @@ window.initReviewBackgrounds = (appState, callbacks) => {
                 const swatch = document.createElement('div');
                 swatch.className = 'palette-swatch';
                 swatch.style.backgroundColor = colorObj.hex_code;
-                swatch.addEventListener('click', () => {
-                    appState.backgroundColors[currentPhotoIndex] = colorObj.hex_code;
-                    applyBackgroundsToPreview();
+                swatch.addEventListener('click', async () => {
+                    appState.transformManager.setBgReplacement(photoIndex, true, colorObj.hex_code);
+                    await updateComposedImage(photoIndex);
                 });
                 paletteContainer.appendChild(swatch);
             });
@@ -181,123 +175,109 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         }
 
         backgroundPanel.appendChild(paletteContainer);
-
         backgroundPanel.classList.add('show');
         stripBackBtn.style.display = 'block';
-        finalizeBtn.style.display = 'none';
+
+        // Ensure highlight
+        appState.selectedForStylizing = [photoIndex];
+        if (updatePreviewHighlights) updatePreviewHighlights();
     }
 
-    function triggerDebouncedUpdate(index) {
+    function updateBgSettings(index, newSettings) {
         if (thresholdDebounceTimer) clearTimeout(thresholdDebounceTimer);
+
+        // Merge settings
+        const t = appState.transformManager.getTransform(index);
+        const currentSettings = t.background.settings || {};
+        const merged = { ...currentSettings, ...newSettings };
+
+        // Update manager settings immediately
+        appState.transformManager.setBackgroundRemoval(index, true, merged);
+
         thresholdDebounceTimer = setTimeout(() => {
             fetchAndApplyBackgroundRemoval(index);
         }, 300);
     }
 
     async function fetchAndApplyBackgroundRemoval(index) {
-        if (!appState.bgRemovalEnabled || !appState.bgRemovalEnabled[index]) return;
+        const t = appState.transformManager.getTransform(index);
+        if (!t.background.enabled) return;
 
-        const fg = appState.bgRemovalThresholds[index] || 240;
-        const bg = appState.bgRemovalBgThresholds[index] || 10;
-        const erode = appState.bgRemovalErodeSizes[index] || 10;
+        const settings = t.background.settings;
+        const cacheKey = `${index}-${settings.threshold}-${settings.bg_threshold}-${settings.erode_size}`;
 
-        const cacheKey = `${index}-${fg}-${bg}-${erode}`;
+        // Check cache in manager? Manager handles cache internally by key?
+        // No, manager has `bgRemovedBlob` in `caches[index]`.
+        // But if settings change, we need a new blob.
+        // Manager's cache is currently simplified: just `bgRemovedBlob`.
+        // It doesn't track *which* settings produced it in the cache object itself,
+        // but `review_backgrounds.js` previously used a cacheKey logic.
+        // We really should check if the blob needs update.
+        // For now, we always fetch if settings change (debounced).
+        // If we want to use the old "rawBgRemovedBlobs" cache to avoid re-fetching same settings, 
+        // we can implement a local cache here if desired, or rely on browser cache? 
+        // Browser won't cache POST.
 
-        // Check cache (using refined key)
-        if (appState.rawBgRemovedBlobs[cacheKey]) {
-            appState.currentBgRemovedBlobKey = appState.currentBgRemovedBlobKey || [];
-            appState.currentBgRemovedBlobKey[index] = cacheKey;
-
-            // Highlight selected photo even on cache hit for consistent UX
-            appState.selectedForStylizing = [index];
-            if (updatePreviewHighlights) updatePreviewHighlights();
-
-            applyBackgroundsToPreview();
-            return;
-        }
+        // Let's implement a small local cache map for blobs to improve performance
+        // or just let manager hold the current one.
+        // Re-fetching on slider drag (debounced) is standard.
 
         try {
             if (showToast) showToast('Removing background...', 'info');
-
-            // Set loading state and highlight
-            appState.loadingPhotos = appState.loadingPhotos || new Set();
             appState.loadingPhotos.add(index);
-            appState.selectedForStylizing = [index];
-
-            // Update UI to show loading spinner (via renderPreview -> renderPhotoAssignments)
-            // and highlight (via updatePreviewHighlights)
             renderPreview();
 
-            const currentBlob = appState.capturedPhotos[index];
+            // Use CURRENTLY composed blob as input? NO, use BASE blob (Original or Stylized).
+            // Manager.getBaseBlob(index)
+            const baseBlob = appState.transformManager.getBaseBlob(index);
+
             const formData = new FormData();
-            formData.append('file', currentBlob);
-            formData.append('threshold', fg);
-            formData.append('bg_threshold', bg);
-            formData.append('erode_size', erode);
+            formData.append('file', baseBlob);
+            formData.append('threshold', settings.threshold);
+            formData.append('bg_threshold', settings.bg_threshold);
+            formData.append('erode_size', settings.erode_size);
 
             const res = await fetch('/remove_background', { method: 'POST', body: formData });
             if (!res.ok) throw new Error('Failed to remove background');
 
             const blob = await res.blob();
-            appState.rawBgRemovedBlobs[cacheKey] = blob;
-            appState.currentBgRemovedBlobKey = appState.currentBgRemovedBlobKey || [];
-            appState.currentBgRemovedBlobKey[index] = cacheKey;
 
-            applyBackgroundsToPreview();
+            // Set into manager
+            appState.transformManager.setBgRemovedBlob(index, blob);
+
+            await updateComposedImage(index);
 
         } catch (e) {
             console.error(e);
             if (showToast) showToast('Failed to remove background', 'error');
         } finally {
-            // Clear loading state
-            if (appState.loadingPhotos) {
-                appState.loadingPhotos.delete(index);
-            }
+            if (appState.loadingPhotos) appState.loadingPhotos.delete(index);
             renderPreview();
         }
     }
 
-    function applyBackgroundsToPreview() {
-        appState.photoAssignments.forEach((assignedBlob, hIdx) => {
-            const pIdx = appState.capturedPhotos.indexOf(assignedBlob);
-            if (pIdx === -1) return;
+    async function updateComposedImage(index) {
+        const composedBlob = await appState.transformManager.compose(index);
 
-            const wrappers = document.querySelectorAll('.preview-photo-wrapper');
-            const wrapper = wrappers[hIdx];
-            if (!wrapper) return;
+        const oldBlob = appState.capturedPhotos[index];
+        appState.capturedPhotos[index] = composedBlob;
 
-            const img = wrapper.querySelector('.preview-photo-img');
-
-            const isEnabled = appState.bgRemovalEnabled && appState.bgRemovalEnabled[pIdx];
-
-            if (isEnabled) {
-                const cacheKey = appState.currentBgRemovedBlobKey ? appState.currentBgRemovedBlobKey[pIdx] : null;
-                const blob = cacheKey ? appState.rawBgRemovedBlobs[cacheKey] : null;
-
-                if (blob) {
-                    const url = URL.createObjectURL(blob);
-                    if (img.src !== url) img.src = url;
-
-                    // Color logic
-                    if (appState.isBgReplaced && appState.isBgReplaced[pIdx] && appState.backgroundColors[pIdx]) {
-                        wrapper.style.backgroundColor = appState.backgroundColors[pIdx];
-                    } else {
-                        wrapper.style.backgroundColor = 'transparent';
-                    }
-                } else {
-                    // Fallback (e.g., if processing)
-                }
-            } else {
-                // Restore Original
-                const originalUrl = URL.createObjectURL(appState.capturedPhotos[pIdx]);
-                if (img.src !== originalUrl) img.src = originalUrl;
-                wrapper.style.backgroundColor = 'transparent';
+        // Update Assignments
+        for (let k = 0; k < appState.photoAssignments.length; k++) {
+            if (appState.photoAssignments[k] === oldBlob) {
+                appState.photoAssignments[k] = composedBlob;
             }
-        });
+        }
+
+        renderPreview();
     }
+
+    // applyBackgroundsToPreview is NO LONGER NEEDED because we update the blob directly with baked BG stuff.
+    // We keep empty function to satisfy interface if any
+    function applyBackgroundsToPreview() { }
 
     return {
         showBackgroundPanel,
-        applyBackgroundsToPreview
+        applyBackgroundsToPreview // Keep for compatibility
     };
 };

@@ -10,14 +10,29 @@ window.initReviewFilters = (appState, callbacks) => {
     const addPresetConfirmBtn = document.getElementById('add-preset-confirm-btn');
     const addPresetCancelBtn = document.getElementById('add-preset-cancel-btn');
     const addFilterPresetModal = document.getElementById('add-filter-preset-modal');
-    // const removeBgCheckbox = document.getElementById('remove-bg-checkbox'); // Removed
     const filterPresetStrip = document.getElementById('filter-preset-strip');
 
     // Attach Event Listeners
     if (filterControls) {
         filterControls.addEventListener('input', (e) => {
             if (e.target.type === 'range') {
-                appState.filters[e.target.dataset.filter] = parseInt(e.target.value, 10);
+                const filterName = e.target.dataset.filter;
+                const value = parseInt(e.target.value, 10);
+
+                // Update Global UI State
+                appState.filters[filterName] = value;
+
+                // Update Manager for ALL photos (Global Mode behavior)
+                // In future, could support updating only selected
+                if (appState.transformManager) {
+                    for (let i = 0; i < appState.capturedPhotos.length; i++) {
+                        // We get current filters, update one value, set back
+                        const t = appState.transformManager.getTransform(i);
+                        const newFilters = { ...t.filters.values, [filterName]: value };
+                        appState.transformManager.setFilters(i, newFilters);
+                    }
+                }
+
                 applyPhotoFilters();
             }
         });
@@ -39,7 +54,6 @@ window.initReviewFilters = (appState, callbacks) => {
 
             const editingPresetId = addFilterPresetModal.dataset.editingPresetId;
             if (editingPresetId) {
-                // Update existing preset
                 try {
                     await fetch(`/filter_presets/${editingPresetId}`, {
                         method: 'PUT',
@@ -53,7 +67,6 @@ window.initReviewFilters = (appState, callbacks) => {
                     console.error("Failed to update filter preset:", e);
                 }
             } else {
-                // Create new preset
                 addFilterPreset(name, values);
             }
         });
@@ -64,8 +77,6 @@ window.initReviewFilters = (appState, callbacks) => {
             addFilterPresetModal.className = 'modal-hidden';
         });
     }
-
-
 
     // --- Core Functions ---
 
@@ -78,7 +89,6 @@ window.initReviewFilters = (appState, callbacks) => {
             const firstPhoto = appState.capturedPhotos[0];
             const firstPhotoUrl = firstPhoto ? URL.createObjectURL(firstPhoto) : '';
 
-            // Initialize selectedFilterPresetId if it doesn't exist
             if (!appState.hasOwnProperty('selectedFilterPresetId')) {
                 appState.selectedFilterPresetId = null;
             }
@@ -104,7 +114,6 @@ window.initReviewFilters = (appState, callbacks) => {
                 const values = preset.values;
                 thumbnail.style.filter = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
 
-                // Check if this preset is currently selected
                 if (appState.selectedFilterPresetId !== null && appState.selectedFilterPresetId === preset.id) {
                     presetContainer.classList.add('selected');
                 }
@@ -145,12 +154,9 @@ window.initReviewFilters = (appState, callbacks) => {
 
                 menuButton.addEventListener('click', (e) => {
                     e.stopPropagation();
-
-                    // Close all other open dropdowns
                     document.querySelectorAll('.filter-preset-menu-dropdown.show').forEach(d => {
                         if (d !== dropdown) d.classList.remove('show');
                     });
-
                     dropdown.classList.toggle('show');
                 });
 
@@ -164,7 +170,6 @@ window.initReviewFilters = (appState, callbacks) => {
             console.error("Failed to load filter presets:", e);
         }
 
-        // Apply current filters to preview
         applyPhotoFilters();
     }
 
@@ -185,6 +190,7 @@ window.initReviewFilters = (appState, callbacks) => {
     function openAddFilterPresetModal() {
         const presetFilterControls = document.getElementById('preset-filter-controls');
         const filterControls = document.getElementById('filter-controls');
+        // We clone inputs manually or innerHTML? innerHTML is fine for structure.
         presetFilterControls.innerHTML = filterControls.innerHTML;
 
         const presetPreview = document.getElementById('preset-preview');
@@ -213,7 +219,6 @@ window.initReviewFilters = (appState, callbacks) => {
         const filterControls = document.getElementById('filter-controls');
         presetFilterControls.innerHTML = filterControls.innerHTML;
 
-        // Populate with preset values
         const newPresetNameInput = document.getElementById('new-preset-name');
         newPresetNameInput.value = preset.name;
 
@@ -243,7 +248,6 @@ window.initReviewFilters = (appState, callbacks) => {
             updatePreviewFilters();
         }
 
-        // Store preset ID for updating instead of creating new
         addFilterPresetModal.dataset.editingPresetId = preset.id;
         addFilterPresetModal.className = 'modal-visible';
     }
@@ -265,95 +269,99 @@ window.initReviewFilters = (appState, callbacks) => {
 
     async function applyFilterPreset(values) {
         appState.filters = { ...values };
+
+        // Update sliders
         for (const filter in values) {
             const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
             if (slider) {
                 slider.value = values[filter];
             }
         }
-        applyPhotoFilters(); // Apply CSS filters for instant preview
 
-        for (const pIdx of appState.selectedForRetake) {
-            const imageBlob = appState.originalPhotos[pIdx];
-            const formData = new FormData();
-            formData.append('file', imageBlob, 'photo.png');
-            formData.append('filters', JSON.stringify(values));
+        // Update Manager
+        if (appState.transformManager) {
+            // Apply to SELECTED or ALL
+            const targets = (appState.selectedForRetake.length > 0) ? appState.selectedForRetake : appState.capturedPhotos.map((_, i) => i);
 
-            try {
-                const response = await fetch('/apply_filters_to_image', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to apply filters: ${errorText}`);
-                }
-
-                const newImageBlob = await response.blob();
-                const newImageUrl = URL.createObjectURL(newImageBlob);
-
-                const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-                appState.capturedPhotos[pIdx] = newImageBlob;
-                if (assignmentIndex !== -1) {
-                    appState.photoAssignments[assignmentIndex] = newImageBlob;
-                }
-
-                const thumb = document.getElementById('review-thumbnails').children[pIdx];
-                if (thumb) {
-                    thumb.src = newImageUrl;
-                }
-            } catch (error) {
-                console.error('Error applying filters:', error);
-                if (showToast) {
-                    showToast('필터 적용 중 오류가 발생했습니다.', 'error');
-                } else {
-                    alert('An error occurred while applying filters. Please check the console for details.');
-                }
-            }
+            targets.forEach(i => {
+                appState.transformManager.setFilters(i, values);
+            });
         }
-        renderPreview();
-        loadFilterPresets(); // Refresh to update selection indicator
 
-        // Update action buttons to show reset button if needed
+        applyPhotoFilters();
+        loadFilterPresets();
+
         if (typeof updateAddFinalizeButtons !== 'undefined') {
             updateAddFinalizeButtons();
         }
     }
 
     function applyPhotoFilters() {
-        const baseFilterString = `brightness(${appState.filters.brightness}%) contrast(${appState.filters.contrast}%) saturate(${appState.filters.saturate}%) blur(${appState.filters.blur}px)`;
-        document.querySelectorAll('.preview-photo-img').forEach(img => {
-            img.style.filter = baseFilterString;
-        });
+        // Iterate over preview photos in DOM
+        const wrappers = document.querySelectorAll('.preview-photo-wrapper');
 
-        let wrapperFilterString = '';
+        wrappers.forEach(wrapper => {
+            const pIdx = parseInt(wrapper.dataset.photoIndex, 10);
+            if (isNaN(pIdx)) return;
 
-        if (appState.filters.sharpness > 0) {
-            const amount = appState.filters.sharpness / 100.0;
-            const kernel = [
-                0, -amount, 0,
-                -amount, 1 + 4 * amount, -amount,
-                0, -amount, 0
-            ].join(' ');
-            document.getElementById('sharpen-matrix').setAttribute('kernelMatrix', kernel);
-            wrapperFilterString += ` url(#sharpen-filter)`;
-        } else {
-            document.getElementById('sharpen-matrix').setAttribute('kernelMatrix', '0 0 0 0 1 0 0 0 0');
-        }
+            let filters = appState.filters; // Default to global UI state
+            if (appState.transformManager) {
+                filters = appState.transformManager.getTransform(pIdx).filters.values;
+            }
 
-        if (appState.filters.warmth !== 100) {
-            const amount = (appState.filters.warmth - 100) / 510.0;
-            const matrix = `1 0 0 0 ${amount} 0 1 0 0 0 0 0 1 0 ${-amount} 0 0 0 1 0`;
-            document.getElementById('warmth-matrix').setAttribute('values', matrix);
-            wrapperFilterString += ` url(#warmth-filter)`;
-        } else {
-            document.getElementById('warmth-matrix').setAttribute('values', '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0');
-        }
+            // Construct Base CSS String
+            const baseFilterString = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) blur(${filters.blur}px)`;
 
-        document.querySelectorAll('.preview-photo-wrapper').forEach(wrapper => {
-            wrapper.style.filter = wrapperFilterString.trim();
-            const grainAmount = appState.filters.grain / 100;
+            const img = wrapper.querySelector('.preview-photo-img');
+            if (img) img.style.filter = baseFilterString;
+
+            // Handle Global SVG Filters (Limitation: uses values from THIS photo, so if photos differ, last one wins or we pick one)
+            // Ideally we pick valid values.
+            // If all are same, it works.
+
+            let wrapperFilterString = '';
+
+            // Optimization: Update global SVG only if this is the "focused" photo? 
+            // Or just update it based on appState.filters (Global UI)?
+            // Using appState.filters ensures consistency with sliders.
+            // But if we have per-photo settings, we can't truly support it with global SVG.
+            // We'll stick to appState.filters for the SVG config to avoid flickering.
+
+            const globalFilters = appState.filters;
+
+            if (globalFilters.sharpness > 0) {
+                const amount = globalFilters.sharpness / 100.0;
+                const kernel = [
+                    0, -amount, 0,
+                    -amount, 1 + 4 * amount, -amount,
+                    0, -amount, 0
+                ].join(' ');
+                document.getElementById('sharpen-matrix').setAttribute('kernelMatrix', kernel);
+                wrapperFilterString += ` url(#sharpen-filter)`;
+            } else {
+                document.getElementById('sharpen-matrix').setAttribute('kernelMatrix', '0 0 0 0 1 0 0 0 0');
+            }
+
+            if (globalFilters.warmth !== 100) {
+                const amount = (globalFilters.warmth - 100) / 510.0;
+                const matrix = `1 0 0 0 ${amount} 0 1 0 0 0 0 0 1 0 ${-amount} 0 0 0 1 0`;
+                document.getElementById('warmth-matrix').setAttribute('values', matrix);
+                wrapperFilterString += ` url(#warmth-filter)`;
+            } else {
+                document.getElementById('warmth-matrix').setAttribute('values', '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0');
+            }
+
+            if (wrapperFilterString) {
+                // Determine if we append or replace?
+                // The wrapper holds the SVG filters.
+                // Note: The previous code replaced wrapper.style.filter.
+                wrapper.style.filter = wrapperFilterString.trim();
+            } else {
+                wrapper.style.filter = '';
+            }
+
+            // Grain (Per Element)
+            const grainAmount = filters.grain / 100;
             if (grainAmount > 0) {
                 wrapper.style.setProperty('--grain-opacity', grainAmount);
                 wrapper.classList.add('grain-effect');
@@ -363,23 +371,28 @@ window.initReviewFilters = (appState, callbacks) => {
         });
     }
 
-
-
     function resetFilters() {
         appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
-        appState.selectedFilterPresetId = null; // Clear selection
+        appState.selectedFilterPresetId = null;
+
         for (const filter in appState.filters) {
             const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
             if (slider) {
                 slider.value = appState.filters[filter];
             }
         }
+
+        if (appState.transformManager) {
+            for (let i = 0; i < appState.capturedPhotos.length; i++) {
+                appState.transformManager.setFilters(i, appState.filters);
+            }
+        }
+
         applyPhotoFilters();
-        loadFilterPresets(); // Refresh to update selection indicator
-        updateAddFinalizeButtons(); // Hide reset button
+        loadFilterPresets();
+        updateAddFinalizeButtons();
     }
 
-    // Public API
     return {
         loadFilterPresets,
         addFilterPreset,
