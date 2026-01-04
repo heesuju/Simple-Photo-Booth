@@ -1078,27 +1078,20 @@ window.eventBus.on('app:init', (appState) => {
             const c = document.getElementById('template-gallery-review');
             c.innerHTML = '';
             d.forEach(t => {
-                const itemContainer = document.createElement('div');
-                itemContainer.className = 'strip-item';
+                const item = document.createElement('div');
+                item.className = 'review-template-item';
 
-                const content = document.createElement('div');
-                content.className = 'strip-item-content';
+                const img = document.createElement('img');
+                img.src = t.template_path;
+                item.appendChild(img);
 
-                const i = document.createElement('div');
-                i.className = 'template-item';
-                const m = document.createElement('img');
-                m.src = t.template_path;
-                i.appendChild(m);
-                i.addEventListener('click', () => handleTemplateChange(t));
+                item.addEventListener('click', () => handleTemplateChange(t));
 
                 const currentBasePath = appState.templateInfo.original_path || appState.templateInfo.template_path;
                 if (t.template_path === currentBasePath) {
-                    i.classList.add('selected');
+                    item.classList.add('selected');
                 }
-                content.appendChild(i);
-
-                itemContainer.appendChild(content);
-                c.appendChild(itemContainer);
+                c.appendChild(item);
             });
         } catch (e) {
             console.error(e);
