@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import random
+import re
 
 
 # --- Configuration ---
@@ -50,7 +51,6 @@ def generate_default_templates(db_manager, generated_templates_dir="static/gener
 
 
 def generate_template_if_not_exists(db_manager, ar_str, layout_str, type_name, generated_templates_dir="static/generated_templates"):
-    # Determine filename suffix based on type
     suffix = "" if type_name == "typeA" else f"_{type_name}"
     
     filename = f"template_{ar_str.replace(':', '_')}_{layout_str}{suffix}.png"
@@ -58,7 +58,6 @@ def generate_template_if_not_exists(db_manager, ar_str, layout_str, type_name, g
     template_path_for_db = f"/{file_path}"
     template_path_for_db = template_path_for_db.replace("\\", "/") # Ensure forward slashes for DB
 
-    # Check if this specific template file/record already exists
     if os.path.exists(file_path): 
         print(f"Template file {filename} already exists. Skipping generation.")
         return
@@ -172,90 +171,186 @@ def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
         (255, 255, 204)   # Light Yellow
     ]
 
-    # Load placeholder images
+    # Load and organize placeholder images
     placeholder_dir = "static/placeholder"
     
-    # Check if placeholder directory exists
     if not os.path.exists(placeholder_dir):
         print(f"Warning: Placeholder directory '{placeholder_dir}' not found. Using solid colors only.")
-        placeholder_files = []
-    else:
-        placeholder_files = [f for f in os.listdir(placeholder_dir) if f.endswith('.png')]
+        return _render_solid_color_thumbnail(canvas, rows, cols, cell_w, cell_h, gap, pastel_colors, thumbnail_path)
     
-    prefixes = {}
-    for filename in placeholder_files:
-        name = os.path.splitext(filename)[0]
-        prefix = ''.join([c for c in name if not c.isdigit()]).rstrip()
-        if prefix not in prefixes:
-            prefixes[prefix] = []
-        prefixes[prefix].append(filename)
-    
-    used_images = []
+    files = [f for f in os.listdir(placeholder_dir) if f.endswith('.png')]
+    if not files:
+        return _render_solid_color_thumbnail(canvas, rows, cols, cell_w, cell_h, gap, pastel_colors, thumbnail_path)
 
-    total_holes = rows * cols
+    # 1. Organize by Theme
+    themes = {}
+    for f in files:
+        match = re.match(r"([a-zA-Z]+)", f)
+        if match:
+            theme = match.group(1)
+            if theme not in themes:
+                themes[theme] = []
+            themes[theme].append(f)
     
-    # Pre-select images from prefixes
-    if prefixes:
-        available_prefixes = list(prefixes.keys())
-        random.shuffle(available_prefixes)  # Shuffle to randomize selection order
+    if not themes:
+        themes["generic"] = files
+
+    # 2. Pick ONE random theme
+    selected_theme = random.choice(list(themes.keys()))
+    theme_files = themes[selected_theme]
+
+    # 3. Organize into Pairs and Singles
+    grouped_by_key = {}
+    all_ids = set()
+    
+    for f in theme_files:
+        key = re.sub(r'\d+', '', f)
+        if key not in grouped_by_key:
+            grouped_by_key[key] = []
+        grouped_by_key[key].append(f)
         
-        for selected_prefix in available_prefixes:
-            # Stop if we have enough images
-            if len(used_images) >= total_holes:
-                break
-            
-            prefix_images = []
-            for img_file in prefixes[selected_prefix]:
-                img_path = os.path.join(placeholder_dir, img_file)
-                img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-                if img is not None:
-                    prefix_images.append(img)
-            
-            while len(used_images) < total_holes and len(prefix_images) > 0:
-                rand_idx = random.randint(0, len(prefix_images) - 1)
-                used_images.append(prefix_images.pop(rand_idx))
-
-    # Draw the grid with pre-selected images from used_images
-    offset = random.randint(0, len(pastel_colors) - 1)
-    image_index = 0
+        id_match = re.search(r'(\d+)', f)
+        if id_match:
+            all_ids.add(id_match.group(1))
     
+    sorted_ids = list(all_ids)
+    random.shuffle(sorted_ids)
+    id_rank = {id_str: i for i, id_str in enumerate(sorted_ids)}
+
+    def get_sort_key(filename):
+        m = re.search(r'(\d+)', filename)
+        if m:
+            return id_rank.get(m.group(1), 9999), filename
+        return 9999, filename
+
+    pairs = []
+    singles = []
+
+    for key, group in grouped_by_key.items():
+        group.sort(key=get_sort_key)
+        
+        i = 0
+        while i < len(group) - 1:
+            pairs.append((group[i], group[i+1]))
+            i += 2
+        
+        if i < len(group):
+            singles.append(group[i])
+
+    random.shuffle(pairs)
+    random.shuffle(singles)
+
+    pairs = [(os.path.join(placeholder_dir, p1), os.path.join(placeholder_dir, p2)) for p1, p2 in pairs]
+    singles = [os.path.join(placeholder_dir, s) for s in singles]
+
+    # 4. Render Grid
+    offset = random.randint(0, len(pastel_colors) - 1)
+    
+    pair_idx = 0
+    single_idx = 0
+
     for r in range(rows):
         for c in range(cols):
             x = gap + c * (cell_w + gap)
             y = gap + r * (cell_h + gap)
             
-            # Create a cell with a pastel color background        
+            # Draw Cell Background
             cell_bg_color = pastel_colors[(r * cols + c + offset) % len(pastel_colors)]
             cell_bg = np.full((cell_h, cell_w, 3), cell_bg_color, np.uint8)
-
-            # Place the cell background onto the canvas
             canvas[y:y + cell_h, x:x + cell_w] = cell_bg
 
-            if used_images and image_index < len(used_images):
-                person_img = used_images[image_index]
-                image_index += 1
+            # Determine Content
+            is_wide_or_square = cell_w >= cell_h
+            
+            if is_wide_or_square:
+                if not pairs and not singles:
+                    continue
 
-                person_h, person_w, _ = person_img.shape
+                if pairs:
+                    p1, p2 = pairs[pair_idx % len(pairs)]
+                    pair_idx += 1
+                    
+                    _draw_image_on_canvas(canvas, p1, x, y, cell_w, cell_h, mode="left")
+                    _draw_image_on_canvas(canvas, p2, x, y, cell_w, cell_h, mode="right")
                 
-                # Maintain aspect ratio
-                scale = max(cell_w / person_w, cell_h / person_h)
-                new_w, new_h = int(person_w * scale), int(person_h * scale)
-                resized_person = cv2.resize(person_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                else:
+                    s = singles[single_idx % len(singles)]
+                    single_idx += 1
+                    _draw_image_on_canvas(canvas, s, x, y, cell_w, cell_h, mode="center")
+            
+            else:
+                effective_singles = singles + [p for pair in pairs for p in pair]
                 
-                # Crop the center of the resized image
-                crop_x = (new_w - cell_w) // 2
-                crop_y = (new_h - cell_h) // 2
-                
-                cropped_person = resized_person[crop_y:crop_y + cell_h, crop_x:crop_x + cell_w]
-                
-                # Overlay the person image onto the cell background
-                # Alpha blending
-                alpha_person = cropped_person[:, :, 3] / 255.0
-                alpha_canvas = 1.0 - alpha_person
+                if effective_singles:
+                    s = effective_singles[single_idx % len(effective_singles)]
+                    single_idx += 1
+                    _draw_image_on_canvas(canvas, s, x, y, cell_w, cell_h, mode="center")
 
-                for i in range(3):
-                    canvas[y:y+cell_h, x:x+cell_w, i] = (alpha_person * cropped_person[:,:,i] + alpha_canvas * canvas[y:y+cell_h, x:x+cell_w, i])
-
-    # Save the generated image
+    # Save
     cv2.imwrite(thumbnail_path, canvas)
     return f"/{thumbnail_path}"
+
+
+def _render_solid_color_thumbnail(canvas, rows, cols, cell_w, cell_h, gap, colors, path):
+    offset = random.randint(0, len(colors) - 1)
+    for r in range(rows):
+        for c in range(cols):
+            x = gap + c * (cell_w + gap)
+            y = gap + r * (cell_h + gap)
+            color = colors[(r * cols + c + offset) % len(colors)]
+            canvas[y:y + cell_h, x:x + cell_w] = color
+    cv2.imwrite(path, canvas)
+    return f"/{path}"
+
+
+def _draw_image_on_canvas(canvas, img_path, x, y, cell_w, cell_h, mode="center"):
+    img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        return
+
+    img_h, img_w, _ = img.shape
+    
+    target_w = cell_w
+    target_h = cell_h
+    target_x = x
+    target_y = y
+
+    if mode == "left":
+        # Width 55%, aligned left
+        target_w = int(cell_w * 0.55)
+        target_x = x
+    elif mode == "right":
+        # Width 55%, aligned right (overlap)
+        target_w = int(cell_w * 0.55)
+        target_x = x + (cell_w - target_w)
+    # else center: default
+
+    # Scale to cover target area (maintain aspect ratio, crop overflow)
+    scale = max(target_w / img_w, target_h / img_h)
+    new_w, new_h = int(img_w * scale), int(img_h * scale)
+    resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # Crop center of resized image to fit target dim
+    crop_x = (new_w - target_w) // 2
+    crop_y = (new_h - target_h) // 2
+    
+    # Ensure legal slicing
+    if crop_x < 0: crop_x = 0
+    if crop_y < 0: crop_y = 0
+    
+    cropped_img = resized_img[crop_y:crop_y + target_h, crop_x:crop_x + target_w]
+
+    # Alpha blend onto canvas
+    # Verify dimensions match exactly (resize/crop might have rounding errors)
+    ch, cw, _ = cropped_img.shape
+    if ch != target_h or cw != target_w:
+        cropped_img = cv2.resize(cropped_img, (target_w, target_h))
+
+    alpha_img = cropped_img[:, :, 3] / 255.0
+    alpha_canvas = 1.0 - alpha_img
+
+    for i in range(3):
+        canvas[target_y:target_y+target_h, target_x:target_x+target_w, i] = (
+            alpha_img * cropped_img[:,:,i] + 
+            alpha_canvas * canvas[target_y:target_y+target_h, target_x:target_x+target_w, i]
+        )
