@@ -65,3 +65,27 @@ async def add_filter_preset(request: Request):
     db_manager.add_filter_preset(name, filter_values)
     
     return JSONResponse(content={"message": "Filter preset added successfully"})
+
+
+@router.put("/filter_presets/{preset_id}")
+async def update_filter_preset(request: Request, preset_id: int):
+    try:
+        data = await request.json()
+        name = data.get("name")
+        filter_values = data.get("filter_values")
+        db_manager = request.app.state.db_manager
+        db_manager.update_filter_preset(preset_id, name, filter_values)
+        return JSONResponse(content={"message": "Filter preset updated successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update filter preset: {e}")
+
+
+@router.delete("/filter_presets")
+async def delete_filter_preset(request: Request, preset_id: int):
+    try:
+        db_manager = request.app.state.db_manager
+        db_manager.delete_filter_preset(preset_id)
+        return Response(status_code=204)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete filter preset: {e}")
+

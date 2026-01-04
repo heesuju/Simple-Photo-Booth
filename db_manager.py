@@ -139,6 +139,28 @@ class DatabaseManager:
                     pass
             conn.commit()
 
+    def update_filter_preset(self, preset_id, name, filter_values):
+        """Updates a filter preset in the database."""
+        values_json = json.dumps(filter_values)
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE filter_presets SET name = ?, filter_values = ? WHERE id = ?",
+                (name, values_json, preset_id)
+            )
+            conn.commit()
+
+    def delete_filter_preset(self, preset_id):
+        """Deletes a filter preset from the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM filter_presets WHERE id = ?", (preset_id,))
+                conn.commit()
+        except Exception as e:
+            print(f"Error deleting filter preset from database: {e}")
+
+
     def add_template(self, template_path, hole_count, holes, aspect_ratio, cell_layout, transformations, is_default=False):
         """Adds a new template record to the database."""
         holes_json = json.dumps(holes)

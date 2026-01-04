@@ -151,6 +151,20 @@ window.eventBus.on('app:init', (appState) => {
         }
     });
 
+    const actionResetStyleBtn = document.getElementById('action-reset-style-btn');
+    actionResetStyleBtn.addEventListener('click', () => {
+        if (appState.selectedForStylizing && appState.selectedForStylizing.length > 0) {
+            appState.selectedForStylizing.forEach(pIdx => {
+                reviewStyles.resetPhotoStyle(pIdx);
+            });
+        }
+    });
+
+    const actionResetFilterBtn = document.getElementById('action-reset-filter-btn');
+    actionResetFilterBtn.addEventListener('click', () => {
+        reviewFilters.resetFilters();
+    });
+
     actionCropBtn.addEventListener('click', () => {
         if (appState.selectedForRetake.length > 0) {
             const i = appState.selectedForRetake[0];
@@ -348,7 +362,8 @@ window.eventBus.on('app:init', (appState) => {
 
     const reviewFilters = window.initReviewFilters(appState, {
         renderPreview,
-        showToast: window.showToast
+        showToast: window.showToast,
+        updateAddFinalizeButtons
     });
 
     const reviewBackgrounds = window.initReviewBackgrounds(appState, {
@@ -607,7 +622,7 @@ window.eventBus.on('app:init', (appState) => {
                 }
             }
 
-            if (panelType === 'filters') {
+            if (panelType === 'filter-presets' || panelType === 'filters') {
                 reviewFilters.loadFilterPresets();
             }
 
@@ -706,7 +721,8 @@ window.eventBus.on('app:init', (appState) => {
             'templates': 'Templates',
             'colors': 'Template Colors',
             'stickers': 'Stickers',
-            'filters': 'Filter Presets',
+            'filter-presets': 'Filter Presets',
+            'filters': 'Filter Controls',
             'add-text': 'Text'
         };
 
@@ -1326,19 +1342,14 @@ window.eventBus.on('app:init', (appState) => {
         const hasSelection = count > 0;
 
         if (hasSelection) {
-            retakeBtn.style.display = 'block'; // Back to block or flex if purely centering? 'block' with toolbar-btn styles works if it's flex internally. Actually 'toolbar-btn' is flex. So 'flex' or 'block' works if overridden by class? 
-            /* toolbar-btn is display: flex.
-               inline style display: block might break centering if not careful.
-               Let's set it to '' (empty) to let class take over? Or 'flex'.
-               Previous code used 'block' then 'flex'.
-               Let's use 'flex' to be safe with SVG centering.
-            */
             retakeBtn.style.display = 'flex';
 
             actionStylizeBtn.style.display = 'block';
             actionCropBtn.style.display = 'block';
             actionRemoveBgBtn.style.display = 'block';
             actionTemplateColorBtn.style.display = 'none';
+            actionResetStyleBtn.style.display = 'none';
+            actionResetFilterBtn.style.display = 'none';
 
             // Show container when actions are visible
             actionsContainer.style.display = 'flex';
@@ -1350,6 +1361,8 @@ window.eventBus.on('app:init', (appState) => {
         actionCropBtn.style.display = 'none';
         actionRemoveBgBtn.style.display = 'none';
         actionTemplateColorBtn.style.display = 'none';
+        actionResetStyleBtn.style.display = 'none';
+        actionResetFilterBtn.style.display = 'none';
 
         // Priority 2: Open Panel Context
         const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
@@ -1359,6 +1372,25 @@ window.eventBus.on('app:init', (appState) => {
         if (type === 'templates' && appState.templateInfo && appState.templateInfo.is_default) {
             actionTemplateColorBtn.style.display = 'flex';
             actionsContainer.style.display = 'flex';
+        } else if (type === 'styles' || type === 'backgrounds') {
+            // Show reset button in styles and backgrounds panels if any selected photo has a style
+            const hasStylizedPhoto = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => appState.isStylized[pIdx]);
+            if (hasStylizedPhoto) {
+                actionResetStyleBtn.style.display = 'block';
+                actionsContainer.style.display = 'flex';
+            } else {
+                actionsContainer.style.display = 'none';
+            }
+        } else if (type === 'filter-presets' || type === 'filters') {
+            // Show reset filter button if any non-default filters are applied
+            const defaultFilters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
+            const hasFiltersApplied = Object.keys(defaultFilters).some(key => appState.filters[key] !== defaultFilters[key]);
+            if (hasFiltersApplied) {
+                actionResetFilterBtn.style.display = 'block';
+                actionsContainer.style.display = 'flex';
+            } else {
+                actionsContainer.style.display = 'none';
+            }
         } else {
             // Hide container when no actions are visible
             actionsContainer.style.display = 'none';

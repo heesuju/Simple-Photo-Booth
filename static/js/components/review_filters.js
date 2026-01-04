@@ -1,7 +1,8 @@
 window.initReviewFilters = (appState, callbacks) => {
     const {
         renderPreview,
-        showToast
+        showToast,
+        updateAddFinalizeButtons
     } = callbacks;
 
     // DOM Elements
@@ -23,7 +24,7 @@ window.initReviewFilters = (appState, callbacks) => {
     }
 
     if (addPresetConfirmBtn) {
-        addPresetConfirmBtn.addEventListener('click', () => {
+        addPresetConfirmBtn.addEventListener('click', async () => {
             const name = document.getElementById('new-preset-name').value;
             if (!name) {
                 alert('Please enter a name for the preset.');
@@ -36,7 +37,25 @@ window.initReviewFilters = (appState, callbacks) => {
                 values[slider.dataset.filter] = parseInt(slider.value, 10);
             });
 
-            addFilterPreset(name, values);
+            const editingPresetId = addFilterPresetModal.dataset.editingPresetId;
+            if (editingPresetId) {
+                // Update existing preset
+                try {
+                    await fetch(`/filter_presets/${editingPresetId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, filter_values: values })
+                    });
+                    delete addFilterPresetModal.dataset.editingPresetId;
+                    addFilterPresetModal.className = 'modal-hidden';
+                    loadFilterPresets();
+                } catch (e) {
+                    console.error("Failed to update filter preset:", e);
+                }
+            } else {
+                // Create new preset
+                addFilterPreset(name, values);
+            }
         });
     }
 
@@ -59,42 +78,25 @@ window.initReviewFilters = (appState, callbacks) => {
             const firstPhoto = appState.capturedPhotos[0];
             const firstPhotoUrl = firstPhoto ? URL.createObjectURL(firstPhoto) : '';
 
-            const nonePresetContainer = document.createElement('div');
-            nonePresetContainer.className = 'filter-preset-container';
+            // Initialize selectedFilterPresetId if it doesn't exist
+            if (!appState.hasOwnProperty('selectedFilterPresetId')) {
+                appState.selectedFilterPresetId = null;
+            }
 
-            const nonePresetItem = document.createElement('div');
-            nonePresetItem.className = 'style-strip-item';
-
-            const noneThumbnail = document.createElement('img');
-            noneThumbnail.className = 'filter-preset-thumbnail';
-            noneThumbnail.src = firstPhotoUrl;
-
-            const noneName = document.createElement('div');
-            noneName.className = 'filter-preset-label';
-            noneName.textContent = 'None';
-
-            nonePresetItem.appendChild(noneThumbnail);
-            nonePresetContainer.appendChild(nonePresetItem);
-            nonePresetContainer.appendChild(noneName);
-
-            nonePresetContainer.addEventListener('click', () => {
-                appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
-                for (const filter in appState.filters) {
-                    const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
-                    if (slider) {
-                        slider.value = appState.filters[filter];
-                    }
-                }
-                applyPhotoFilters();
-            });
-            filterPresetStrip.appendChild(nonePresetContainer);
+            // Add button
+            const addPresetContainer = document.createElement('div');
+            addPresetContainer.className = 'filter-preset-container add-filter-preset-btn';
+            addPresetContainer.textContent = '+';
+            addPresetContainer.title = 'Add New Filter Preset';
+            addPresetContainer.addEventListener('click', openAddFilterPresetModal);
+            filterPresetStrip.appendChild(addPresetContainer);
 
             presets.forEach(preset => {
+                const container = document.createElement('div');
+                container.className = 'filter-preset-item';
+
                 const presetContainer = document.createElement('div');
                 presetContainer.className = 'filter-preset-container';
-
-                const presetItem = document.createElement('div');
-                presetItem.className = 'style-strip-item';
 
                 const thumbnail = document.createElement('img');
                 thumbnail.className = 'filter-preset-thumbnail';
@@ -102,20 +104,68 @@ window.initReviewFilters = (appState, callbacks) => {
                 const values = preset.values;
                 thumbnail.style.filter = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
 
-                const name = document.createElement('div');
-                name.className = 'filter-preset-label';
-                name.textContent = preset.name;
+                // Check if this preset is currently selected
+                if (appState.selectedFilterPresetId !== null && appState.selectedFilterPresetId === preset.id) {
+                    presetContainer.classList.add('selected');
+                }
 
-                presetItem.appendChild(thumbnail);
-                presetContainer.appendChild(presetItem);
-                presetContainer.appendChild(name);
+                presetContainer.addEventListener('click', () => {
+                    appState.selectedFilterPresetId = preset.id;
+                    applyFilterPreset(preset.values);
+                });
 
-                presetContainer.addEventListener('click', () => applyFilterPreset(preset.values));
-                filterPresetStrip.appendChild(presetContainer);
+                const menuButton = document.createElement('button');
+                menuButton.className = 'filter-preset-menu-button';
+                menuButton.innerHTML = '⋮';
+                menuButton.title = 'Options';
+
+                const dropdown = document.createElement('div');
+                dropdown.className = 'filter-preset-menu-dropdown';
+
+                const editOption = document.createElement('button');
+                editOption.className = 'filter-preset-menu-option';
+                editOption.innerHTML = '<span>✏️</span><span>Edit</span>';
+                editOption.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.classList.remove('show');
+                    openEditFilterPresetModal(preset);
+                });
+
+                const removeOption = document.createElement('button');
+                removeOption.className = 'filter-preset-menu-option';
+                removeOption.innerHTML = '<span>🗑️</span><span>Remove</span>';
+                removeOption.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.classList.remove('show');
+                    removeFilterPreset(preset.id);
+                });
+
+                dropdown.appendChild(editOption);
+                dropdown.appendChild(removeOption);
+
+                menuButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+
+                    // Close all other open dropdowns
+                    document.querySelectorAll('.filter-preset-menu-dropdown.show').forEach(d => {
+                        if (d !== dropdown) d.classList.remove('show');
+                    });
+
+                    dropdown.classList.toggle('show');
+                });
+
+                presetContainer.appendChild(thumbnail);
+                container.appendChild(presetContainer);
+                container.appendChild(menuButton);
+                container.appendChild(dropdown);
+                filterPresetStrip.appendChild(container);
             });
         } catch (e) {
             console.error("Failed to load filter presets:", e);
         }
+
+        // Apply current filters to preview
+        applyPhotoFilters();
     }
 
     async function addFilterPreset(name, values) {
@@ -129,6 +179,87 @@ window.initReviewFilters = (appState, callbacks) => {
             loadFilterPresets();
         } catch (e) {
             console.error("Failed to add filter preset:", e);
+        }
+    }
+
+    function openAddFilterPresetModal() {
+        const presetFilterControls = document.getElementById('preset-filter-controls');
+        const filterControls = document.getElementById('filter-controls');
+        presetFilterControls.innerHTML = filterControls.innerHTML;
+
+        const presetPreview = document.getElementById('preset-preview');
+        const firstPhoto = appState.capturedPhotos[0];
+        if (firstPhoto) {
+            const imageUrl = URL.createObjectURL(firstPhoto);
+            presetPreview.style.backgroundImage = `url(${imageUrl})`;
+
+            const updatePreviewFilters = () => {
+                const values = {};
+                presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
+                    values[slider.dataset.filter] = parseInt(slider.value, 10);
+                });
+                const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
+                presetPreview.style.filter = filterString;
+            };
+
+            presetFilterControls.addEventListener('input', updatePreviewFilters);
+            updatePreviewFilters();
+        }
+        addFilterPresetModal.className = 'modal-visible';
+    }
+
+    function openEditFilterPresetModal(preset) {
+        const presetFilterControls = document.getElementById('preset-filter-controls');
+        const filterControls = document.getElementById('filter-controls');
+        presetFilterControls.innerHTML = filterControls.innerHTML;
+
+        // Populate with preset values
+        const newPresetNameInput = document.getElementById('new-preset-name');
+        newPresetNameInput.value = preset.name;
+
+        Object.keys(preset.values).forEach(key => {
+            const slider = presetFilterControls.querySelector(`input[data-filter="${key}"]`);
+            if (slider) {
+                slider.value = preset.values[key];
+            }
+        });
+
+        const presetPreview = document.getElementById('preset-preview');
+        const firstPhoto = appState.capturedPhotos[0];
+        if (firstPhoto) {
+            const imageUrl = URL.createObjectURL(firstPhoto);
+            presetPreview.style.backgroundImage = `url(${imageUrl})`;
+
+            const updatePreviewFilters = () => {
+                const values = {};
+                presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
+                    values[slider.dataset.filter] = parseInt(slider.value, 10);
+                });
+                const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
+                presetPreview.style.filter = filterString;
+            };
+
+            presetFilterControls.addEventListener('input', updatePreviewFilters);
+            updatePreviewFilters();
+        }
+
+        // Store preset ID for updating instead of creating new
+        addFilterPresetModal.dataset.editingPresetId = preset.id;
+        addFilterPresetModal.className = 'modal-visible';
+    }
+
+    async function removeFilterPreset(presetId) {
+        if (!confirm('Are you sure you want to delete this filter preset?')) {
+            return;
+        }
+
+        try {
+            await fetch(`/filter_presets?preset_id=${presetId}`, {
+                method: 'DELETE'
+            });
+            loadFilterPresets();
+        } catch (e) {
+            console.error("Failed to remove filter preset:", e);
         }
     }
 
@@ -182,6 +313,12 @@ window.initReviewFilters = (appState, callbacks) => {
             }
         }
         renderPreview();
+        loadFilterPresets(); // Refresh to update selection indicator
+
+        // Update action buttons to show reset button if needed
+        if (typeof updateAddFinalizeButtons !== 'undefined') {
+            updateAddFinalizeButtons();
+        }
     }
 
     function applyPhotoFilters() {
@@ -228,11 +365,26 @@ window.initReviewFilters = (appState, callbacks) => {
 
 
 
+    function resetFilters() {
+        appState.filters = { brightness: 100, contrast: 100, saturate: 100, warmth: 100, sharpness: 0, blur: 0, grain: 0 };
+        appState.selectedFilterPresetId = null; // Clear selection
+        for (const filter in appState.filters) {
+            const slider = document.querySelector(`#filter-controls input[data-filter="${filter}"]`);
+            if (slider) {
+                slider.value = appState.filters[filter];
+            }
+        }
+        applyPhotoFilters();
+        loadFilterPresets(); // Refresh to update selection indicator
+        updateAddFinalizeButtons(); // Hide reset button
+    }
+
     // Public API
     return {
         loadFilterPresets,
         addFilterPreset,
         applyFilterPreset,
-        applyPhotoFilters
+        applyPhotoFilters,
+        resetFilters
     };
 };

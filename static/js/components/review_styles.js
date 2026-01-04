@@ -83,99 +83,99 @@ window.initReviewStyles = (appState, callbacks) => {
             const styles = await response.json();
             styleStripPanel.innerHTML = '';
 
-            const noneStyleContainer = document.createElement('div');
-            noneStyleContainer.className = 'style-item-container';
-            const noneStyleItem = document.createElement('button');
-            noneStyleItem.className = 'style-strip-item';
-            noneStyleItem.textContent = 'None';
-            noneStyleItem.addEventListener('click', async () => {
-                if (appState.selectedForStylizing.length === 0) {
-                    alert('Please select a photo to apply the style to.');
-                    return;
-                }
-                for (const pIdx of appState.selectedForStylizing) {
-                    let imageToAssign = appState.originalPhotos[pIdx];
-                    const currentCropData = appState.cropData[pIdx];
-
-                    if (currentCropData) {
-                        const templateHole = appState.templateInfo.holes[pIdx];
-                        const targetAspectRatio = templateHole.w / templateHole.h;
-                        const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentCropData);
-                        if (result) {
-                            imageToAssign = result.croppedBlob;
-                        }
-                    }
-
-                    const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
-
-                    appState.capturedPhotos[pIdx] = imageToAssign;
-
-                    if (assignmentIndex !== -1) {
-                        appState.photoAssignments[assignmentIndex] = imageToAssign;
-                    }
-
-                    appState.isStylized[pIdx] = false;
-
-                    const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
-                    if (thumbContainer) {
-                        const thumb = thumbContainer.querySelector('.photostrip-item');
-                        if (thumb) {
-                            thumb.src = URL.createObjectURL(imageToAssign);
-                        }
-                    }
-                }
-                renderPreview();
+            // Add button
+            const addStyleContainer = document.createElement('div');
+            addStyleContainer.className = 'style-item';
+            const addStyleBtn = document.createElement('button');
+            addStyleBtn.className = 'style-strip-item add-style-btn';
+            addStyleBtn.textContent = '+';
+            addStyleBtn.title = 'Add New Style';
+            addStyleBtn.addEventListener('click', () => {
+                addStyleModal.className = 'modal-visible';
             });
-            noneStyleContainer.appendChild(noneStyleItem);
-            styleStripPanel.appendChild(noneStyleContainer);
+            addStyleContainer.appendChild(addStyleBtn);
+            styleStripPanel.appendChild(addStyleContainer);
 
             styles.forEach(style => {
                 const container = document.createElement('div');
-                container.className = 'strip-item';
-
-                const content = document.createElement('div');
-                content.className = 'strip-item-content';
+                container.className = 'style-item';
 
                 const styleItem = document.createElement('button');
                 styleItem.className = 'style-strip-item';
                 styleItem.textContent = style.name;
+
+                // Check if this style is currently applied to any selected photos
+                const isApplied = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => {
+                    return appState.isStylized[pIdx] && appState.selectedStylePrompt === style.prompt;
+                });
+
+                if (isApplied) {
+                    styleItem.classList.add('selected');
+                }
+
                 styleItem.addEventListener('click', () => applyStyle(style.prompt));
-                content.appendChild(styleItem);
 
-                const actions = document.createElement('div');
-                actions.className = 'strip-item-actions';
+                const menuButton = document.createElement('button');
+                menuButton.className = 'style-menu-button';
+                menuButton.innerHTML = '⋮';
+                menuButton.title = 'Options';
 
-                const editButton = document.createElement('button');
-                editButton.textContent = '✏️';
-                editButton.title = 'Edit';
-                editButton.addEventListener('click', (e) => {
+                const dropdown = document.createElement('div');
+                dropdown.className = 'style-menu-dropdown';
+
+                const editOption = document.createElement('button');
+                editOption.className = 'style-menu-option';
+                editOption.innerHTML = '<span>✏️</span><span>Edit</span>';
+                editOption.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    dropdown.classList.remove('show');
                     openEditStyleModal(style);
                 });
 
-                const removeButton = document.createElement('button');
-                removeButton.textContent = '🗑️';
-                removeButton.title = 'Remove';
-                removeButton.addEventListener('click', (e) => {
+                const retryOption = document.createElement('button');
+                retryOption.className = 'style-menu-option';
+                retryOption.innerHTML = '<span>🔄</span><span>Retry</span>';
+                retryOption.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    removeStyle(style.id);
-                });
-
-                const retryButton = document.createElement('button');
-                retryButton.textContent = '🔄';
-                retryButton.title = 'Retry';
-                retryButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
+                    dropdown.classList.remove('show');
                     retryStyle(style.prompt);
                 });
 
-                actions.appendChild(editButton);
-                actions.appendChild(removeButton);
-                actions.appendChild(retryButton);
+                const removeOption = document.createElement('button');
+                removeOption.className = 'style-menu-option';
+                removeOption.innerHTML = '<span>🗑️</span><span>Remove</span>';
+                removeOption.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.classList.remove('show');
+                    removeStyle(style.id);
+                });
 
-                container.appendChild(content);
-                container.appendChild(actions);
+                dropdown.appendChild(editOption);
+                dropdown.appendChild(retryOption);
+                dropdown.appendChild(removeOption);
+
+                menuButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+
+                    // Close all other open dropdowns
+                    document.querySelectorAll('.style-menu-dropdown.show').forEach(d => {
+                        if (d !== dropdown) d.classList.remove('show');
+                    });
+
+                    dropdown.classList.toggle('show');
+                });
+
+                container.appendChild(styleItem);
+                container.appendChild(menuButton);
+                container.appendChild(dropdown);
                 styleStripPanel.appendChild(container);
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.style-menu-button') && !e.target.closest('.style-menu-dropdown')) {
+                    document.querySelectorAll('.style-menu-dropdown.show').forEach(d => d.classList.remove('show'));
+                }
             });
 
 
@@ -349,6 +349,7 @@ window.initReviewStyles = (appState, callbacks) => {
         }
 
         renderPreview();
+        loadStylesStrip();
     }
 
     function showStylizePanel() {
@@ -375,9 +376,10 @@ window.initReviewStyles = (appState, callbacks) => {
             if (callbacks.updatePanelHeader) {
                 callbacks.updatePanelHeader('styles');
             }
+
+            // Update action buttons visibility
+            updateAddFinalizeButtons();
         } else {
-            // panelHistory = []; // Resetting panel history? In review.js it did.
-            // We can't reassign separate arrayRef. We can clear it.
             if (panelHistory) panelHistory.length = 0;
 
             updateAddFinalizeButtons();
@@ -387,10 +389,46 @@ window.initReviewStyles = (appState, callbacks) => {
         }
     }
 
+    async function resetPhotoStyle(pIdx) {
+        let imageToAssign = appState.originalPhotos[pIdx];
+        const currentCropData = appState.cropData[pIdx];
+
+        if (currentCropData) {
+            const templateHole = appState.templateInfo.holes[pIdx];
+            const targetAspectRatio = templateHole.w / templateHole.h;
+            const result = await appState.cropper.crop(imageToAssign, targetAspectRatio, currentCropData);
+            if (result) {
+                imageToAssign = result.croppedBlob;
+            }
+        }
+
+        const assignmentIndex = appState.photoAssignments.findIndex(p => p === appState.capturedPhotos[pIdx]);
+
+        appState.capturedPhotos[pIdx] = imageToAssign;
+
+        if (assignmentIndex !== -1) {
+            appState.photoAssignments[assignmentIndex] = imageToAssign;
+        }
+
+        appState.isStylized[pIdx] = false;
+
+        const thumbContainer = document.getElementById('review-thumbnails').children[pIdx];
+        if (thumbContainer) {
+            const thumb = thumbContainer.querySelector('.photostrip-item');
+            if (thumb) {
+                thumb.src = URL.createObjectURL(imageToAssign);
+            }
+        }
+
+        renderPreview();
+        loadStylesStrip();
+    }
+
     // Public API
     return {
         loadStylesStrip,
         showStylizePanel,
+        resetPhotoStyle,
         handleStylizeButtonClick: (photoIndex) => {
             if (clearSelections) clearSelections();
 
