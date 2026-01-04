@@ -1130,3 +1130,47 @@
     border-width: 4px;
     box-shadow: 0 0 0 1px var(--highlight-color);
 }
+
+/* Sticker Category Item */
+.sticker-category-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    width: auto;
+    min-width: 120px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.sticker-category-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    filter: brightness(0.95);
+    /* Slight dim on hover instead of color change */
+}
+
+.sticker-category-item img {
+    /* Icon styling */
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sticker-category-item span {
+    color: #333;
+    /* Dark text for pastel bg */
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+    max-width: 150px;
+    /* Limit width */
+}

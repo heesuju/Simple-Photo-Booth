@@ -268,12 +268,36 @@ window.initReviewDecorations = (appState, callbacks) => {
                 const stickerCategories = stickers.map(s => s.category).filter(Boolean);
                 const allCategories = [...new Set([...fetchedCategories, ...stickerCategories])];
 
-                allCategories.forEach(category => {
-                    const categoryButton = document.createElement('button');
-                    categoryButton.className = 'style-strip-item';
-                    categoryButton.textContent = category;
-                    categoryButton.onclick = () => loadStickerGallery(category);
-                    categoryGallery.appendChild(categoryButton);
+                const pastelColors = [
+                    'rgba(255, 204, 204, 1)',  // Light Pink
+                    'rgba(204, 229, 255, 1)',  // Light Blue
+                    'rgba(204, 255, 204, 1)',  // Light Green
+                    'rgba(255, 229, 204, 1)',  // Light Orange
+                    'rgba(229, 204, 255, 1)',  // Light Purple
+                    'rgba(255, 255, 204, 1)'   // Light Yellow
+                ];
+
+                allCategories.forEach((category, index) => {
+                    const categoryItem = document.createElement('div');
+                    categoryItem.className = 'sticker-category-item';
+
+                    // Apply pastel background color (rotational)
+                    categoryItem.style.backgroundColor = pastelColors[index % pastelColors.length];
+
+                    // Find first sticker in this category for the icon
+                    const firstSticker = stickers.find(s => s.category === category);
+                    if (firstSticker) {
+                        const icon = document.createElement('img');
+                        icon.src = firstSticker.sticker_path;
+                        categoryItem.appendChild(icon);
+                    }
+
+                    const label = document.createElement('span');
+                    label.textContent = category;
+                    categoryItem.appendChild(label);
+
+                    categoryItem.onclick = () => loadStickerGallery(category);
+                    categoryGallery.appendChild(categoryItem);
                 });
 
                 stickers.filter(s => !s.category).forEach(s => {

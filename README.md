@@ -125,3 +125,13 @@ The application is a single-page application (SPA) where different "screens" are
 1.  Install dependencies: `pip install -r requirements.txt`
 2.  Run the server: `python app.py`
 3.  Open a web browser and navigate to `http://localhost:8000`.
+
+## TODO:
+- [ ] Change placeholder layout logic to have multiple placeholders per template cell.
+- [ ] Fix text rendering issues
+- [ ] Add support for custom templates
+- [ ] Add support for custom stickers
+- [ ] Unify preview filters
+- [ ] Fix background removal UI
+- [X] Add more base template sizes
+- [ ] 
