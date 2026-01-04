@@ -208,7 +208,52 @@ window.initReviewStyles = (appState, callbacks) => {
 
             // USE TRANSFORM MANAGER
             if (appState.transformManager) {
+                // 1. Set Stylized Decoration (this resets crop state in manager)
                 appState.transformManager.setStylizedDecoration(pIdx, prompt, styleId, newImageBlob);
+
+                // Calculate Auto-Crop
+                if (assignmentIndex !== -1 && appState.templateInfo && appState.templateInfo.holes && appState.templateInfo.holes[assignmentIndex]) {
+                    const hole = appState.templateInfo.holes[assignmentIndex];
+                    const targetRatio = hole.w / hole.h;
+
+                    // improved image dimension loading
+                    const img = new Image();
+                    await new Promise((resolve) => {
+                        img.onload = resolve;
+                        img.src = URL.createObjectURL(newImageBlob);
+                    });
+
+                    const imgW = img.naturalWidth;
+                    const imgH = img.naturalHeight;
+                    const imgRatio = imgW / imgH;
+
+                    let cropWidth, cropHeight, cropX, cropY;
+
+                    if (imgRatio > targetRatio) {
+                        // Image is wider than hole -> Crop width
+                        cropHeight = imgH;
+                        cropWidth = imgH * targetRatio;
+                        cropX = (imgW - cropWidth) / 2;
+                        cropY = 0;
+                    } else {
+                        // Image is taller than hole -> Crop height
+                        cropWidth = imgW;
+                        cropHeight = imgW / targetRatio;
+                        cropX = 0;
+                        cropY = (imgH - cropHeight) / 2;
+                    }
+
+                    appState.transformManager.setCrop(pIdx, {
+                        x: cropX,
+                        y: cropY,
+                        width: cropWidth,
+                        height: cropHeight
+                    });
+                } else {
+                    // If no specific assignment (e.g. unassigned), maybe just don't crop or assume square? 
+                    // For now, only crop if assigned to a hole.
+                    appState.transformManager.setCrop(pIdx, null);
+                }
 
                 // Compose final image (applies existing crop)
                 const composedBlob = await appState.transformManager.compose(pIdx);
