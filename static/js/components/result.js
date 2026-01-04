@@ -11,6 +11,28 @@ window.eventBus.on('app:init', (appState) => {
   let currentSessionId = null; // Store ID when viewing a past session
   let currentSessionData = null; // Store data when viewing a past session
 
+  window.eventBus.on('result:reset', () => {
+    const resultDisplay = document.getElementById('result-display');
+    const videoDisplay = document.getElementById('video-result-display');
+    const qrContainer = document.getElementById('qr-container');
+
+    const resultHeader = document.getElementById('result-header');
+    const downloadOptions = document.getElementById('download-options');
+    const resultActions = document.getElementById('result-actions');
+
+    if (resultDisplay) resultDisplay.innerHTML = '';
+    if (videoDisplay) {
+      videoDisplay.innerHTML = '';
+      videoDisplay.style.display = 'none';
+    }
+    if (qrContainer) qrContainer.style.display = 'none';
+
+    // Hide static UI elements during loading
+    if (resultHeader) resultHeader.style.visibility = 'hidden';
+    if (downloadOptions) downloadOptions.style.visibility = 'hidden';
+    if (resultActions) resultActions.style.visibility = 'hidden';
+  });
+
   window.eventBus.on('review:finalize', async (data) => {
     const finalizeBtn = document.getElementById('finalize-btn');
     if (finalizeBtn) finalizeBtn.disabled = true;
@@ -19,7 +41,13 @@ window.eventBus.on('app:init', (appState) => {
     currentSessionId = null;
     currentSessionData = null;
 
-    // Compose image immediately
+    // 1. Switch to Result Screen IMMEDIATELY
+    window.eventBus.dispatch('screen:show', 'result-screen');
+
+    // 2. Clear previous result display while loading
+    window.eventBus.dispatch('result:reset');
+
+    // Compose image
     const imageComposePromise = (async () => {
       const d = new FormData();
 
@@ -62,6 +90,9 @@ window.eventBus.on('app:init', (appState) => {
     } catch (e) {
       console.error(e);
       if (finalizeBtn) finalizeBtn.disabled = false;
+      // If error, maybe go back or show toast?
+      if (window.showToast) window.showToast('Failed to compose image', 'error');
+      if (window.hideLoading) window.hideLoading();
     }
   });
 
@@ -113,6 +144,8 @@ window.eventBus.on('app:init', (appState) => {
       };
 
       displayFinalResult(imageResult, mockData, mockAppState);
+      // Ensure screen is shown for session load
+      window.eventBus.dispatch('screen:show', 'result-screen');
 
     } catch (err) {
       console.error('Error loading session:', err);
@@ -121,7 +154,11 @@ window.eventBus.on('app:init', (appState) => {
   }
 
   function displayFinalResult(imageResult, data, appState) {
-    window.eventBus.dispatch('screen:show', 'result-screen');
+    // NOTE: 'screen:show' is handled by caller (review:finalize or session:load) to avoid double-transition
+    // window.eventBus.dispatch('screen:show', 'result-screen');
+
+    // Hide shared loading overlay if it was shown by review.js
+    if (window.hideLoading) window.hideLoading();
 
     // DOM references
     const resultTitle = document.getElementById('result-title');
@@ -137,6 +174,14 @@ window.eventBus.on('app:init', (appState) => {
     const downloadGeneratedBtn = document.getElementById('download-generated-btn');
     const continueEditingBtn = document.getElementById('continue-editing-btn');
     const goHomeBtn = document.getElementById('go-home-btn');
+
+    // Reveal UI elements
+    const resultHeader = document.getElementById('result-header');
+    const downloadOptions = document.getElementById('download-options');
+    const resultActions = document.getElementById('result-actions');
+    if (resultHeader) resultHeader.style.visibility = 'visible';
+    if (downloadOptions) downloadOptions.style.visibility = 'visible';
+    if (resultActions) resultActions.style.visibility = 'visible';
 
     resultTitle.textContent = '완성!';
     resultStatus.textContent = '이미지가 성공적으로 생성되었습니다.';

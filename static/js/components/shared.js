@@ -1,4 +1,4 @@
-window.getPreviewScaling = function(previewId = 'review-preview') {
+window.getPreviewScaling = function (previewId = 'review-preview') {
     const p = document.getElementById(previewId);
     let t;
     if (previewId === 'review-preview') {
@@ -6,7 +6,7 @@ window.getPreviewScaling = function(previewId = 'review-preview') {
     } else if (previewId === 'template-edit-preview') {
         t = p.querySelector('.preview-template-img');
     }
-    
+
     if (!t || !t.naturalWidth) return { scale: 1, offsetX: 0, offsetY: 0, renderedWidth: 0, renderedHeight: 0 };
 
     const containerWidth = p.offsetWidth;
@@ -41,9 +41,9 @@ window.getPreviewScaling = function(previewId = 'review-preview') {
 };
 
 // A simple debounce function to limit the rate at which a function can fire.
-window.debounce = function(func, wait) {
+window.debounce = function (func, wait) {
     let timeout;
-    return function(...args) {
+    return function (...args) {
         const context = this;
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(context, args), wait);
@@ -51,30 +51,30 @@ window.debounce = function(func, wait) {
 }
 
 // Handles file uploads for both templates and stickers
-window.handleFileUpload = async function(event, endpoint, callback, category = null) { 
-    const f = event.target.files[0]; 
-    if (!f) return; 
-    const d = new FormData(); 
-    d.append('file', f); 
+window.handleFileUpload = async function (event, endpoint, callback, category = null) {
+    const f = event.target.files[0];
+    if (!f) return;
+    const d = new FormData();
+    d.append('file', f);
     if (category) {
         d.append('category', category);
     }
-    try { 
-        const r = await fetch(endpoint, { method: 'POST', body: d }); 
-        if (!r.ok) throw new Error((await r.json()).detail); 
+    try {
+        const r = await fetch(endpoint, { method: 'POST', body: d });
+        if (!r.ok) throw new Error((await r.json()).detail);
         const data = await r.json();
         if (endpoint === '/upload_template') {
             window.eventBus.dispatch('template:uploaded', data);
         } else {
-            callback(); 
+            callback();
         }
-    } catch (e) { 
-        console.error(e); 
-    } 
-    event.target.value = null; 
+    } catch (e) {
+        console.error(e);
+    }
+    event.target.value = null;
 }
 
-window.showToast = function(message, type = 'info', duration = 3000) {
+window.showToast = function (message, type = 'info', duration = 3000) {
     let toastContainer = document.getElementById('toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -156,5 +156,75 @@ window.showToast = function(message, type = 'info', duration = 3000) {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(100%) translateY(0)';
         toast.addEventListener('transitionend', () => toast.remove());
+    }
+};
+
+// Shared Loading Overlay (Video Progress Style)
+window.showLoading = function (message = 'Processing...') {
+    let overlay = document.getElementById('video-progress-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'video-progress-overlay';
+        overlay.innerHTML = `
+            <div class="progress-content">
+                <h3 id="loading-message">${message}</h3>
+                <div class="progress-bar" style="display: none;" id="loading-bar-container">
+                    <div class="progress-fill" id="loading-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" style="display: none;" id="loading-text">0%</div>
+                <div class="spinner" id="loading-spinner" style="
+                    border: 4px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    border-top: 4px solid var(--button-bg);
+                    width: 40px;
+                    height: 40px;
+                    margin: 0 auto;
+                    animation: spin 1s linear infinite;
+                "></div>
+                <style>
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    // Reset/Update state
+    const msgEl = document.getElementById('loading-message');
+    const barContainer = document.getElementById('loading-bar-container');
+    const textEl = document.getElementById('loading-text');
+    const spinner = document.getElementById('loading-spinner');
+
+    if (msgEl) msgEl.textContent = message;
+
+    // Default to spinner mode
+    if (barContainer) barContainer.style.display = 'none';
+    if (textEl) textEl.style.display = 'none';
+    if (spinner) spinner.style.display = 'block';
+
+    return {
+        updateProgress: (percent) => {
+            if (barContainer) barContainer.style.display = 'block';
+            if (textEl) {
+                textEl.style.display = 'block';
+                textEl.textContent = `${Math.round(percent)}%`;
+            }
+            if (spinner) spinner.style.display = 'none';
+
+            const fill = document.getElementById('loading-fill');
+            if (fill) fill.style.width = `${percent}%`;
+        },
+        updateMessage: (msg) => {
+            if (msgEl) msgEl.textContent = msg;
+        }
+    };
+};
+
+window.hideLoading = function () {
+    const overlay = document.getElementById('video-progress-overlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s';
+        setTimeout(() => overlay.remove(), 300);
     }
 };

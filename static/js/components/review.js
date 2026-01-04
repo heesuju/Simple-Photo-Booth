@@ -447,29 +447,50 @@ window.eventBus.on('app:init', (appState) => {
 
 
     finalizeBtn.addEventListener('click', async () => {
-        let bakedAssignments = [];
-        if (appState.transformManager) {
-            if (window.showToast) window.showToast('Preparing final images...', 'info');
-            // Bake filters for each assigned photo
-            for (let i = 0; i < appState.photoAssignments.length; i++) {
-                const blob = appState.photoAssignments[i];
-                const pIdx = appState.capturedPhotos.indexOf(blob);
-                if (pIdx !== -1) {
-                    const baked = await appState.transformManager.getFinalBlob(pIdx);
-                    bakedAssignments.push(baked);
-                } else {
-                    bakedAssignments.push(blob);
-                }
-            }
-        } else {
-            bakedAssignments = appState.photoAssignments;
+        if (!appState.photoAssignments || appState.photoAssignments.length === 0) {
+            if (window.showToast) window.showToast('No photos to finalize!', 'error');
+            return;
         }
 
-        window.eventBus.dispatch('review:finalize', {
-            videos: appState.videoAssignments,
-            photoAssignments: bakedAssignments,
-            filters: {} // Send empty filters to prevent double application by backend
-        });
+        // Show loading popup
+        if (window.showLoading) window.showLoading('Generating final image...');
+
+        // Transition immediately to avoid lag perception
+        window.eventBus.dispatch('result:reset');
+        window.eventBus.dispatch('screen:show', 'result-screen');
+
+        // Yield to allow UI to render the loading overlay and screen switch
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        try {
+            let bakedAssignments = [];
+            if (appState.transformManager) {
+                // Bake filters for each assigned photo
+                for (let i = 0; i < appState.photoAssignments.length; i++) {
+                    const blob = appState.photoAssignments[i];
+                    const pIdx = appState.capturedPhotos.indexOf(blob);
+                    if (pIdx !== -1) {
+                        const baked = await appState.transformManager.getFinalBlob(pIdx);
+                        bakedAssignments.push(baked);
+                    } else {
+                        bakedAssignments.push(blob);
+                    }
+                }
+            } else {
+                bakedAssignments = appState.photoAssignments;
+            }
+
+            window.eventBus.dispatch('review:finalize', {
+                videos: appState.videoAssignments,
+                photoAssignments: bakedAssignments,
+                filters: {} // Send empty filters to prevent double application by backend
+            });
+
+        } catch (e) {
+            console.error("Finalize error:", e);
+            if (window.hideLoading) window.hideLoading();
+            if (window.showToast) window.showToast('Error generating final image', 'error');
+        }
     });
     retakeBtn.addEventListener('click', () => {
         window.eventBus.dispatch('review:retake', { indices: appState.selectedForRetake });
