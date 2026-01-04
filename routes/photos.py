@@ -309,7 +309,15 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
             new_w = int(hole['w'] * scale)
             new_h = int(hole['h'] * scale)
 
-            resized_photo = cv2.resize(filtered_photo, (new_w, new_h))
+            # High-Quality Resizing Logic
+            h_orig, w_orig = filtered_photo.shape[:2]
+            
+            if new_w < w_orig or new_h < h_orig:
+                interpolation = cv2.INTER_AREA
+            else:
+                interpolation = cv2.INTER_LANCZOS4
+                
+            resized_photo = cv2.resize(filtered_photo, (new_w, new_h), interpolation=interpolation)
             rotated_photo = rotate_image(resized_photo, rotation)
 
             # Calculate position for centered placement
