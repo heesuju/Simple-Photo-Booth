@@ -4,71 +4,132 @@ import numpy as np
 import random
 
 
+# --- Configuration ---
+TEMPLATE_CONFIGS = {
+    "typeA": {
+        "margins": {"top": 30, "bottom": 180, "left": 30, "right": 30},
+        "gaps": {"row": 30, "col": 30}
+    },
+    "typeB": {
+        "margins": {"top": 20, "bottom": 20, "left": 20, "right": 20},
+        "gaps": {"row": 10, "col": 40}
+    },
+    "typeC": {
+        "margins": {"top": 180, "bottom": 30, "left": 30, "right": 30},
+        "gaps": {"row": 30, "col": 30}
+    }
+}
+
+
 def generate_default_templates(db_manager, generated_templates_dir="static/generated_templates"):
+    # Layouts now map to a list of types to generate
     layouts = {
-        "2:3": ["1x1"],
-        "3:4": ["1x3"],
-        "4:3": ["1x4"],
-        "4:5": ["2x2"],
-        "1:1": ["3x2"]
+        "2:3": [{"layout": "1x1", "types": ["typeA"]}],
+        "3:4": [{"layout": "1x3", "types": ["typeA"]}],
+        "4:3": [
+            {"layout": "1x4", "types": ["typeA", "typeC"]},
+            {"layout": "2x4", "types": ["typeB"]}
+        ],
+        "4:5": [{"layout": "2x2", "types": ["typeA"]}],
+        "1:1": [{"layout": "3x2", "types": ["typeA"]}]
     }
 
-    for ar_str, layout_list in layouts.items():
-        for layout_str in layout_list:
-            generate_template_if_not_exists(db_manager, ar_str, layout_str, generated_templates_dir)
+    for ar_str, layout_configs in layouts.items():
+        for config in layout_configs:
+            layout_str = config["layout"]
+            types_to_generate = config["types"]
+            
+            for type_name in types_to_generate:
+                generate_template_if_not_exists(
+                    db_manager, 
+                    ar_str, 
+                    layout_str, 
+                    type_name, 
+                    generated_templates_dir
+                )
 
 
-def generate_template_if_not_exists(db_manager, ar_str, layout_str, generated_templates_dir="static/generated_templates"):
-    # Check if a an existing DEFAULT template with this combination already exists
-    if db_manager.get_default_template_by_layout(ar_str, layout_str):
-        print(f"Default template for {ar_str} {layout_str} already exists. Skipping.")
+def generate_template_if_not_exists(db_manager, ar_str, layout_str, type_name, generated_templates_dir="static/generated_templates"):
+    # Determine filename suffix based on type
+    suffix = "" if type_name == "typeA" else f"_{type_name}"
+    
+    filename = f"template_{ar_str.replace(':', '_')}_{layout_str}{suffix}.png"
+    file_path = os.path.join(generated_templates_dir, filename)
+    template_path_for_db = f"/{file_path}"
+    template_path_for_db = template_path_for_db.replace("\\", "/") # Ensure forward slashes for DB
+
+    # Check if this specific template file/record already exists
+    if os.path.exists(file_path): 
+        print(f"Template file {filename} already exists. Skipping generation.")
         return
 
-    print(f"Generating template for {ar_str} {layout_str}...")
+    print(f"Generating {type_name} template for {ar_str} {layout_str}...")
 
     try:
         ar_w, ar_h = map(int, ar_str.split(':'))
         cols, rows = map(int, layout_str.split('x'))
+        
+        config = TEMPLATE_CONFIGS.get(type_name)
+        if not config:
+            print(f"Unknown template type: {type_name}")
+            return
 
-        base_photo_w = 480
-        base_photo_h = int(base_photo_w * ar_h / ar_w)
-        gap = 30
-        bottom_padding = 150
-
-        template_w = (base_photo_w * cols) + (gap * (cols + 1))
-        template_h = (base_photo_h * rows) + (gap * (rows + 1)) + bottom_padding
-
-        # Create a 4-channel image (BGRA) initialized to white
-        template = np.full((template_h, template_w, 4), (255, 255, 255, 255), np.uint8)
-
-        holes = []
-        for r in range(rows):
-            for c in range(cols):
-                x = gap + c * (base_photo_w + gap)
-                y = gap + r * (base_photo_h + gap)
-                # Set the hole area to be transparent
-                template[y:y+base_photo_h, x:x+base_photo_w, 3] = 0
-                holes.append({"x": x, "y": y, "w": base_photo_w, "h": base_photo_h})
+        template, holes = create_template_image(ar_w, ar_h, cols, rows, config)
 
         # Save the generated template
-        filename = f"template_{ar_str.replace(':', '_')}_{layout_str}.png"
         os.makedirs(generated_templates_dir, exist_ok=True)
-        file_path = os.path.join(generated_templates_dir, filename)
         cv2.imwrite(file_path, template)
 
         # Add to database
-        template_path_for_db = f"/{file_path}"
         hole_count = len(holes)
         transformations = [{'scale': 1, 'rotation': 0} for _ in holes]
+        
         db_manager.add_template(template_path_for_db, hole_count, holes, ar_str, layout_str, transformations, is_default=True)
 
-        # Generate the layout thumbnail
+        # Generate the layout thumbnail (only needs to be done once per layout, but harmless to repeat)
         generate_layout_thumbnail(ar_str, layout_str, "static/layouts")
 
-        print(f"Successfully generated and saved template for {ar_str} {layout_str}.")
+        print(f"Successfully generated and saved {type_name} template for {ar_str} {layout_str}.")
 
     except Exception as e:
         print(f"Error generating template for {ar_str} {layout_str}: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def create_template_image(ar_w, ar_h, cols, rows, config):
+    base_photo_w = 480
+    base_photo_h = int(base_photo_w * ar_h / ar_w)
+    
+    margins = config["margins"]
+    gaps = config["gaps"]
+    
+    # Calculate Template Dimensions
+    # Width = Left Margin + (Cols * PhotoW) + ((Cols - 1) * ColGap) + Right Margin
+    template_w = margins["left"] + (base_photo_w * cols) + (gaps["col"] * (cols - 1)) + margins["right"]
+    
+    # Height = Top Margin + (Rows * PhotoH) + ((Rows - 1) * RowGap) + Bottom Margin
+    template_h = margins["top"] + (base_photo_h * rows) + (gaps["row"] * (rows - 1)) + margins["bottom"]
+
+    # Create a 4-channel image (BGRA) initialized to white
+    template = np.full((template_h, template_w, 4), (255, 255, 255, 255), np.uint8)
+
+    holes = []
+    for r in range(rows):
+        for c in range(cols):
+            # Calculate x position
+            # x = Left Margin + (Col Index * (PhotoW + ColGap))
+            x = margins["left"] + c * (base_photo_w + gaps["col"])
+            
+            # Calculate y position
+            # y = Top Margin + (Row Index * (PhotoH + RowGap))
+            y = margins["top"] + r * (base_photo_h + gaps["row"])
+            
+            # Set the hole area to be transparent
+            template[y:y+base_photo_h, x:x+base_photo_w, 3] = 0
+            holes.append({"x": x, "y": y, "w": base_photo_w, "h": base_photo_h})
+            
+    return template, holes
 
 
 def generate_layout_thumbnail(aspect_ratio, cell_layout, output_dir):
