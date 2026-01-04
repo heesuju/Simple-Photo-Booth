@@ -51,8 +51,13 @@ echo.
 echo Checking for ngrok...
 where ngrok >nul 2>nul
 if %errorlevel% equ 0 (
-    echo Ngrok is available. Starting ngrok http %APP_PORT% in a new window...
-    start "Ngrok Tunnel" ngrok http %APP_PORT%
+    tasklist /FI "IMAGENAME eq ngrok.exe" 2>NUL | find /I /N "ngrok.exe">NUL
+    if not errorlevel 1 (
+        echo Ngrok is already running. Skipping...
+    ) else (
+        echo Ngrok is available. Starting ngrok http %APP_PORT% in a new window...
+        start "Ngrok Tunnel" ngrok http %APP_PORT%
+    )
 ) else (
     echo Ngrok is not available in PATH. Skipping ngrok start.
 )
