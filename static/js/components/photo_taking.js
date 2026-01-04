@@ -595,7 +595,21 @@ window.eventBus.on('app:init', (appState) => {
 
     let currentRecordingPromise = Promise.resolve();
 
+    let isCapturingPhoto = false; // Flag to prevent rapid-fire captures
+
     function handleCapture() {
+        // STRICT CHECK: Do not capture if we already have enough photos
+        const totalToCapture = appState.isRetaking ? appState.photosToRetake.length : appState.templateInfo.hole_count;
+        const currentCaptureCount = appState.isRetaking ? appState.newlyCapturedPhotos.length : appState.capturedPhotos.length;
+
+        if (currentCaptureCount >= totalToCapture) {
+            console.log("Max photos reached. Ignoring capture request.");
+            return;
+        }
+
+        if (isCapturingPhoto) return; // Prevent double-invocation
+        isCapturingPhoto = true;
+
         // Wait for the current recording to stop and register its upload promise
         const stopPromise = new Promise((resolve) => {
             if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -674,6 +688,7 @@ window.eventBus.on('app:init', (appState) => {
             }
 
             updatePhotoStatus();
+            isCapturingPhoto = false; // Release lock
         }, 'image/jpeg');
     }
 
