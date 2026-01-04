@@ -600,6 +600,10 @@ window.eventBus.on('app:init', (appState) => {
             if (currentActiveBtn === e.target) {
                 // In PC mode, keep one panel active at all times
                 if (window.innerWidth > 900) {
+                    // Reset stickers if clicking the active stickers button
+                    if (panelType === 'stickers') {
+                        reviewDecorations.loadStickerGallery();
+                    }
                     return; // Do nothing - prevent closing
                 }
 
@@ -659,6 +663,8 @@ window.eventBus.on('app:init', (appState) => {
 
             if (panelType === 'filter-presets' || panelType === 'filters') {
                 reviewFilters.loadFilterPresets();
+            } else if (panelType === 'stickers') {
+                reviewDecorations.loadStickerGallery();
             }
 
             // Update panel header with label
