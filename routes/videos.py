@@ -7,6 +7,7 @@ import aiofiles
 import qrcode
 import numpy as np
 import moviepy.editor as mpe
+from urllib.parse import unquote
 from typing import List
 from PIL import Image
 from fastapi import APIRouter, Request, File, UploadFile, Form, HTTPException
@@ -77,7 +78,9 @@ async def compose_video(
                 content = await template_file.read()
                 await out_file.write(content)
         elif template_path:
-            base_template_path = os.path.join(os.getcwd(), template_path.lstrip("/"))
+            # Unquote template path
+            decoded_path = unquote(template_path.lstrip("/"))
+            base_template_path = os.path.join(os.getcwd(), decoded_path)
         else:
             raise HTTPException(status_code=400, detail="No template provided.")
 
@@ -103,6 +106,7 @@ async def compose_video(
             # Step 2: fallback to mp4 transcode (slower but reliable)
             cmd_transcode = f'ffmpeg -y -i "{input_path}" -c:v libx264 -preset ultrafast -pix_fmt yuv420p "{fixed_mp4}"'
             subprocess.run(cmd_transcode, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            os.remove(fixed_copy) if os.path.exists(fixed_copy) else None
             return fixed_mp4 if os.path.exists(fixed_mp4) else input_path
 
         def validate_video(path):
@@ -129,7 +133,9 @@ async def compose_video(
         # --- Load and validate video clips ---
         clips = []
         for path in video_paths:
-            full_path = os.path.join(os.getcwd(), path.lstrip("/"))
+            # Unquote video path
+            decoded_path = unquote(path.lstrip("/"))
+            full_path = os.path.join(os.getcwd(), decoded_path)
             full_path = fix_webm_metadata(full_path)  # ensure reindexed
             full_path = validate_video(full_path)
             clips.append(mpe.VideoFileClip(full_path))
@@ -194,7 +200,9 @@ async def compose_video(
         # --- Stickers (anti-aliased) ---
         sticker_clips = []
         for sticker in sticker_data:
-            sticker_path = os.path.join(os.getcwd(), sticker["path"].lstrip("/"))
+            # Unquote sticker path
+            decoded_path = unquote(sticker["path"].lstrip("/"))
+            sticker_path = os.path.join(os.getcwd(), decoded_path)
             resize_size = (sticker["width"], sticker["height"])
             rotation = -float(sticker.get("rotation", 0))
 

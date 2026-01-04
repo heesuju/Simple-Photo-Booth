@@ -12,7 +12,7 @@ import aiofiles
 import shutil
 from typing import List, Optional
 from zipfile import ZipFile
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from PIL import Image
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -245,7 +245,16 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
         hole_data = json.loads(holes)
         filter_data = json.loads(filters)
         transform_data = json.loads(transformations)
-        template_img = cv2.imread(base_template_path, cv2.IMREAD_UNCHANGED)
+        
+        # Unicode safe path handling
+        if template_path:
+             # Unquote if it was Url encoded
+             base_template_path = unquote(base_template_path)
+
+        # Use imdecode for Unicode path support
+        with open(base_template_path, "rb") as f:
+            file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
+        template_img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
         height, width, _ = template_img.shape
         canvas = np.full((height, width, 3), 255, np.uint8)
 
@@ -371,11 +380,19 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
                 print(f"Skipping sticker with non-numeric dimensions: {sticker_data}")
                 continue
 
-            sticker_path = os.path.join(os.getcwd(), sticker_data['path'].lstrip('/'))
+            # Decode path and use unicode-safe read
+            raw_path = sticker_data['path'].lstrip('/')
+            decoded_path = unquote(raw_path)
+            sticker_path = os.path.join(os.getcwd(), decoded_path)
+            
             if not os.path.exists(sticker_path):
+                print(f"Sticker not found: {sticker_path} (Decoded: {decoded_path})")
                 continue # Skip if sticker image not found
 
-            sticker_img = cv2.imread(sticker_path, cv2.IMREAD_UNCHANGED)
+            # cv2.imread doesn't support unicode on windows, use imdecode
+            with open(sticker_path, "rb") as f:
+                file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
+            sticker_img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
             if sticker_img.shape[2] == 3:
                 sticker_img = cv2.cvtColor(sticker_img, cv2.COLOR_BGR2BGRA)
             
