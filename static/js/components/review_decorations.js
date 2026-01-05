@@ -221,7 +221,7 @@ window.initReviewDecorations = (appState, callbacks) => {
         renderStickers: renderPlacedStickers,
     });
 
-    async function loadStickerGallery(selectedCategory = null) {
+    async function loadStickerGallery(selectedCategory = null, shouldUpdateHeader = true) {
         try {
             const [stickersResponse, categoriesResponse] = await Promise.all([
                 fetch('/stickers'),
@@ -253,7 +253,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                 });
 
                 // Update panel header with category name and back button
-                if (callbacks.updatePanelHeader) {
+                if (shouldUpdateHeader && callbacks.updatePanelHeader) {
                     callbacks.updatePanelHeader('stickers', {
                         customLabel: selectedCategory,
                         showBack: true
@@ -312,7 +312,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                 });
 
                 // Update panel header to show "Stickers" (no back button)
-                if (callbacks.updatePanelHeader) {
+                if (shouldUpdateHeader && callbacks.updatePanelHeader) {
                     callbacks.updatePanelHeader('stickers');
                 }
             }

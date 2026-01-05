@@ -938,7 +938,7 @@ window.eventBus.on('app:init', (appState) => {
         }
         renderReviewThumbnails();
         renderPreview();
-        reviewDecorations.loadStickerGallery();
+        reviewDecorations.loadStickerGallery(null, false);
         loadSimilarTemplates();
 
         // PC mode: Show photos panel by default
