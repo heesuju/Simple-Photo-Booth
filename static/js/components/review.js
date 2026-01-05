@@ -424,6 +424,23 @@ window.eventBus.on('app:init', (appState) => {
         zoomSlider.addEventListener('input', (e) => updateZoom(e.target.value));
         zoomOutBtn.addEventListener('click', () => updateZoom(parseInt(zoomSlider.value) - 10));
         zoomInBtn.addEventListener('click', () => updateZoom(parseInt(zoomSlider.value) + 10));
+
+        const zoomToggleBtn = document.getElementById('zoom-toggle-btn');
+        const zoomWrapper = document.getElementById('zoom-slider-wrapper');
+
+        if (zoomToggleBtn && zoomWrapper) {
+            zoomToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                zoomWrapper.classList.toggle('show');
+            });
+
+            // Close when clicking outside
+            window.addEventListener('click', (e) => {
+                if (!zoomWrapper.contains(e.target) && !zoomToggleBtn.contains(e.target)) {
+                    zoomWrapper.classList.remove('show');
+                }
+            });
+        }
     }
 
     // Ctrl + Scroll Zoom Logic

@@ -149,15 +149,68 @@
     position: absolute;
     bottom: 2rem;
     right: 2rem;
-    /* left: 50%; transform: translateX(-50%); REMOVED */
-    background: rgba(0, 0, 0, 0.6);
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
     display: flex;
     align-items: center;
     gap: 10px;
     z-index: 100;
+}
+
+#zoom-slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
     backdrop-filter: blur(5px);
+
+    /* Animation props */
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding: 0;
+    margin-right: -10px;
+    /* Pull it slightly into the button or adjust spacing */
+    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    pointer-events: none;
+    /* Prevent interaction when hidden */
+    white-space: nowrap;
+    /* Prevent wrapping during animation */
+}
+
+#zoom-slider-wrapper.show {
+    width: 300px;
+    /* Or auto, but fixed/max-width animates better */
+    opacity: 1;
+    padding: 0.5rem 1rem;
+    margin-right: 0;
+    pointer-events: auto;
+}
+
+#zoom-toggle-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.2s;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+#zoom-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#zoom-toggle-btn svg {
+    fill: var(--text-color);
 }
 
 #zoom-controls button {
