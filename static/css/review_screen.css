@@ -298,6 +298,16 @@
 
 #finalize-btn {
     margin-top: auto;
+    background-color: var(--button-bg);
+}
+
+#finalize-btn:hover {
+    background-color: var(--button-hover-bg);
+}
+
+#finalize-btn svg {
+    fill: white !important;
+    opacity: 1;
 }
 
 .primary-action {
@@ -519,6 +529,7 @@
     #finalize-btn svg {
         width: 28px;
         height: 28px;
+        fill: white !important;
     }
 
     /* Content (Strip + Actions): Overlay above nav */
