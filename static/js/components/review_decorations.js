@@ -367,11 +367,33 @@ window.initReviewDecorations = (appState, callbacks) => {
             const stickerNaturalH = stickerImg.naturalHeight * (desiredNaturalWidth / stickerImg.naturalWidth);
 
             const template = document.querySelector('#review-preview .preview-template-img');
-            const imageNaturalWidth = template.naturalWidth;
-            const imageNaturalHeight = template.naturalHeight;
+            const previewContainer = document.getElementById('review-preview');
+            const wrapper = document.getElementById('review-preview-wrapper');
 
-            const imageX = (imageNaturalWidth - stickerNaturalW) / 2;
-            const imageY = (imageNaturalHeight - stickerNaturalH) / 2;
+            let imageX, imageY;
+
+            if (wrapper && previewContainer) {
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const previewRect = previewContainer.getBoundingClientRect();
+
+                const screenCenterX = wrapperRect.left + (wrapper.clientWidth / 2);
+                const screenCenterY = wrapperRect.top + (wrapper.clientHeight / 2);
+
+                const offsetX = screenCenterX - previewRect.left;
+                const offsetY = screenCenterY - previewRect.top;
+
+                const naturalCenterX = offsetX / scale;
+                const naturalCenterY = offsetY / scale;
+
+                imageX = naturalCenterX - (stickerNaturalW / 2);
+                imageY = naturalCenterY - (stickerNaturalH / 2);
+            } else {
+                // Fallback to image center if something fails
+                const imageNaturalWidth = template.naturalWidth;
+                const imageNaturalHeight = template.naturalHeight;
+                imageX = (imageNaturalWidth - stickerNaturalW) / 2;
+                imageY = (imageNaturalHeight - stickerNaturalH) / 2;
+            }
 
             appState.placedStickers.push({
                 id: Date.now(),
