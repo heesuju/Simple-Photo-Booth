@@ -1238,3 +1238,51 @@
     max-width: 150px;
     /* Limit width */
 }
+
+/* Palette Styles for BG Panel and Template Panel */
+.palette-swatch {
+    width: 90px;
+    height: 90px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid var(--border-color);
+    flex-shrink: 0;
+    margin: 5px;
+    /* Prevent clipping on scale */
+}
+
+.palette-swatch:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    position: relative;
+}
+
+.palette-add-btn {
+    width: 90px;
+    height: 90px;
+    border-radius: 8px;
+    border: 2px dashed var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin: 5px;
+    background: transparent;
+}
+
+.palette-add-btn:hover {
+    background-color: var(--button-hover-bg);
+    transform: scale(1.05);
+    border-style: solid;
+}
+
+#bg-palette-container {
+    padding: 10px;
+    /* Add padding to container */
+}

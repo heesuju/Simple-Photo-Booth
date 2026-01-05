@@ -357,6 +357,8 @@ window.eventBus.on('app:init', (appState) => {
         updateAddFinalizeButtons
     });
 
+    const reviewPalette = window.initReviewPalette(appState);
+
     const reviewBackgrounds = window.initReviewBackgrounds(appState, {
         renderPreview,
         renderReviewThumbnails,
@@ -364,7 +366,9 @@ window.eventBus.on('app:init', (appState) => {
         stripBackBtn,
         showToast: window.showToast,
         reviewToolbar,
-        updatePreviewHighlights
+        updatePreviewHighlights,
+        updateAddFinalizeButtons, // Pass this callback
+        reviewPalette // Pass palette instance
     });
 
     // Add ResizeObserver to handle layout changes (especially in mobile view)
@@ -536,76 +540,6 @@ window.eventBus.on('app:init', (appState) => {
         retakeBtn.style.display = 'none';
     });
 
-
-
-    // genericAddBtn.addEventListener('click', () => {
-    //     const currentOpenPanel = Array.from(stripContainer.querySelectorAll('.strip-panel')).find(p => p.classList.contains('show'));
-    //     if (!currentOpenPanel) return;
-
-    //     const panelId = currentOpenPanel.id;
-    //     const panelType = currentOpenPanel.dataset.panel;
-
-    //     if (panelId === 'style-strip-panel') { // Styles
-    //         // Toggle logic for styles if needed, or open modal
-    //         const addStyleModal = document.getElementById('add-style-modal');
-    //         if (addStyleModal) addStyleModal.className = 'modal-visible';
-    //     } else if (panelType === 'filters') { // Filters
-    //         const addPresetModal = document.getElementById('add-filter-preset-modal');
-    //         // Pre-populate logic from old addPresetBtn click handler
-    //         const presetFilterControls = document.getElementById('preset-filter-controls');
-    //         const filterControls = document.getElementById('filter-controls');
-    //         presetFilterControls.innerHTML = filterControls.innerHTML;
-
-    //         const presetPreview = document.getElementById('preset-preview');
-    //         const firstPhoto = appState.capturedPhotos[0];
-    //         if (firstPhoto) {
-    //             const imageUrl = URL.createObjectURL(firstPhoto);
-    //             presetPreview.style.backgroundImage = `url(${imageUrl})`;
-
-    //             const updatePreviewFilters = () => {
-    //                 const values = {};
-    //                 presetFilterControls.querySelectorAll('input[type="range"]').forEach(slider => {
-    //                     values[slider.dataset.filter] = parseInt(slider.value, 10);
-    //                 });
-    //                 const filterString = `brightness(${values.brightness}%) contrast(${values.contrast}%) saturate(${values.saturate}%) blur(${values.blur}px)`;
-    //                 presetPreview.style.filter = filterString;
-    //             };
-
-    //             presetFilterControls.addEventListener('input', updatePreviewFilters);
-    //             updatePreviewFilters();
-    //         }
-    //         addPresetModal.className = 'modal-visible';
-
-    //     } else if (panelType === 'stickers') { // Stickers
-    //         const categoryGallery = document.getElementById('sticker-category-gallery');
-    //         if (categoryGallery.style.display !== 'none') {
-    //             document.getElementById('add-sticker-category-modal').className = 'modal-visible';
-    //         } else {
-    //             stickerUploadInput.click();
-    //         }
-    //     } else if (panelId === 'color-palette-panel') { // Template Colors
-    //         colorPicker.show().then(result => {
-    //             if (result) {
-    //                 // We need the template object here... 
-    //                 // showColorPalettePanel saves context? No. 
-    //                 // We need to know which template we are editing. 
-    //                 // Let's store currentTemplate in appState or closure? 
-    //                 // showColorPalettePanel is called with template.
-    //                 if (appState.currentEditingTemplate) {
-    //                     if (result.saved) {
-    //                         showColorPalettePanel(appState.currentEditingTemplate);
-    //                     }
-    //                     recolorTemplateAndApply(appState.currentEditingTemplate, result.color);
-    //                     // User might want to try multiple colors.
-    //                     // But if we want to follow 'swatch click' behavior:
-    //                     // stripBackBtn.click();
-    //                 }
-    //             }
-    //         });
-    //     } else if (panelType === 'add-text') { // Fonts
-    //         fontUploadInput.click();
-    //     }
-    // });
 
     fontUploadInput.addEventListener('change', (e) => window.handleFileUpload(e, '/upload_font', reviewDecorations.loadFontGallery));
 
@@ -1138,12 +1072,13 @@ window.eventBus.on('app:init', (appState) => {
         }
     }
 
-    // --- This function now only handles showing the panel and populating it ---
+
+    // --- This function now uses the shared palette component ---
     async function showColorPalettePanel(template) {
         const templatePanel = document.getElementById('template-gallery-review');
         const colorPanel = document.getElementById('color-palette-panel');
 
-        // Store current template for Generic Add Button context
+        // Store current template for Generic Add Button context (if needed, but palette handles it now)
         appState.currentEditingTemplate = template;
 
         templatePanel.classList.remove('show');
@@ -1152,51 +1087,17 @@ window.eventBus.on('app:init', (appState) => {
         panelHistory.push('templates');
         stripBackBtn.style.display = 'block';
 
-        // --- Add "+ button" as first item ---
-        const addColorBtn = document.createElement('div');
-        addColorBtn.className = 'palette-add-btn';
-        addColorBtn.textContent = '+';
-        addColorBtn.addEventListener('click', () => {
-            if (!window._reviewColorPicker) {
-                window._reviewColorPicker = window.initColorPicker(appState);
-            }
-            window._reviewColorPicker.show().then(result => {
-                if (result) {
-                    if (result.saved) {
-                        showColorPalettePanel(template); // Reload to show new saved color
-                    }
-                    recolorTemplateAndApply(template, result.color);
-                }
-            });
+        // Render Shared Palette
+        // Use an inner wrapper so reviewPalette's inline 'display: flex' doesn't conflict 
+        // with the panel's class-based visibility ('.show').
+        const paletteWrapper = document.createElement('div');
+        paletteWrapper.style.width = '100%';
+        paletteWrapper.style.height = '100%';
+        colorPanel.appendChild(paletteWrapper);
+
+        await reviewPalette.render(paletteWrapper, (hexColor) => {
+            recolorTemplateAndApply(template, hexColor);
         });
-        colorPanel.appendChild(addColorBtn);
-
-        // --- Color Swatches ---
-        try {
-            const r = await fetch('/colors');
-            const colors = await r.json();
-            colors.forEach(colorObj => {
-                const swatch = document.createElement('div');
-                swatch.className = 'palette-swatch';
-                swatch.style.backgroundColor = colorObj.hex_code;
-                swatch.addEventListener('click', () => {
-                    recolorTemplateAndApply(template, colorObj.hex_code);
-                    // stripBackBtn.click(); // Keep panel open
-                });
-                colorPanel.appendChild(swatch);
-            });
-        } catch (e) {
-            console.error("Failed to load colors:", e);
-        }
-
-        // Enable horizontal scroll with mouse wheel (mobile only)
-        colorPanel.addEventListener('wheel', (e) => {
-            if (window.innerWidth <= 900 && e.deltaY !== 0) {
-                e.preventDefault();
-                colorPanel.scrollLeft += e.deltaY;
-            }
-        }, { passive: false });
-
 
         colorPanel.classList.add('show');
     }
@@ -1377,6 +1278,7 @@ window.eventBus.on('app:init', (appState) => {
 
     function updateAddFinalizeButtons() {
         const actionsContainer = document.getElementById('review-actions-container');
+        const actionResetBgBtn = document.getElementById('action-reset-bg-btn'); // Ensure this is defined here
 
         // Priority 1: Retake Selection
         const count = appState.selectedForRetake.length;
@@ -1391,6 +1293,7 @@ window.eventBus.on('app:init', (appState) => {
             actionTemplateColorBtn.style.display = 'none';
             actionResetStyleBtn.style.display = 'none';
             actionResetFilterBtn.style.display = 'none';
+            actionResetBgBtn.style.display = 'none'; // Hide reset background when retake is selected
 
             // Show container when actions are visible
             actionsContainer.style.display = 'flex';
@@ -1413,7 +1316,7 @@ window.eventBus.on('app:init', (appState) => {
         if (type === 'templates' && appState.templateInfo && appState.templateInfo.is_default) {
             actionTemplateColorBtn.style.display = 'flex';
             actionsContainer.style.display = 'flex';
-        } else if (type === 'styles' || type === 'backgrounds') {
+        } else if (type === 'styles') {
             // Show reset button in styles and backgrounds panels if any selected photo has a style
             const hasStylizedPhoto = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => {
                 if (appState.transformManager) {
@@ -1424,6 +1327,20 @@ window.eventBus.on('app:init', (appState) => {
             });
             if (hasStylizedPhoto) {
                 actionResetStyleBtn.style.display = 'block';
+                actionsContainer.style.display = 'flex';
+            } else {
+                actionsContainer.style.display = 'none';
+            }
+        } else if (type === 'backgrounds') {
+            const hasBgRemoved = appState.selectedForStylizing && appState.selectedForStylizing.some(pIdx => {
+                if (appState.transformManager) {
+                    const t = appState.transformManager.getTransform(pIdx);
+                    return t && t.background && t.background.enabled;
+                }
+                return false;
+            });
+            if (hasBgRemoved) {
+                actionResetBgBtn.style.display = 'block';
                 actionsContainer.style.display = 'flex';
             } else {
                 actionsContainer.style.display = 'none';
