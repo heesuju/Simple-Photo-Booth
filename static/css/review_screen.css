@@ -142,7 +142,7 @@
     margin: auto;
     /* Centers the content when smaller, allows safe overflow when larger */
     transform-origin: center center;
-    overflow: hidden;
+    overflow: visible;
 }
 
 #zoom-controls {

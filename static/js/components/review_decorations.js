@@ -7,7 +7,7 @@ window.initReviewDecorations = (appState, callbacks) => {
 
 
     function updateSnapLine(isSnapping, yPosition) {
-        const previewContainer = document.getElementById('review-preview');
+        const wrapper = document.getElementById('review-preview-wrapper');
         let snapLine = document.getElementById('snap-line');
         if (isSnapping) {
             if (!snapLine) {
@@ -19,10 +19,10 @@ window.initReviewDecorations = (appState, callbacks) => {
                 snapLine.style.backgroundColor = '#4CAF50';
                 snapLine.style.left = '0';
                 snapLine.style.zIndex = '10000';
-                previewContainer.appendChild(snapLine);
+                wrapper.appendChild(snapLine);
             }
-            const previewRect = previewContainer.getBoundingClientRect();
-            snapLine.style.top = `${yPosition - previewRect.top}px`;
+            const wrapperRect = wrapper.getBoundingClientRect();
+            snapLine.style.top = `${(yPosition - wrapperRect.top) + wrapper.scrollTop}px`;
             snapLine.style.display = 'block';
         } else {
             if (snapLine) {
@@ -32,7 +32,7 @@ window.initReviewDecorations = (appState, callbacks) => {
     }
 
     function updateVerticalSnapLine(isSnapping, xPosition) {
-        const previewContainer = document.getElementById('review-preview');
+        const wrapper = document.getElementById('review-preview-wrapper');
         let snapLine = document.getElementById('vertical-snap-line');
         if (isSnapping) {
             if (!snapLine) {
@@ -44,10 +44,10 @@ window.initReviewDecorations = (appState, callbacks) => {
                 snapLine.style.backgroundColor = '#4CAF50';
                 snapLine.style.top = '0';
                 snapLine.style.zIndex = '10000';
-                previewContainer.appendChild(snapLine);
+                wrapper.appendChild(snapLine);
             }
-            const previewRect = previewContainer.getBoundingClientRect();
-            snapLine.style.left = `${xPosition - previewRect.left}px`;
+            const wrapperRect = wrapper.getBoundingClientRect();
+            snapLine.style.left = `${(xPosition - wrapperRect.left) + wrapper.scrollLeft}px`;
             snapLine.style.display = 'block';
         } else {
             if (snapLine) {
