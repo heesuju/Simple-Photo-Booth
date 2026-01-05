@@ -390,6 +390,14 @@ window.eventBus.on('app:init', (appState) => {
         const img = document.getElementById('review-template-overlay');
 
         if (wrapper && previewEl && img && img.naturalWidth) {
+            // Get current scroll center relative to the content height
+            // scrollTop + half viewport height = current y center in pixels
+            // Ratio = current y center / current total height
+            const currentScrollTop = wrapper.scrollTop;
+            const currentClientHeight = wrapper.clientHeight;
+            const currentScrollHeight = wrapper.scrollHeight;
+            const currentCenterRatio = (currentScrollTop + currentClientHeight / 2) / currentScrollHeight;
+
             const zoomFactor = value / 100;
             // Use client dimensions to exclude scrollbars for fit calculation
             const wrapperWidth = wrapper.clientWidth;
@@ -417,6 +425,13 @@ window.eventBus.on('app:init', (appState) => {
             renderPhotoAssignments();
             reviewDecorations.renderPlacedStickers();
             reviewDecorations.renderPlacedTexts();
+
+            // Restore scroll position based on center ratio
+            // New Center Y = Ratio * New Total Height
+            // New Scroll Top = New Center Y - Half Viewport Height
+            const newScrollHeight = wrapper.scrollHeight;
+            const newScrollTop = (currentCenterRatio * newScrollHeight) - (currentClientHeight / 2);
+            wrapper.scrollTop = newScrollTop;
         }
     }
 
