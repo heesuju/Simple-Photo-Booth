@@ -16,7 +16,7 @@ from urllib.parse import quote, unquote
 from PIL import Image
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Response
 from fastapi.responses import JSONResponse, StreamingResponse
-from rembg import remove
+from rembg import remove, new_session
 from utils.common import get_ip_address
 from utils.filters import apply_filters
 from utils.drawing import draw_texts, draw_texts_on_pil
@@ -34,6 +34,15 @@ SESSIONS_DIR = "static/results/sessions"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(SESSIONS_DIR, exist_ok=True)
+
+# --- Rembg Session Cache ---
+SESSIONS = {}
+
+def get_session(model_name: str = "u2net_human_seg"):
+    if model_name not in SESSIONS:
+        print(f"Loading rembg model: {model_name}...")
+        SESSIONS[model_name] = new_session(model_name)
+    return SESSIONS[model_name]
 
 
 @router.post("/zip_originals")
@@ -122,7 +131,7 @@ async def remove_background_api(file: UploadFile = File(...), threshold: int = F
             
             output_bytes = remove(
                 input_bytes, 
-                model='u2net_human_seg',
+                session=get_session("u2net_human_seg"),
                 alpha_matting=True,
                 alpha_matting_foreground_threshold=t_fg,
                 alpha_matting_background_threshold=t_bg, 
@@ -130,7 +139,7 @@ async def remove_background_api(file: UploadFile = File(...), threshold: int = F
             )
         else:
              # Default fast mode
-             output_bytes = remove(input_bytes, model='u2net_human_seg')
+             output_bytes = remove(input_bytes, session=get_session("u2net_human_seg"))
 
         return StreamingResponse(io.BytesIO(output_bytes), media_type="image/png")
     except Exception as e:
@@ -291,7 +300,7 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
 
             if bg_color_hex:
                 # Remove background
-                output_bytes = remove(photo_content, model='u2net_human_seg')
+                output_bytes = remove(photo_content, session=get_session("u2net_human_seg"))
                 foreground = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
                 
                 # Create solid color background
