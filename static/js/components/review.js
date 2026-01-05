@@ -717,6 +717,7 @@ window.eventBus.on('app:init', (appState) => {
         const parentPanelMap = {
             'styles': 'photos',
             'colors': 'templates',
+            'backgrounds': 'photos',
         };
 
         if (currentPanelType === 'stickers') {
@@ -793,6 +794,7 @@ window.eventBus.on('app:init', (appState) => {
             'styles': 'Photo Styles',
             'templates': 'Templates',
             'colors': 'Template Colors',
+            'backgrounds': 'Background Removal',
             'stickers': 'Stickers',
             'filter-presets': 'Filter Presets',
             'filters': 'Filter Controls',

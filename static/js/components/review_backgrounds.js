@@ -143,40 +143,47 @@ window.initReviewBackgrounds = (appState, callbacks) => {
         }
 
         // Palette Swatches
-        try {
-            const r = await fetch('/colors');
-            const colors = await r.json();
-
-            // Transparent Option
-            const clearOption = document.createElement('div');
-            clearOption.className = 'palette-swatch';
-            clearOption.style.backgroundColor = '#ddd';
-            clearOption.style.backgroundImage = 'radial-gradient(#aaa 1px, transparent 1px)';
-            clearOption.style.backgroundSize = '5px 5px';
-            clearOption.title = 'Transparent (No Fill)';
-            clearOption.addEventListener('click', async () => {
-                appState.transformManager.setBgReplacement(photoIndex, true, null);
-                await updateComposedImage(photoIndex);
-            });
-            paletteContainer.appendChild(clearOption);
-
-            colors.forEach(colorObj => {
-                const swatch = document.createElement('div');
-                swatch.className = 'palette-swatch';
-                swatch.style.backgroundColor = colorObj.hex_code;
-                swatch.addEventListener('click', async () => {
-                    appState.transformManager.setBgReplacement(photoIndex, true, colorObj.hex_code);
-                    await updateComposedImage(photoIndex);
-                });
-                paletteContainer.appendChild(swatch);
-            });
-        } catch (e) {
-            console.error("Failed to load colors:", e);
-        }
-
         backgroundPanel.appendChild(paletteContainer);
         backgroundPanel.classList.add('show');
         stripBackBtn.style.display = 'block';
+
+        // Ensure highlight
+        appState.selectedForStylizing = [photoIndex];
+        if (updatePreviewHighlights) updatePreviewHighlights();
+
+        // Load Colors Asynchronously
+        (async () => {
+            try {
+                const r = await fetch('/colors');
+                const colors = await r.json();
+
+                // Transparent Option
+                const clearOption = document.createElement('div');
+                clearOption.className = 'palette-swatch';
+                clearOption.style.backgroundColor = '#ddd';
+                clearOption.style.backgroundImage = 'radial-gradient(#aaa 1px, transparent 1px)';
+                clearOption.style.backgroundSize = '5px 5px';
+                clearOption.title = 'Transparent (No Fill)';
+                clearOption.addEventListener('click', async () => {
+                    appState.transformManager.setBgReplacement(photoIndex, true, null);
+                    await updateComposedImage(photoIndex);
+                });
+                paletteContainer.appendChild(clearOption);
+
+                colors.forEach(colorObj => {
+                    const swatch = document.createElement('div');
+                    swatch.className = 'palette-swatch';
+                    swatch.style.backgroundColor = colorObj.hex_code;
+                    swatch.addEventListener('click', async () => {
+                        appState.transformManager.setBgReplacement(photoIndex, true, colorObj.hex_code);
+                        await updateComposedImage(photoIndex);
+                    });
+                    paletteContainer.appendChild(swatch);
+                });
+            } catch (e) {
+                console.error("Failed to load colors:", e);
+            }
+        })();
 
         // Ensure highlight
         appState.selectedForStylizing = [photoIndex];
