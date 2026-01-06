@@ -34,6 +34,14 @@ window.initTextEdit = function (appState, colorPicker) {
                 option.dataset.fontPath = font.font_path;
                 option.style.fontFamily = `'${font.font_name}'`;
                 fontSelect.appendChild(option);
+
+                // Preload all fonts asynchronously
+                const fontFace = new FontFace(font.font_name, `url(${font.font_path})`);
+                fontFace.load().then(loaded_face => {
+                    document.fonts.add(loaded_face);
+                }).catch(error => {
+                    console.warn(`Failed to preload font '${font.font_name}':`, error);
+                });
             });
 
             if (selectedFont && fonts.some(f => f.font_name === selectedFont)) {
@@ -54,17 +62,6 @@ window.initTextEdit = function (appState, colorPicker) {
             // Assuming font files are served from /static/fonts/
             // And font_name in DB matches the filename without extension
             textPreview.style.fontFamily = `'${selectedFontName}', sans-serif`;
-            // Dynamically load the font if not already loaded
-            // Dynamically load the font using the path from the selected option
-            const selectedOption = fontSelect.selectedOptions[0];
-            const fontPath = selectedOption ? selectedOption.dataset.fontPath : `/static/fonts/${selectedFontName}.ttf`;
-            const fontFace = new FontFace(selectedFontName, `url(${fontPath})`);
-            fontFace.load().then(function (loaded_face) {
-                document.fonts.add(loaded_face);
-                console.log(`Font '${selectedFontName}' loaded.`);
-            }).catch(function (error) {
-                console.error(`Failed to load font '${selectedFontName}':`, error);
-            });
         } else {
             textPreview.style.fontFamily = 'sans-serif'; // Default fallback
         }
