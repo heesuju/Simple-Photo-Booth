@@ -64,7 +64,8 @@
     overflow-x: auto;
     white-space: nowrap;
     gap: 0.5rem;
-    padding-bottom: 8px; /* For scrollbar */
+    padding-bottom: 8px;
+    /* For scrollbar */
     width: 100%;
     box-sizing: border-box;
 }
@@ -98,18 +99,25 @@
 .justification-btn {
     padding: 0.5rem;
     border: 1px solid var(--border-color);
-    background-color: var(--bg-color);
+    background-color: var(--header-bg);
+    color: var(--text-color);
     cursor: pointer;
     border-radius: 4px;
-    display: flex; /* Enable flexbox for centering */
-    justify-content: center; /* Horizontally center */
-    align-items: center; /* Vertically center */
-    width: 36px; /* Optional: Fix width for square appearance */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 36px;
     height: 36px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.justification-btn:hover {
+    background-color: var(--button-secondary-bg);
+    color: var(--button-text-color);
 }
 
 .justification-btn svg {
-    pointer-events: none; /* Ensure clicks pass through to button */
+    pointer-events: none;
 }
 
 .justification-btn.selected {
