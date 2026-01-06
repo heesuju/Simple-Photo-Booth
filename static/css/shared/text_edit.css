@@ -52,6 +52,32 @@
     flex-grow: 1;
 }
 
+#upload-font-btn {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    background-color: var(--header-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 36px;
+    height: 36px;
+    transition: background-color 0.2s, color 0.2s;
+    margin: 0;
+    /* Reset default button margin */
+}
+
+#upload-font-btn:hover {
+    background-color: var(--button-secondary-bg);
+    color: var(--button-text-color);
+}
+
+#upload-font-btn svg {
+    pointer-events: none;
+}
+
 .color-palette-container {
     display: flex;
     align-items: center;
