@@ -47,9 +47,12 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
         except IOError:
             print(f"Failed to load font '{font_path}'. Skipping text.")
             continue
+        # spacing = Target - Default = (1.3 * font_size) - ascent
+        ascent, descent = font.getmetrics()
+        line_spacing = int((font_size * 1.3) - ascent)
 
         temp_draw = ImageDraw.Draw(Image.new('RGBA', (1,1)))
-        bbox = temp_draw.multiline_textbbox((0,0), text, font=font, align=justify)
+        bbox = temp_draw.multiline_textbbox((0,0), text, font=font, align=justify, spacing=line_spacing)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
@@ -63,7 +66,7 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
         # Calculate vertical center
         y_offset = (canvas_h - text_height) / 2 - bbox[1]
 
-        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify)
+        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify, spacing=line_spacing)
 
         # Premultiply alpha to fix jagged edges
         np_canvas = np.array(text_canvas).astype(float)
@@ -127,9 +130,13 @@ def draw_texts(image, texts_data, db_manager):
         except IOError:
             print(f"Failed to load font '{font_path}'. Skipping text.")
             continue
+            
+        # Calculate dynamic line spacing to match CSS line-height: 1.3
+        ascent, descent = font.getmetrics()
+        line_spacing = int((font_size * 1.3) - ascent)
 
         temp_draw = ImageDraw.Draw(Image.new('RGBA', (1,1)))
-        bbox = temp_draw.multiline_textbbox((0,0), text, font=font, align=justify)
+        bbox = temp_draw.multiline_textbbox((0,0), text, font=font, align=justify, spacing=line_spacing)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
@@ -143,7 +150,7 @@ def draw_texts(image, texts_data, db_manager):
         # Calculate vertical center
         y_offset = (canvas_h - text_height) / 2 - bbox[1]
 
-        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify)
+        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify, spacing=line_spacing)
 
         rotated_text = text_canvas.rotate(rotation, expand=True, resample=Image.BICUBIC)
 

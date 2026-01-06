@@ -127,9 +127,6 @@ The application is a single-page application (SPA) where different "screens" are
 3.  Open a web browser and navigate to `http://localhost:8000`.
 
 ## TODO:
-- [ ] Fix text rendering issues
 - [ ] Add support for custom templates
 - [ ] Add support for custom stickers
 - [ ] Unify preview filters
-- [ ] Fix background removal UI
-- [ ] 

@@ -92,6 +92,7 @@ window.initReviewDecorations = (appState, callbacks) => {
             i.innerHTML = d.text.replace(/\n/g, '<br>');
             i.style.whiteSpace = 'pre';
             i.style.textAlign = d.justify;
+            i.style.lineHeight = '1.3'; // Standardize line height to match backend
 
             w.style.height = 'auto';
 
@@ -435,6 +436,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                 tempSpan.style.fontFamily = result.font;
                 tempSpan.style.fontSize = '40px';
                 tempSpan.style.whiteSpace = 'pre';
+                tempSpan.style.lineHeight = '1.3'; // Standardize line height
                 tempSpan.innerHTML = result.text.replace(/\n/g, '<br>');
                 document.body.appendChild(tempSpan);
                 const textNaturalWidth = tempSpan.offsetWidth;

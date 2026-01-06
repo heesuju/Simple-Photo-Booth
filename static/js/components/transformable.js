@@ -117,6 +117,7 @@ window.initTransformable = (options) => {
                 tempSpan.style.fontFamily = item.font;
                 tempSpan.style.fontSize = item.fontSize + 'px';
                 tempSpan.style.whiteSpace = 'pre';
+                tempSpan.style.lineHeight = '1.3'; // Standardize line height
                 tempSpan.innerHTML = item.text.replace(/\n/g, '<br>');
                 document.body.appendChild(tempSpan);
                 item.width = tempSpan.offsetWidth;
