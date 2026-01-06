@@ -32,13 +32,14 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
             continue
 
         text = text_info.get('text', '')
-        font_size = int(text_info.get('fontSize', 40))
-        x = int(text_info.get('x', 0))
-        y = int(text_info.get('y', 0))
-        width = int(text_info.get('width', 0))
+        font_size = int(text_info.get('fontSize') or 40)
+        x = int(text_info.get('x') or 0)
+        y = int(text_info.get('y') or 0)
+        width = int(text_info.get('width') or 0)
+        height = int(text_info.get('height') or 0) # Get height from frontend
         justify = text_info.get('justify', 'left')
         color = text_info.get('color', '#000000')
-        rotation = -float(text_info.get('rotation', 0))
+        rotation = -float(text_info.get('rotation') or 0)
         fill_color = hex_to_rgba(color)
 
         try:
@@ -53,12 +54,16 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
         text_height = bbox[3] - bbox[1]
 
         canvas_w = width
-        canvas_h = text_height
+        # Use provided height if available, otherwise fallback to text height
+        canvas_h = max(height, text_height) if height > 0 else text_height
         
         text_canvas = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(text_canvas)
 
-        draw.multiline_text((0, 0), text, font=font, fill=fill_color, align=justify)
+        # Calculate vertical center
+        y_offset = (canvas_h - text_height) / 2 - bbox[1]
+
+        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify)
 
         # Premultiply alpha to fix jagged edges
         np_canvas = np.array(text_canvas).astype(float)
@@ -107,13 +112,14 @@ def draw_texts(image, texts_data, db_manager):
             continue
 
         text = text_info.get('text', '')
-        font_size = int(text_info.get('fontSize', 40))
-        x = int(text_info.get('x', 0))
-        y = int(text_info.get('y', 0))
-        width = int(text_info.get('width', 0))
+        font_size = int(text_info.get('fontSize') or 40)
+        x = int(text_info.get('x') or 0)
+        y = int(text_info.get('y') or 0)
+        width = int(text_info.get('width') or 0)
+        height = int(text_info.get('height') or 0) # Get height from frontend
         justify = text_info.get('justify', 'left')
         color = text_info.get('color', '#000000')
-        rotation = -float(text_info.get('rotation', 0))
+        rotation = -float(text_info.get('rotation') or 0)
         fill_color = hex_to_rgba(color)
 
         try:
@@ -128,12 +134,16 @@ def draw_texts(image, texts_data, db_manager):
         text_height = bbox[3] - bbox[1]
 
         canvas_w = width
-        canvas_h = text_height
+        # Use provided height if available, otherwise fallback to text height
+        canvas_h = max(height, text_height) if height > 0 else text_height
         
         text_canvas = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(text_canvas)
 
-        draw.multiline_text((0, 0), text, font=font, fill=fill_color, align=justify)
+        # Calculate vertical center
+        y_offset = (canvas_h - text_height) / 2 - bbox[1]
+
+        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify)
 
         rotated_text = text_canvas.rotate(rotation, expand=True, resample=Image.BICUBIC)
 

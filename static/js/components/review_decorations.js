@@ -94,10 +94,14 @@ window.initReviewDecorations = (appState, callbacks) => {
             i.style.textAlign = d.justify;
 
             w.style.height = 'auto';
-            d.height = i.offsetHeight / scale;
 
             i.addEventListener('input', (e) => {
                 d.text = e.target.innerText;
+                // Update dimensions on text change
+                if (scale > 0 && i.offsetHeight > 0) {
+                    d.width = Math.round(i.offsetWidth / scale);
+                    d.height = Math.round(i.offsetHeight / scale);
+                }
             });
 
             if (transformableHandler) {
@@ -151,6 +155,18 @@ window.initReviewDecorations = (appState, callbacks) => {
             }
 
             previewContainer.appendChild(w);
+
+            // Safe post-render measurement with tolerance to avoid shrinking loop
+            requestAnimationFrame(() => {
+                if (scale > 0 && i.offsetHeight > 0) {
+                    const newH = Math.round(i.offsetHeight / scale);
+                    // Only update height if difference is significant (>2px)
+                    // Do NOT update width here to avoid shrinking loops during movement
+                    if (!isNaN(newH) && newH > 0 && Math.abs(newH - d.height) > 2) {
+                        d.height = newH;
+                    }
+                }
+            });
         });
     }
 

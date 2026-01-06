@@ -28,9 +28,9 @@ window.initTransformable = (options) => {
 
         const { scale, offsetX, offsetY } = getPreviewScaling();
         const previewRect = document.getElementById('review-preview').getBoundingClientRect();
-        
+
         const itemHeight = (type === 'text') ? el.offsetHeight / scale : data.height;
-        
+
         const centerX = previewRect.left + offsetX + (data.x + data.width / 2) * scale;
         const centerY = previewRect.top + offsetY + (data.y + itemHeight / 2) * scale;
 
@@ -65,8 +65,12 @@ window.initTransformable = (options) => {
         if (appState.activeTransformable.action === 'move') {
             const dX_natural = (e.clientX - appState.dragStart.x) / scale;
             const dY_natural = (e.clientY - appState.dragStart.y) / scale;
-            item.x = Math.round(appState.dragStart.initialX + dX_natural);
-            item.y = Math.round(appState.dragStart.initialY + dY_natural);
+
+            const newX = Math.round(appState.dragStart.initialX + dX_natural);
+            const newY = Math.round(appState.dragStart.initialY + dY_natural);
+
+            if (!isNaN(newX)) item.x = newX;
+            if (!isNaN(newY)) item.y = newY;
 
             const itemCenterScreenX = previewRect.left + offsetX + (item.x + item.width / 2) * scale;
             const canvasCenterScreenX = previewRect.left + previewRect.width / 2;
@@ -74,7 +78,7 @@ window.initTransformable = (options) => {
             if (Math.abs(itemCenterScreenX - canvasCenterScreenX) < SNAP_THRESHOLD) {
                 const template = document.querySelector('#review-preview .preview-template-img');
                 const imageNaturalWidth = template.naturalWidth;
-                item.x = (imageNaturalWidth - item.width) / 2;
+                item.x = Math.round((imageNaturalWidth - item.width) / 2); // Round this too
                 updateVerticalSnapLine(true, canvasCenterScreenX);
             } else {
                 updateVerticalSnapLine(false);
@@ -96,16 +100,18 @@ window.initTransformable = (options) => {
                 item.rotation = 0;
                 isSnapping = true;
             } else {
-                item.rotation = newRotation;
+                item.rotation = !isNaN(newRotation) ? newRotation : item.rotation;
             }
             updateSnapLine(isSnapping, appState.dragStart.centerY);
 
             const newDiagScreen = Math.hypot(mouseVecX, mouseVecY);
             const localDiag = Math.hypot(appState.dragStart.initialWidth / 2, appState.dragStart.initialHeight / 2);
-            const scaleFactor = newDiagScreen / (localDiag * scale);
+            // Avoid division by zero if localDiag or scale is 0
+            const scaleFactor = (localDiag * scale) > 0.0001 ? newDiagScreen / (localDiag * scale) : 1;
 
             if (appState.activeTransformable.type === 'text') {
-                item.fontSize = Math.max(10, appState.dragStart.initialFontSize * scaleFactor);
+                const newFontSize = Math.max(10, appState.dragStart.initialFontSize * scaleFactor);
+                if (!isNaN(newFontSize)) item.fontSize = newFontSize;
 
                 const tempSpan = document.createElement('span');
                 tempSpan.style.fontFamily = item.font;
@@ -118,15 +124,20 @@ window.initTransformable = (options) => {
                 document.body.removeChild(tempSpan);
             } else { // sticker
                 const minSizeNatural = 20 / scale;
-                item.width = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);
-                item.height = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
+                const newWidth = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);
+                const newHeight = Math.max(minSizeNatural, appState.dragStart.initialHeight * scaleFactor);
+
+                if (!isNaN(newWidth)) item.width = Math.round(newWidth);
+                if (!isNaN(newHeight)) item.height = Math.round(newHeight);
             }
 
             const new_center_natural_x = (centerX - (previewRect.left + offsetX)) / scale;
             const new_center_natural_y = (centerY - (previewRect.top + offsetY)) / scale;
 
-            item.x = new_center_natural_x - item.width / 2;
-            item.y = new_center_natural_y - item.height / 2;
+            if (!isNaN(new_center_natural_x) && !isNaN(new_center_natural_y)) {
+                item.x = Math.round(new_center_natural_x - item.width / 2);
+                item.y = Math.round(new_center_natural_y - item.height / 2);
+            }
         }
 
         if (appState.activeTransformable.type === 'text') {
