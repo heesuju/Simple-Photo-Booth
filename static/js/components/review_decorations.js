@@ -86,7 +86,7 @@ window.initReviewDecorations = (appState, callbacks) => {
             const i = document.createElement('div');
             i.contentEditable = false;
             i.className = 'editable-text';
-            i.style.fontFamily = d.font;
+            i.style.fontFamily = `'${d.font}'`;
             i.style.fontSize = `${d.fontSize * scale}px`;
             i.style.color = d.color || '#000000';
             i.innerHTML = d.text.replace(/\n/g, '<br>');
@@ -359,7 +359,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                 i.className = 'font-item';
                 const fontPreview = document.createElement('div');
                 fontPreview.className = 'font-item-font';
-                fontPreview.style.fontFamily = f.font_name;
+                fontPreview.style.fontFamily = `'${f.font_name}'`;
                 fontPreview.textContent = 'Abc';
                 const fontName = document.createElement('div');
                 fontName.textContent = f.font_name;
@@ -433,7 +433,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                 if (scale === 1) return;
 
                 const tempSpan = document.createElement('span');
-                tempSpan.style.fontFamily = result.font;
+                tempSpan.style.fontFamily = `'${result.font}'`;
                 tempSpan.style.fontSize = '40px';
                 tempSpan.style.whiteSpace = 'pre';
                 tempSpan.style.lineHeight = '1.3'; // Standardize line height

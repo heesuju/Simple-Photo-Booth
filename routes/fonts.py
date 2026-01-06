@@ -25,7 +25,7 @@ async def upload_font(request: Request, file: UploadFile = File(...)):
     
     # Sanitize font name to prevent path traversal and ensure valid filename
     original_font_name = os.path.splitext(file.filename)[0]
-    sanitized_font_name = "".join(c for c in original_font_name if c.isalnum() or c in (' ', '.', '_')).rstrip()
+    sanitized_font_name = "".join(c for c in original_font_name if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
     
     if not sanitized_font_name:
         raise HTTPException(status_code=400, detail="Invalid font filename.")

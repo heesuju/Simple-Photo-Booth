@@ -1,4 +1,4 @@
-window.initTextEdit = function(appState, colorPicker) {
+window.initTextEdit = function (appState, colorPicker) {
     const textInputModal = document.getElementById('text-input-modal');
     const textInputField = document.getElementById('text-input-field');
     const textInputConfirmBtn = document.getElementById('text-input-confirm-btn');
@@ -31,7 +31,8 @@ window.initTextEdit = function(appState, colorPicker) {
                 const option = document.createElement('option');
                 option.value = font.font_name;
                 option.textContent = font.font_name;
-                option.style.fontFamily = font.font_name;
+                option.dataset.fontPath = font.font_path;
+                option.style.fontFamily = `'${font.font_name}'`;
                 fontSelect.appendChild(option);
             });
 
@@ -54,12 +55,14 @@ window.initTextEdit = function(appState, colorPicker) {
             // And font_name in DB matches the filename without extension
             textPreview.style.fontFamily = `'${selectedFontName}', sans-serif`;
             // Dynamically load the font if not already loaded
-            const fontPath = `/static/fonts/${selectedFontName}.ttf`; // Assuming .ttf, might need to be dynamic
+            // Dynamically load the font using the path from the selected option
+            const selectedOption = fontSelect.selectedOptions[0];
+            const fontPath = selectedOption ? selectedOption.dataset.fontPath : `/static/fonts/${selectedFontName}.ttf`;
             const fontFace = new FontFace(selectedFontName, `url(${fontPath})`);
-            fontFace.load().then(function(loaded_face) {
+            fontFace.load().then(function (loaded_face) {
                 document.fonts.add(loaded_face);
                 console.log(`Font '${selectedFontName}' loaded.`);
-            }).catch(function(error) {
+            }).catch(function (error) {
                 console.error(`Failed to load font '${selectedFontName}':`, error);
             });
         } else {
@@ -118,7 +121,7 @@ window.initTextEdit = function(appState, colorPicker) {
 
             function updatePreview() {
                 textPreview.textContent = textInputField.value;
-                textPreview.style.fontFamily = selectedFont;
+                // textPreview.style.fontFamily set in applyFontToPreview
                 textPreview.style.color = selectedColor;
                 textPreview.style.textAlign = selectedJustification;
                 applyFontToPreview();
