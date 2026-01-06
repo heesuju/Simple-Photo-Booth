@@ -56,17 +56,19 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-        canvas_w = width
-        # Use provided height if available, otherwise fallback to text height
-        canvas_h = max(height, text_height) if height > 0 else text_height
+        # Trust the frontend's width and height as the container dimensions
+        canvas_w = width if width > 0 else text_width
+        canvas_h = height if height > 0 else text_height
         
         text_canvas = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(text_canvas)
 
-        # Calculate vertical center
+        # Calculate exact center offsets
+        # We want to center the bounding box of the text within the canvas
+        x_offset = (canvas_w - text_width) / 2 - bbox[0]
         y_offset = (canvas_h - text_height) / 2 - bbox[1]
 
-        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify, spacing=line_spacing)
+        draw.multiline_text((x_offset, y_offset), text, font=font, fill=fill_color, align=justify, spacing=line_spacing)
 
         # Premultiply alpha to fix jagged edges
         np_canvas = np.array(text_canvas).astype(float)
@@ -140,17 +142,18 @@ def draw_texts(image, texts_data, db_manager):
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-        canvas_w = width
-        # Use provided height if available, otherwise fallback to text height
-        canvas_h = max(height, text_height) if height > 0 else text_height
+        # Trust the frontend's width and height as the container dimensions
+        canvas_w = width if width > 0 else text_width
+        canvas_h = height if height > 0 else text_height
         
         text_canvas = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(text_canvas)
 
-        # Calculate vertical center
+        # Calculate exact center offsets
+        x_offset = (canvas_w - text_width) / 2 - bbox[0]
         y_offset = (canvas_h - text_height) / 2 - bbox[1]
 
-        draw.multiline_text((0, y_offset), text, font=font, fill=fill_color, align=justify, spacing=line_spacing)
+        draw.multiline_text((x_offset, y_offset), text, font=font, fill=fill_color, align=justify, spacing=line_spacing)
 
         rotated_text = text_canvas.rotate(rotation, expand=True, resample=Image.BICUBIC)
 
