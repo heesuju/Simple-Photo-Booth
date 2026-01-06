@@ -113,16 +113,31 @@ window.initTransformable = (options) => {
                 const newFontSize = Math.max(10, appState.dragStart.initialFontSize * scaleFactor);
                 if (!isNaN(newFontSize)) item.fontSize = newFontSize;
 
-                const tempSpan = document.createElement('span');
-                tempSpan.style.fontFamily = item.font;
-                tempSpan.style.fontSize = item.fontSize + 'px';
-                tempSpan.style.whiteSpace = 'pre';
-                tempSpan.style.lineHeight = '1.3'; // Standardize line height
-                tempSpan.innerHTML = item.text.replace(/\n/g, '<br>');
-                document.body.appendChild(tempSpan);
-                item.width = tempSpan.offsetWidth;
-                item.height = tempSpan.offsetHeight;
-                document.body.removeChild(tempSpan);
+                // precise measurement logic duplicated for Transformable to be self-contained
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                context.font = `${item.fontSize}px "${item.font}"`;
+                const lines = item.text.split('\n');
+                let maxWidth = 0;
+                let totalHeight = 0;
+                const lineHeight = item.fontSize * 1.3;
+
+                lines.forEach((line) => {
+                    const metrics = context.measureText(line);
+                    const currentWidth = Math.abs(metrics.actualBoundingBoxLeft) + Math.abs(metrics.actualBoundingBoxRight) + 4;
+                    if (currentWidth > maxWidth) maxWidth = currentWidth;
+                });
+
+                if (lines.length === 1) {
+                    const metrics = context.measureText(lines[0]);
+                    const actualHeight = Math.abs(metrics.actualBoundingBoxAscent) + Math.abs(metrics.actualBoundingBoxDescent) + 4;
+                    totalHeight = Math.max(actualHeight, lineHeight);
+                } else {
+                    totalHeight = lines.length * lineHeight;
+                }
+
+                item.width = Math.ceil(maxWidth);
+                item.height = Math.ceil(totalHeight);
             } else { // sticker
                 const minSizeNatural = 20 / scale;
                 const newWidth = Math.max(minSizeNatural, appState.dragStart.initialWidth * scaleFactor);

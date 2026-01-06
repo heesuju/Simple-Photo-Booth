@@ -5,6 +5,44 @@ window.initReviewDecorations = (appState, callbacks) => {
         showToast
     } = callbacks;
 
+    // Helper to measure text precisely using Canvas API
+    function measureTextPrecise(text, font, fontSize) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        context.font = `${fontSize}px "${font}"`;
+        const lines = text.split('\n');
+        let maxWidth = 0;
+        let totalHeight = 0;
+
+        // Standard line height calculation to match backend/CSS
+        // 1.3 is the hardcoded line-height in the app
+        const lineHeight = fontSize * 1.3;
+
+        lines.forEach((line, index) => {
+            const metrics = context.measureText(line);
+
+            // Calculate width: usage of actualBoundingBox for tight fit
+            const currentWidth = Math.abs(metrics.actualBoundingBoxLeft) + Math.abs(metrics.actualBoundingBoxRight) + 4;
+            if (currentWidth > maxWidth) {
+                maxWidth = currentWidth;
+            }
+        });
+
+        if (lines.length === 1) {
+            const metrics = context.measureText(lines[0]);
+            const actualHeight = Math.abs(metrics.actualBoundingBoxAscent) + Math.abs(metrics.actualBoundingBoxDescent) + 4;
+            // Use the larger of the two to ensure container is big enough
+            totalHeight = Math.max(actualHeight, lineHeight);
+        } else {
+            totalHeight = lines.length * lineHeight;
+        }
+
+        return {
+            width: Math.ceil(maxWidth),
+            height: Math.ceil(totalHeight)
+        };
+    }
+
 
     function updateSnapLine(isSnapping, yPosition) {
         const wrapper = document.getElementById('review-preview-wrapper');
@@ -99,9 +137,10 @@ window.initReviewDecorations = (appState, callbacks) => {
             i.addEventListener('input', (e) => {
                 d.text = e.target.innerText;
                 // Update dimensions on text change
-                if (scale > 0 && i.offsetHeight > 0) {
-                    d.width = Math.round(i.offsetWidth / scale);
-                    d.height = Math.round(i.offsetHeight / scale);
+                if (scale > 0) {
+                    const metrics = measureTextPrecise(d.text, d.font, d.fontSize);
+                    d.width = metrics.width;
+                    d.height = metrics.height;
                 }
             });
 
@@ -158,13 +197,16 @@ window.initReviewDecorations = (appState, callbacks) => {
             previewContainer.appendChild(w);
 
             // Safe post-render measurement with tolerance to avoid shrinking loop
+            // Safe post-render measurement with tolerance to avoid shrinking loop
             requestAnimationFrame(() => {
-                if (scale > 0 && i.offsetHeight > 0) {
-                    const newH = Math.round(i.offsetHeight / scale);
-                    // Only update height if difference is significant (>2px)
-                    // Do NOT update width here to avoid shrinking loops during movement
-                    if (!isNaN(newH) && newH > 0 && Math.abs(newH - d.height) > 2) {
-                        d.height = newH;
+                if (scale > 0) {
+                    // Re-measure to ensure consistency
+                    const metrics = measureTextPrecise(d.text, d.font, d.fontSize);
+                    if (Math.abs(metrics.height - d.height) > 2) {
+                        d.height = metrics.height;
+                    }
+                    if (Math.abs(metrics.width - d.width) > 2) {
+                        d.width = metrics.width;
                     }
                 }
             });
@@ -438,10 +480,11 @@ window.initReviewDecorations = (appState, callbacks) => {
                 tempSpan.style.whiteSpace = 'pre';
                 tempSpan.style.lineHeight = '1.3'; // Standardize line height
                 tempSpan.innerHTML = result.text.replace(/\n/g, '<br>');
-                document.body.appendChild(tempSpan);
-                const textNaturalWidth = tempSpan.offsetWidth;
-                const textNaturalHeight = tempSpan.offsetHeight;
-                document.body.removeChild(tempSpan);
+
+                // Use precise measurement
+                const metrics = measureTextPrecise(result.text, result.font, 40);
+                const textNaturalWidth = metrics.width;
+                const textNaturalHeight = metrics.height;
 
                 const template = document.querySelector('#review-preview .preview-template-img');
                 const imageNaturalWidth = template.naturalWidth;
