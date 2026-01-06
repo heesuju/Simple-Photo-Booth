@@ -96,11 +96,20 @@
 }
 
 .justification-btn {
-    padding: 0.5rem 1rem;
+    padding: 0.5rem;
     border: 1px solid var(--border-color);
     background-color: var(--bg-color);
     cursor: pointer;
     border-radius: 4px;
+    display: flex; /* Enable flexbox for centering */
+    justify-content: center; /* Horizontally center */
+    align-items: center; /* Vertically center */
+    width: 36px; /* Optional: Fix width for square appearance */
+    height: 36px;
+}
+
+.justification-btn svg {
+    pointer-events: none; /* Ensure clicks pass through to button */
 }
 
 .justification-btn.selected {
