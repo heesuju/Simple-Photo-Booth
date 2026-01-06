@@ -6,7 +6,6 @@ window.initTextEdit = function (appState, colorPicker) {
     const fontSelect = document.getElementById('text-font-select');
     const colorPalette = document.getElementById('text-color-palette');
     const justificationButtons = document.querySelectorAll('.justification-btn');
-    const textPreview = document.getElementById('text-preview');
     const uploadFontBtn = document.getElementById('upload-font-btn');
     const fontUploadInput = document.getElementById('font-upload-input');
 
@@ -48,22 +47,20 @@ window.initTextEdit = function (appState, colorPicker) {
                 fontSelect.value = selectedFont;
             }
 
-            applyFontToPreview();
+            applyFontToInput();
 
         } catch (error) {
             console.error('Error loading fonts:', error);
         }
     }
 
-    // Function to apply the selected font to the text preview
-    function applyFontToPreview() {
+    // Function to apply the selected font to the text input field
+    function applyFontToInput() {
         const selectedFontName = fontSelect.value;
         if (selectedFontName) {
-            // Assuming font files are served from /static/fonts/
-            // And font_name in DB matches the filename without extension
-            textPreview.style.fontFamily = `'${selectedFontName}', sans-serif`;
+            textInputField.style.fontFamily = `'${selectedFontName}', sans-serif`;
         } else {
-            textPreview.style.fontFamily = 'sans-serif'; // Default fallback
+            textInputField.style.fontFamily = 'sans-serif'; // Default fallback
         }
     }
 
@@ -86,9 +83,9 @@ window.initTextEdit = function (appState, colorPicker) {
                 if (response.ok) {
                     const result = await response.json();
                     await loadFonts(result.font_name); // Reload fonts and select the new one
-                    // Manually trigger change to update preview
+                    // Manually trigger change to update input
                     fontSelect.dispatchEvent(new Event('change'));
-                    applyFontToPreview();
+                    applyFontToInput();
                 } else {
                     const errorData = await response.json();
                     alert(`Error uploading font: ${errorData.detail}`);
@@ -116,23 +113,23 @@ window.initTextEdit = function (appState, colorPicker) {
             }
 
 
-            function updatePreview() {
-                textPreview.textContent = textInputField.value;
-                // textPreview.style.fontFamily set in applyFontToPreview
-                textPreview.style.color = selectedColor;
-                textPreview.style.textAlign = selectedJustification;
-                applyFontToPreview();
+            function updateInputStyle() {
+                // Font family is handled by applyFontToInput
+                textInputField.style.color = selectedColor;
+                textInputField.style.textAlign = selectedJustification;
+                applyFontToInput();
             }
 
             textInputModal.className = 'modal-visible';
             textInputField.value = existingTextData ? existingTextData.text : '';
             textInputField.focus();
-            textInputField.addEventListener('input', updatePreview);
 
+            // Initial style update
+            updateInputStyle();
 
             fontSelect.addEventListener('change', () => {
                 selectedFont = fontSelect.value;
-                updatePreview();
+                updateInputStyle();
             });
 
             // Populate Colors
@@ -152,7 +149,7 @@ window.initTextEdit = function (appState, colorPicker) {
                             currentSelected.classList.remove('selected');
                         }
                         swatch.classList.add('selected');
-                        updatePreview();
+                        updateInputStyle();
                     });
                     colorPalette.appendChild(swatch);
                 });
@@ -174,11 +171,12 @@ window.initTextEdit = function (appState, colorPicker) {
                         newSwatch.className = 'palette-swatch selected';
                         newSwatch.style.backgroundColor = selectedColor;
                         colorPalette.insertBefore(newSwatch, addColorBtn);
-                        updatePreview();
+                        updateInputStyle();
                     }
                 });
                 colorPalette.appendChild(addColorBtn);
-                updatePreview();
+                // Also update style when color palette loads/re-renders
+                updateInputStyle();
             });
 
             // 3. Setup Justification Buttons
@@ -191,7 +189,7 @@ window.initTextEdit = function (appState, colorPicker) {
                     selectedJustification = button.dataset.justify;
                     justificationButtons.forEach(btn => btn.classList.remove('selected'));
                     button.classList.add('selected');
-                    updatePreview();
+                    updateInputStyle();
                 });
             });
 
