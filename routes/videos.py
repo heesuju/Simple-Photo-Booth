@@ -24,6 +24,117 @@ PORT = 8000
 UPLOAD_DIR = "static/uploads"
 RESULTS_DIR = "static/results"
 VIDEOS_DIR = "static/videos"
+TEMP_DIR = "static/temp"
+
+# Ensure temp directory exists
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+
+def is_animated_webp(path):
+    """Check if a WebP file contains animation frames."""
+    try:
+        with Image.open(path) as img:
+            return getattr(img, 'is_animated', False)
+    except Exception as e:
+        print(f"Error checking if WebP is animated: {e}")
+        return False
+
+
+def load_animated_webp(path, resize_to=None, rotate_deg=0, target_duration=None):
+    """
+    Load an animated WebP file as a MoviePy VideoClip with alpha channel.
+    
+    Args:
+        path: Path to the WebP file
+        resize_to: Tuple (width, height) for resizing
+        rotate_deg: Rotation in degrees
+        target_duration: Target duration in seconds (for looping)
+    
+    Returns:
+        MoviePy VideoClip with transparency
+    """
+    try:
+        frame_paths = []
+        
+        # Open WebP and extract frames
+        with Image.open(path) as img:
+            # Get frame duration (in milliseconds)
+            # Some WebP files don't have duration in info, try to get from first frame
+            duration_ms = img.info.get('duration', None)
+            
+            if duration_ms and duration_ms > 0:
+                fps = 1000 / duration_ms
+            else:
+                # Default to 10 FPS for WebP without duration metadata
+                fps = 10
+                print(f"WebP has no duration metadata, using default {fps} FPS")
+            
+            # Calculate how many times to repeat frames to cover target duration
+            single_loop_duration = img.n_frames / fps
+            if target_duration:
+                num_loops = int(np.ceil(target_duration / single_loop_duration))
+            else:
+                num_loops = 1
+            
+            # Extract frames and duplicate them for looping
+            for loop_num in range(num_loops):
+                for frame_num in range(img.n_frames):
+                    img.seek(frame_num)
+                    frame = img.convert('RGBA')
+                    
+                    # Apply resize if needed
+                    if resize_to:
+                        frame = frame.resize(resize_to, Image.Resampling.LANCZOS)
+                    
+                    # Apply rotation if needed (do this per-frame to allow defringing after)
+                    if rotate_deg != 0:
+                        frame = frame.rotate(rotate_deg, resample=Image.Resampling.BICUBIC, expand=True)
+                    
+                    # Remove white edges (defringing) - AFTER rotation
+                    # This fixes white halos introduced by rotation interpolation
+                    np_frame = np.array(frame).astype(float)
+                    alpha = np_frame[..., 3:4] / 255.0
+                    
+                    # For semi-transparent pixels, remove white matting
+                    # Rotation with interpolation creates semi-transparent edge pixels with white
+                    semi_transparent = (alpha > 0) & (alpha < 1)
+                    if np.any(semi_transparent):
+                        # Unmultiply white: new_color = (color - white * (1 - alpha)) / alpha
+                        rgb = np_frame[..., :3]
+                        white_contribution = 255 * (1 - alpha)
+                        
+                        # Only apply to semi-transparent pixels
+                        mask = semi_transparent.squeeze()
+                        rgb[mask] = np.clip((rgb[mask] - white_contribution[mask]) / alpha[mask], 0, 255)
+                        
+                        np_frame[..., :3] = rgb
+                    
+                    # Convert back to uint8 and PIL
+                    np_frame = np_frame.astype(np.uint8)
+                    frame_defringed = Image.fromarray(np_frame, mode='RGBA')
+                    
+                    # Save frame as temporary PNG
+                    frame_path = os.path.join(TEMP_DIR, f"{uuid.uuid4()}_l{loop_num}_f{frame_num}.png")
+                    frame_defringed.save(frame_path)
+                    frame_paths.append(frame_path)
+        
+        # Create video clip from image sequence with transparency
+        # ismask=False ensures this is treated as a regular RGBA clip, not a mask
+        clip = mpe.ImageSequenceClip(frame_paths, fps=fps, ismask=False)
+        
+        # Rotation already applied to individual frames, so skip clip rotation
+        
+        # Set exact duration to avoid extending beyond target
+        if target_duration:
+            clip = clip.set_duration(target_duration)
+        
+        return clip
+        
+    except Exception as e:
+        print(f"Error loading animated WebP: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 @router.post("/upload_video_chunk")
@@ -209,23 +320,65 @@ async def compose_video(
                 resize_size = (sticker["width"], sticker["height"])
                 rotation = -float(sticker.get("rotation", 0))
 
-                sticker_np = load_image_with_premultiplied_alpha(
-                    sticker_path,
-                    resize_to=resize_size,
-                    rotate_deg=rotation
-                )
+                # Check if the sticker is an animated WebP
+                if sticker_path.lower().endswith('.webp') and is_animated_webp(sticker_path):
+                    # Load as animated video clip with looping built-in
+                    sticker_clip = load_animated_webp(
+                        sticker_path,
+                        resize_to=resize_size,
+                        rotate_deg=rotation,
+                        target_duration=min_duration
+                    )
+                    
+                    if sticker_clip:
+                        # Get actual dimensions after rotation
+                        clip_w, clip_h = sticker_clip.size
+                        
+                        # Calculate centered position to account for rotation expansion
+                        pos_x = int(sticker["x"]) - (clip_w - int(sticker["width"])) // 2
+                        pos_y = int(sticker["y"]) - (clip_h - int(sticker["height"])) // 2
+                        
+                        # Set position
+                        sticker_clip = sticker_clip.set_position((pos_x, pos_y))
+                        
+                        deco_clips.append(sticker_clip)
+                    else:
+                        # Fallback to static image if animated loading fails
+                        print(f"Failed to load animated WebP, falling back to static: {sticker_path}")
+                        sticker_np = load_image_with_premultiplied_alpha(
+                            sticker_path,
+                            resize_to=resize_size,
+                            rotate_deg=rotation
+                        )
+                        s_h, s_w, _ = sticker_np.shape
+                        pos_x = int(sticker["x"]) - (s_w - int(sticker["width"])) // 2
+                        pos_y = int(sticker["y"]) - (s_h - int(sticker["height"])) // 2
+                        
+                        sticker_clip = (
+                            mpe.ImageClip(sticker_np, transparent=True)
+                            .set_duration(min_duration)
+                            .set_position((pos_x, pos_y))
+                        )
+                        deco_clips.append(sticker_clip)
+                else:
+                    # Static image (original behavior)
+                    sticker_np = load_image_with_premultiplied_alpha(
+                        sticker_path,
+                        resize_to=resize_size,
+                        rotate_deg=rotation
+                    )
 
-                # Calculate centered position to account for rotation expansion
-                s_h, s_w, _ = sticker_np.shape
-                pos_x = int(sticker["x"]) - (s_w - int(sticker["width"])) // 2
-                pos_y = int(sticker["y"]) - (s_h - int(sticker["height"])) // 2
+                    # Calculate centered position to account for rotation expansion
+                    s_h, s_w, _ = sticker_np.shape
+                    pos_x = int(sticker["x"]) - (s_w - int(sticker["width"])) // 2
+                    pos_y = int(sticker["y"]) - (s_h - int(sticker["height"])) // 2
 
-                sticker_clip = (
-                    mpe.ImageClip(sticker_np, transparent=True)
-                    .set_duration(min_duration)
-                    .set_position((pos_x, pos_y))
-                )
-                deco_clips.append(sticker_clip)
+                    sticker_clip = (
+                        mpe.ImageClip(sticker_np, transparent=True)
+                        .set_duration(min_duration)
+                        .set_position((pos_x, pos_y))
+                    )
+                    deco_clips.append(sticker_clip)
 
             elif deco['type'] == 'text':
                 
