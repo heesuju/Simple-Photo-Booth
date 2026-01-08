@@ -373,80 +373,94 @@ async def compose_image(request: Request, holes: str = Form(...), photos: List[U
         alpha_mask = np.dstack((alpha_channel, alpha_channel, alpha_channel))
         composite_img = ((template_bgr * alpha_mask) + (canvas * (1 - alpha_mask))).astype(np.uint8)
 
-        # --- Sticker Overlay Logic ---
+        # --- Sticker & Text Overlay Logic (Unified Chronological Layering) ---
         placed_stickers = json.loads(stickers)
+        placed_texts = json.loads(texts) if texts else []
+        
+        # Add type identifiers
+        for s in placed_stickers:
+            s['type'] = 'sticker'
+        for t in placed_texts:
+            t['type'] = 'text'
+            
+        # Combine and sort by ID (timestamp)
+        decorations = placed_stickers + placed_texts
+        decorations.sort(key=lambda x: x.get('id', 0))
+
         final_image_bgra = cv2.cvtColor(composite_img, cv2.COLOR_BGR2BGRA)
 
-        for sticker_data in placed_stickers:
-            # --- Server-side validation for sticker dimensions ---
-            try:
-                width = int(sticker_data.get('width'))
-                height = int(sticker_data.get('height'))
-                if width <= 0 or height <= 0:
-                    print(f"Skipping sticker with invalid dimensions: {sticker_data}")
+        for deco in decorations:
+            if deco['type'] == 'sticker':
+                sticker_data = deco
+                # --- Server-side validation for sticker dimensions ---
+                try:
+                    width = int(sticker_data.get('width'))
+                    height = int(sticker_data.get('height'))
+                    if width <= 0 or height <= 0:
+                        print(f"Skipping sticker with invalid dimensions: {sticker_data}")
+                        continue
+                except (ValueError, TypeError):
+                    print(f"Skipping sticker with non-numeric dimensions: {sticker_data}")
                     continue
-            except (ValueError, TypeError):
-                print(f"Skipping sticker with non-numeric dimensions: {sticker_data}")
-                continue
 
-            # Decode path and use unicode-safe read
-            raw_path = sticker_data['path'].lstrip('/')
-            decoded_path = unquote(raw_path)
-            sticker_path = os.path.join(os.getcwd(), decoded_path)
-            
-            if not os.path.exists(sticker_path):
-                print(f"Sticker not found: {sticker_path} (Decoded: {decoded_path})")
-                continue # Skip if sticker image not found
+                # Decode path and use unicode-safe read
+                raw_path = sticker_data['path'].lstrip('/')
+                decoded_path = unquote(raw_path)
+                sticker_path = os.path.join(os.getcwd(), decoded_path)
+                
+                if not os.path.exists(sticker_path):
+                    print(f"Sticker not found: {sticker_path} (Decoded: {decoded_path})")
+                    continue # Skip if sticker image not found
 
-            # cv2.imread doesn't support unicode on windows, use imdecode
-            with open(sticker_path, "rb") as f:
-                file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
-            sticker_img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
-            if sticker_img.shape[2] == 3:
-                sticker_img = cv2.cvtColor(sticker_img, cv2.COLOR_BGR2BGRA)
-            
-            sticker_img_resized = cv2.resize(sticker_img, (width, height))
-            sticker_rotated = rotate_image(sticker_img_resized, -sticker_data.get('rotation', 0))
-            
-            s_h, s_w, _ = sticker_rotated.shape
-            pos_x = sticker_data['x'] - (s_w - sticker_data['width']) // 2
-            pos_y = sticker_data['y'] - (s_h - sticker_data['height']) // 2
-            img_h, img_w, _ = final_image_bgra.shape
+                # cv2.imread doesn't support unicode on windows, use imdecode
+                with open(sticker_path, "rb") as f:
+                    file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
+                sticker_img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
+                if sticker_img.shape[2] == 3:
+                    sticker_img = cv2.cvtColor(sticker_img, cv2.COLOR_BGR2BGRA)
+                
+                sticker_img_resized = cv2.resize(sticker_img, (width, height))
+                sticker_rotated = rotate_image(sticker_img_resized, -sticker_data.get('rotation', 0))
+                
+                s_h, s_w, _ = sticker_rotated.shape
+                pos_x = sticker_data['x'] - (s_w - sticker_data['width']) // 2
+                pos_y = sticker_data['y'] - (s_h - sticker_data['height']) // 2
+                img_h, img_w, _ = final_image_bgra.shape
 
-            # --- Clipping Logic ---
-            # Calculate the intersection of the sticker and the main image
-            x1 = int(max(pos_x, 0))
-            y1 = int(max(pos_y, 0))
-            x2 = int(min(pos_x + s_w, img_w))
-            y2 = int(min(pos_y + s_h, img_h))
+                # --- Clipping Logic ---
+                # Calculate the intersection of the sticker and the main image
+                x1 = int(max(pos_x, 0))
+                y1 = int(max(pos_y, 0))
+                x2 = int(min(pos_x + s_w, img_w))
+                y2 = int(min(pos_y + s_h, img_h))
 
-            # Calculate the width and height of the overlapping area
-            w = x2 - x1
-            h = y2 - y1
+                # Calculate the width and height of the overlapping area
+                w = x2 - x1
+                h = y2 - y1
 
-            # If there is no overlap, skip this sticker
-            if w <= 0 or h <= 0:
-                continue
+                # If there is no overlap, skip this sticker
+                if w <= 0 or h <= 0:
+                    continue
 
-            # Get the corresponding region from the sticker
-            sticker_x1 = 0 if pos_x > 0 else -pos_x
-            sticker_y1 = 0 if pos_y > 0 else -pos_y
-            clipped_sticker = sticker_rotated[int(sticker_y1):int(sticker_y1+h), int(sticker_x1):int(sticker_x1+w)]
+                # Get the corresponding region from the sticker
+                sticker_x1 = 0 if pos_x > 0 else -pos_x
+                sticker_y1 = 0 if pos_y > 0 else -pos_y
+                clipped_sticker = sticker_rotated[int(sticker_y1):int(sticker_y1+h), int(sticker_x1):int(sticker_x1+w)]
 
-            # Get the region of interest from the main image
-            roi = final_image_bgra[y1:y2, x1:x2]
+                # Get the region of interest from the main image
+                roi = final_image_bgra[y1:y2, x1:x2]
 
-            # Alpha blending for the clipped sticker
-            sticker_alpha = clipped_sticker[:, :, 3] / 255.0
-            sticker_alpha_mask = np.dstack((sticker_alpha, sticker_alpha, sticker_alpha, sticker_alpha))
-            
-            blended_roi = (clipped_sticker * sticker_alpha_mask) + (roi * (1 - sticker_alpha_mask))
-            final_image_bgra[y1:y2, x1:x2] = blended_roi
+                # Alpha blending for the clipped sticker
+                sticker_alpha = clipped_sticker[:, :, 3] / 255.0
+                sticker_alpha_mask = np.dstack((sticker_alpha, sticker_alpha, sticker_alpha, sticker_alpha))
+                
+                blended_roi = (clipped_sticker * sticker_alpha_mask) + (roi * (1 - sticker_alpha_mask))
+                final_image_bgra[y1:y2, x1:x2] = blended_roi
 
-        if texts:
-            texts_data = json.loads(texts)
-            db_manager = request.app.state.db_manager
-            final_image_bgra = draw_texts(final_image_bgra, texts_data, db_manager)
+            elif deco['type'] == 'text':
+                texts_data = [deco] # Pass single text to draw_texts
+                db_manager = request.app.state.db_manager
+                final_image_bgra = draw_texts(final_image_bgra, texts_data, db_manager)
 
         # --- Save final image and generate QR code ---
         # use session_id in filename

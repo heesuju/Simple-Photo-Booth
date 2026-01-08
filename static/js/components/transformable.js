@@ -1,5 +1,5 @@
 window.initTransformable = (options) => {
-    const { appState, getPreviewScaling, updateSnapLine, updateVerticalSnapLine, renderTexts, renderStickers, } = options;
+    const { appState, getPreviewScaling, updateSnapLine, updateVerticalSnapLine, renderDecorations } = options;
 
     const SNAP_THRESHOLD = 5; // degrees for rotation, pixels for position
 
@@ -11,12 +11,17 @@ window.initTransformable = (options) => {
 
         if (appState.activeTransformable && appState.activeTransformable.action) return;
 
+        // Bring to front on touch/click by updating ID
+        data.id = Date.now();
+
         if (!appState.activeTransformable || appState.activeTransformable.data.id !== data.id) {
             appState.activeTransformable = { element: el, data: data, action: 'move', type: type };
-            renderTexts();
-            renderStickers();
+            // renderDecorations checks for activeTransformable to add handles, so we render here
+            renderDecorations();
         } else {
             appState.activeTransformable.action = 'move';
+            // Even if already active, we updated ID so we must re-render to change z-order
+            renderDecorations();
         }
         appState.dragStart = { x: e.clientX, y: e.clientY, initialX: data.x, initialY: data.y };
     }
@@ -24,7 +29,14 @@ window.initTransformable = (options) => {
     function handleResizeRotateMouseDown(e, data, el, type) {
         // This is for resize-rotate action
         e.stopPropagation();
+
+        // Bring to front
+        data.id = Date.now();
+
         appState.activeTransformable = { element: el, data: data, action: 'resize-rotate', type: type };
+
+        // render to update z-order
+        renderDecorations();
 
         const { scale, offsetX, offsetY } = getPreviewScaling();
         const previewRect = document.getElementById('review-preview').getBoundingClientRect();
@@ -156,11 +168,7 @@ window.initTransformable = (options) => {
             }
         }
 
-        if (appState.activeTransformable.type === 'text') {
-            renderTexts();
-        } else {
-            renderStickers();
-        }
+        renderDecorations();
     }
 
     function handleMouseUp(e) {

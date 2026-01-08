@@ -147,6 +147,7 @@ async def compose_video(
         template_np = load_image_with_premultiplied_alpha(base_template_path)
         height, width, _ = template_np.shape
         background_clip = mpe.ColorClip(size=(width, height), color=(0, 0, 0), duration=min_duration)
+        template_clip = mpe.ImageClip(template_np, transparent=True).set_duration(min_duration)
 
         # --- Place videos ---
         video_clips = []
@@ -186,47 +187,66 @@ async def compose_video(
             pos_y = hole["y"] + (hole["h"] - resized_clip.h) // 2
             video_clips.append(resized_clip.set_position((pos_x, pos_y)).set_duration(min_duration))
 
-        # --- Text rendering (drawn onto template) ---
-        if texts:
-            texts_data = json.loads(texts)
-            db_manager = request.app.state.db_manager
-            template_pil = Image.fromarray(template_np)
-            template_pil = draw_texts_on_pil(template_pil, texts_data, db_manager)
-            template_np = np.array(template_pil)
+        # --- Decorations (Stickers & Text unified) ---
+        sticker_data_list = json.loads(stickers)
+        texts_data_list = json.loads(texts) if texts else []
+        
+        for s in sticker_data_list:
+            s['type'] = 'sticker'
+        for t in texts_data_list:
+            t['type'] = 'text'
 
-        # --- Template overlay ---
-        template_clip = mpe.ImageClip(template_np, transparent=True).set_duration(min_duration)
+        decorations = sticker_data_list + texts_data_list
+        decorations.sort(key=lambda x: x.get('id', 0))
 
-        # --- Stickers (anti-aliased) ---
-        sticker_clips = []
-        for sticker in sticker_data:
-            # Unquote sticker path
-            decoded_path = unquote(sticker["path"].lstrip("/"))
-            sticker_path = os.path.join(os.getcwd(), decoded_path)
-            resize_size = (sticker["width"], sticker["height"])
-            rotation = -float(sticker.get("rotation", 0))
+        deco_clips = []
+        for deco in decorations:
+            if deco['type'] == 'sticker':
+                sticker = deco
+                 # Unquote sticker path
+                decoded_path = unquote(sticker["path"].lstrip("/"))
+                sticker_path = os.path.join(os.getcwd(), decoded_path)
+                resize_size = (sticker["width"], sticker["height"])
+                rotation = -float(sticker.get("rotation", 0))
 
-            sticker_np = load_image_with_premultiplied_alpha(
-                sticker_path,
-                resize_to=resize_size,
-                rotate_deg=rotation
-            )
+                sticker_np = load_image_with_premultiplied_alpha(
+                    sticker_path,
+                    resize_to=resize_size,
+                    rotate_deg=rotation
+                )
 
-            # Calculate centered position to account for rotation expansion
-            s_h, s_w, _ = sticker_np.shape
-            pos_x = int(sticker["x"]) - (s_w - int(sticker["width"])) // 2
-            pos_y = int(sticker["y"]) - (s_h - int(sticker["height"])) // 2
+                # Calculate centered position to account for rotation expansion
+                s_h, s_w, _ = sticker_np.shape
+                pos_x = int(sticker["x"]) - (s_w - int(sticker["width"])) // 2
+                pos_y = int(sticker["y"]) - (s_h - int(sticker["height"])) // 2
 
-            sticker_clip = (
-                mpe.ImageClip(sticker_np, transparent=True)
-                .set_duration(min_duration)
-                .set_position((pos_x, pos_y))
-            )
-            sticker_clips.append(sticker_clip)
+                sticker_clip = (
+                    mpe.ImageClip(sticker_np, transparent=True)
+                    .set_duration(min_duration)
+                    .set_position((pos_x, pos_y))
+                )
+                deco_clips.append(sticker_clip)
+
+            elif deco['type'] == 'text':
+                
+                # Create a full-size transparent image for this text layer
+                layer_pil = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+                db_manager = request.app.state.db_manager
+                
+                # Pass list containing just this text
+                layer_pil = draw_texts_on_pil(layer_pil, [deco], db_manager)
+                layer_np = np.array(layer_pil)
+                
+                text_clip = (
+                    mpe.ImageClip(layer_np, transparent=True)
+                    .set_duration(min_duration)
+                    .set_position((0, 0)) # Position is embedded in the full-frame layer
+                )
+                deco_clips.append(text_clip)
 
         # --- Combine all layers ---
         final_clip = mpe.CompositeVideoClip(
-            [background_clip] + video_clips + [template_clip] + sticker_clips,
+            [background_clip] + video_clips + [template_clip] + deco_clips,
             size=(width, height),
         )
 

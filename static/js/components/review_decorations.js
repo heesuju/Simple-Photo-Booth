@@ -101,174 +101,208 @@ window.initReviewDecorations = (appState, callbacks) => {
 
     let transformableHandler;
 
-    function renderPlacedTexts() {
-        document.querySelectorAll('.placed-text-wrapper').forEach(w => w.remove());
+    function renderDecorations() {
         const { scale, offsetX, offsetY } = getPreviewScaling();
         if (scale === 1) return;
         const previewContainer = document.getElementById('review-preview');
 
-        appState.placedTexts.forEach(d => {
-            const w = document.createElement('div');
-            w.className = 'placed-text-wrapper';
-            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
-                w.classList.add('active');
+        // 1. Index existing elements by data reference
+        const existingElements = new Map();
+        document.querySelectorAll('.placed-text-wrapper, .placed-sticker-wrapper').forEach(w => {
+            if (w._dataReference) {
+                existingElements.set(w._dataReference, w);
+            } else {
+                w.remove();
             }
-            w.style.position = 'absolute';
-            w.style.left = `${offsetX + d.x * scale}px`;
-            w.style.top = `${offsetY + d.y * scale}px`;
-            w.style.width = `${d.width * scale}px`;
-            w.style.transform = `rotate(${d.rotation}deg)`;
-            w.style.display = 'flex';
-            w.style.alignItems = 'center';
+        });
 
-            const i = document.createElement('div');
-            i.contentEditable = false;
-            i.className = 'editable-text';
-            i.style.fontFamily = `'${d.font}'`;
-            i.style.fontSize = `${d.fontSize * scale}px`;
-            i.style.color = d.color || '#000000';
-            i.innerHTML = d.text.replace(/\n/g, '<br>');
-            i.style.whiteSpace = 'pre';
-            i.style.textAlign = d.justify;
-            i.style.lineHeight = '1.3'; // Standardize line height to match backend
+        // 2. Combine and sort
+        const allDecorations = [
+            ...appState.placedTexts.map(t => ({ ...t, type: 'text', originalObj: t })),
+            ...appState.placedStickers.map(s => ({ ...s, type: 'sticker', originalObj: s }))
+        ].sort((a, b) => a.id - b.id);
 
-            w.style.height = 'auto';
+        // 3. Render/Update
+        allDecorations.forEach(d => {
+            const realObj = d.originalObj;
+            let el = existingElements.get(realObj);
 
-            i.addEventListener('input', (e) => {
-                d.text = e.target.innerText;
-                // Update dimensions on text change
-                if (scale > 0) {
-                    const metrics = measureTextPrecise(d.text, d.font, d.fontSize);
-                    d.width = metrics.width;
-                    d.height = metrics.height;
+            if (el) {
+                existingElements.delete(realObj);
+
+                // Move to end (z-order)
+                if (previewContainer.lastElementChild !== el) {
+                    previewContainer.appendChild(el);
                 }
-            });
 
-            if (transformableHandler) {
-                w.addEventListener('mousedown', (e) => transformableHandler.handleMouseDown(e, d, w, 'text'), false);
+                // Update visuals
+                updateItemVisuals(el, realObj, d.type, scale, offsetX, offsetY);
+            } else {
+                // Create New
+                if (d.type === 'text') {
+                    renderTextItem(realObj, scale, offsetX, offsetY, previewContainer);
+                } else {
+                    renderStickerItem(realObj, scale, offsetX, offsetY, previewContainer);
+                }
             }
+        });
 
-            w.addEventListener('dblclick', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const result = await textEdit.show({
-                    text: d.text,
-                    font: d.font,
-                    color: d.color,
-                    justify: d.justify
-                });
-                if (result) {
-                    d.text = result.text;
-                    d.font = result.font;
-                    d.color = result.color;
-                    d.justify = result.justify;
-                    renderPlacedTexts();
-                }
-            });
-            w.appendChild(i);
+        // 4. Remove leftovers
+        existingElements.forEach(w => w.remove());
+    }
 
-            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
-                const selectionBox = document.createElement('div');
-                selectionBox.className = 'selection-box';
-                w.appendChild(selectionBox);
+    function updateItemVisuals(w, d, type, scale, offsetX, offsetY) {
+        // Update Position & Transform
+        w.style.left = `${offsetX + d.x * scale}px`;
+        w.style.top = `${offsetY + d.y * scale}px`;
+        w.style.width = `${d.width * scale}px`;
+        if (type === 'sticker') {
+            w.style.height = `${d.height * scale}px`;
+        } else {
+            // For text, height is auto or calculated
+            // w.style.height = 'auto'; // Already set in creation
+        }
+        w.style.transform = `rotate(${d.rotation}deg)`;
 
-                const resizeRotateHandle = document.createElement('div');
-                resizeRotateHandle.className = 'sticker-handle resize-rotate';
-                if (transformableHandler) {
-                    resizeRotateHandle.addEventListener('mousedown', (e) => transformableHandler.handleResizeRotateMouseDown(e, d, w, 'text'));
-                }
-                w.appendChild(resizeRotateHandle);
-
-                const closeHandle = document.createElement('div');
-                closeHandle.className = 'sticker-handle close';
-                closeHandle.textContent = 'X';
-                closeHandle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const index = appState.placedTexts.findIndex(t => t.id === d.id);
-                    if (index > -1) {
-                        appState.placedTexts.splice(index, 1);
-                    }
-                    appState.activeTransformable = null;
-                    renderPlacedTexts();
-                });
-                w.appendChild(closeHandle);
+        // Update Active State
+        const isActive = appState.activeTransformable && appState.activeTransformable.data.id === d.id;
+        if (isActive) {
+            w.classList.add('active');
+            // Ensure handles exist
+            if (!w.querySelector('.selection-box')) {
+                addHandles(w, d, type);
             }
+        } else {
+            w.classList.remove('active');
+            // Remove handles
+            const handles = w.querySelectorAll('.selection-box, .sticker-handle');
+            handles.forEach(h => h.remove());
+        }
 
-            previewContainer.appendChild(w);
+        // Type specific updates
+        if (type === 'text') {
+            const i = w.querySelector('.editable-text');
+            if (i) {
+                i.style.fontFamily = `'${d.font}'`;
+                i.style.fontSize = `${d.fontSize * scale}px`;
+                i.style.color = d.color || '#000000';
+                i.innerHTML = d.text.replace(/\n/g, '<br>');
+                i.style.textAlign = d.justify;
+            }
+        }
+    }
 
-            // Safe post-render measurement with tolerance to avoid shrinking loop
-            // Safe post-render measurement with tolerance to avoid shrinking loop
-            requestAnimationFrame(() => {
-                if (scale > 0) {
-                    // Re-measure to ensure consistency
-                    const metrics = measureTextPrecise(d.text, d.font, d.fontSize);
-                    if (Math.abs(metrics.height - d.height) > 2) {
-                        d.height = metrics.height;
-                    }
-                    if (Math.abs(metrics.width - d.width) > 2) {
-                        d.width = metrics.width;
-                    }
-                }
+    function addHandles(w, d, type) {
+        const selectionBox = document.createElement('div');
+        selectionBox.className = 'selection-box';
+        w.appendChild(selectionBox);
+
+        const resizeRotateHandle = document.createElement('div');
+        resizeRotateHandle.className = 'sticker-handle resize-rotate';
+        if (transformableHandler) {
+            resizeRotateHandle.addEventListener('mousedown', (e) => transformableHandler.handleResizeRotateMouseDown(e, d, w, type));
+        }
+        w.appendChild(resizeRotateHandle);
+
+        const closeHandle = document.createElement('div');
+        closeHandle.className = 'sticker-handle close';
+        closeHandle.textContent = 'X';
+        closeHandle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const list = type === 'text' ? appState.placedTexts : appState.placedStickers;
+            const index = list.findIndex(item => item.id === d.id);
+            if (index > -1) {
+                list.splice(index, 1);
+            }
+            appState.activeTransformable = null;
+            renderDecorations();
+        });
+        w.appendChild(closeHandle);
+    }
+
+    function renderTextItem(d, scale, offsetX, offsetY, previewContainer) {
+        const w = document.createElement('div');
+        w.className = 'placed-text-wrapper';
+        w._dataReference = d; // Store reference
+
+        w.style.position = 'absolute';
+        w.style.display = 'flex';
+        w.style.alignItems = 'center';
+        w.style.height = 'auto';
+
+        const i = document.createElement('div');
+        i.contentEditable = false;
+        i.className = 'editable-text';
+        i.style.whiteSpace = 'pre';
+        i.style.lineHeight = '1.3';
+
+        // Input listener
+        i.addEventListener('input', (e) => {
+            d.text = e.target.innerText;
+            if (scale > 0) {
+                const metrics = measureTextPrecise(d.text, d.font, d.fontSize);
+                d.width = metrics.width;
+                d.height = metrics.height;
+            }
+        });
+
+        if (transformableHandler) {
+            w.addEventListener('mousedown', (e) => transformableHandler.handleMouseDown(e, d, w, 'text'), false);
+        }
+
+        w.addEventListener('dblclick', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            d.id = Date.now();
+
+            const result = await textEdit.show({
+                text: d.text,
+                font: d.font,
+                color: d.color,
+                justify: d.justify
             });
+            if (result) {
+                d.text = result.text;
+                d.font = result.font;
+                d.color = result.color;
+                d.justify = result.justify;
+                renderDecorations();
+            }
+        });
+        w.appendChild(i);
+        previewContainer.appendChild(w);
+
+        // Initial visual update
+        updateItemVisuals(w, d, 'text', scale, offsetX, offsetY);
+
+        requestAnimationFrame(() => {
+            if (scale > 0) {
+                const metrics = measureTextPrecise(d.text, d.font, d.fontSize);
+                if (Math.abs(metrics.height - d.height) > 2) d.height = metrics.height;
+                if (Math.abs(metrics.width - d.width) > 2) d.width = metrics.width;
+            }
         });
     }
 
-    function renderPlacedStickers() {
-        document.querySelectorAll('.placed-sticker-wrapper').forEach(w => w.remove());
-        const { scale, offsetX, offsetY } = getPreviewScaling();
-        if (scale === 1) return;
-        const previewContainer = document.getElementById('review-preview');
+    function renderStickerItem(d, scale, offsetX, offsetY, previewContainer) {
+        const w = document.createElement('div');
+        w.className = 'placed-sticker-wrapper';
+        w._dataReference = d; // Store reference
 
-        appState.placedStickers.forEach(d => {
-            const w = document.createElement('div');
-            w.className = 'placed-sticker-wrapper';
-            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
-                w.classList.add('active');
-            }
-            w.style.position = 'absolute';
-            w.style.left = `${offsetX + d.x * scale}px`;
-            w.style.top = `${offsetY + d.y * scale}px`;
-            w.style.width = `${d.width * scale}px`;
-            w.style.height = `${d.height * scale}px`;
-            w.style.transform = `rotate(${d.rotation}deg)`;
-            const i = document.createElement('img');
-            i.src = d.path;
-            i.style.width = '100%';
-            i.style.height = '100%';
-            if (transformableHandler) {
-                w.addEventListener('mousedown', (e) => transformableHandler.handleMouseDown(e, d, w, 'sticker'), false);
-            }
-            w.appendChild(i);
+        w.style.position = 'absolute';
 
-            if (appState.activeTransformable && appState.activeTransformable.data.id === d.id) {
-                const selectionBox = document.createElement('div');
-                selectionBox.className = 'selection-box';
-                w.appendChild(selectionBox);
+        const i = document.createElement('img');
+        i.src = d.path;
+        i.style.width = '100%';
+        i.style.height = '100%';
+        if (transformableHandler) {
+            w.addEventListener('mousedown', (e) => transformableHandler.handleMouseDown(e, d, w, 'sticker'), false);
+        }
+        w.appendChild(i);
+        previewContainer.appendChild(w);
 
-                const resizeRotateHandle = document.createElement('div');
-                resizeRotateHandle.className = 'sticker-handle resize-rotate';
-                if (transformableHandler) {
-                    resizeRotateHandle.addEventListener('mousedown', (e) => transformableHandler.handleResizeRotateMouseDown(e, d, w, 'sticker'));
-                }
-                w.appendChild(resizeRotateHandle);
-
-                const closeHandle = document.createElement('div');
-                closeHandle.className = 'sticker-handle close';
-                closeHandle.textContent = 'X';
-                closeHandle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const index = appState.placedStickers.findIndex(s => s.id === d.id);
-                    if (index > -1) {
-                        appState.placedStickers.splice(index, 1);
-                    }
-                    appState.activeTransformable = null;
-                    renderPlacedStickers();
-                });
-                w.appendChild(closeHandle);
-            }
-
-            previewContainer.appendChild(w);
-        });
+        // Initial visual update
+        updateItemVisuals(w, d, 'sticker', scale, offsetX, offsetY);
     }
 
     transformableHandler = window.initTransformable({
@@ -276,8 +310,7 @@ window.initReviewDecorations = (appState, callbacks) => {
         getPreviewScaling,
         updateSnapLine,
         updateVerticalSnapLine,
-        renderTexts: renderPlacedTexts,
-        renderStickers: renderPlacedStickers,
+        renderDecorations: renderDecorations
     });
 
     async function loadStickerGallery(selectedCategory = null, shouldUpdateHeader = true) {
@@ -463,7 +496,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                 height: Math.round(stickerNaturalH),
                 rotation: 0
             });
-            renderPlacedStickers();
+            renderDecorations();
         };
         stickerImg.src = stickerData.sticker_path;
     }
@@ -505,7 +538,7 @@ window.initReviewDecorations = (appState, callbacks) => {
                     fontSize: 40,
                     justify: result.justify
                 });
-                renderPlacedTexts();
+                renderDecorations();
             }
         });
     }
@@ -559,16 +592,14 @@ window.initReviewDecorations = (appState, callbacks) => {
                 if (textBox) textBox.contentEditable = false;
             }
             appState.activeTransformable = null;
-            renderPlacedTexts();
-            renderPlacedStickers();
+            renderDecorations();
         }
     }
 
     return {
         loadStickerGallery,
         loadFontGallery,
-        renderPlacedTexts,
-        renderPlacedStickers,
+        renderDecorations,
         addStickerToCenter,
         handleAddText,
         checkActiveTransformableClick

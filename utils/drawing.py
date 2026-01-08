@@ -57,8 +57,9 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
         text_height = bbox[3] - bbox[1]
 
         # Trust the frontend's width and height as the container dimensions
-        canvas_w = width if width > 0 else text_width
-        canvas_h = height if height > 0 else text_height
+        # BUT expand them if the text is actally larger (to prevent clipping due to font metric diffs)
+        canvas_w = max(width, text_width) if width > 0 else text_width
+        canvas_h = max(height, text_height) if height > 0 else text_height
         
         text_canvas = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(text_canvas)
@@ -79,7 +80,7 @@ def draw_texts_on_pil(base_image, texts_data, db_manager):
         rotated_text = text_canvas.rotate(rotation, expand=True, resample=Image.BICUBIC)
 
         center_x = x + width / 2
-        center_y = y + canvas_h / 2
+        center_y = y + height / 2  # Use original height for center reference
         paste_x = int(center_x - rotated_text.width / 2)
         paste_y = int(center_y - rotated_text.height / 2)
 
@@ -143,8 +144,9 @@ def draw_texts(image, texts_data, db_manager):
         text_height = bbox[3] - bbox[1]
 
         # Trust the frontend's width and height as the container dimensions
-        canvas_w = width if width > 0 else text_width
-        canvas_h = height if height > 0 else text_height
+        # BUT expand them if the text is actally larger (to prevent clipping due to font metric diffs)
+        canvas_w = max(width, text_width) if width > 0 else text_width
+        canvas_h = max(height, text_height) if height > 0 else text_height
         
         text_canvas = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(text_canvas)
@@ -158,7 +160,7 @@ def draw_texts(image, texts_data, db_manager):
         rotated_text = text_canvas.rotate(rotation, expand=True, resample=Image.BICUBIC)
 
         center_x = x + width / 2
-        center_y = y + canvas_h / 2
+        center_y = y + height / 2 # Use original height for center reference
         paste_x = int(center_x - rotated_text.width / 2)
         paste_y = int(center_y - rotated_text.height / 2)
 

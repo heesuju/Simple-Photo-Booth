@@ -427,8 +427,7 @@ window.eventBus.on('app:init', (appState) => {
 
             // Trigger re-render of stickers/texts/photos to match new coordinate system
             renderPhotoAssignments();
-            reviewDecorations.renderPlacedStickers();
-            reviewDecorations.renderPlacedTexts();
+            reviewDecorations.renderDecorations();
 
             // Restore scroll position based on center ratio
             // New Center Y = Ratio * New Total Height
@@ -1113,19 +1112,28 @@ window.eventBus.on('app:init', (appState) => {
 
         document.getElementById('review-photos-container').innerHTML = '';
         const t = document.getElementById('review-template-overlay');
-        t.src = appState.templateInfo.colored_template_path || appState.templateInfo.template_path;
-        t.className = 'preview-template-img';
-        t.onload = () => {
+        const newSrc = appState.templateInfo.colored_template_path || appState.templateInfo.template_path;
+
+        const handleLoad = () => {
             // Apply current zoom to set correct container size before rendering children
             const slider = document.getElementById('zoom-slider');
             if (slider) updateZoom(slider.value);
 
             if (!slider || slider.value === '100') {
                 renderPhotoAssignments();
-                reviewDecorations.renderPlacedStickers();
-                reviewDecorations.renderPlacedTexts();
+                reviewDecorations.renderDecorations();
             }
         };
+
+        t.className = 'preview-template-img';
+        t.onload = handleLoad;
+
+        t.src = newSrc;
+
+        // If cached/complete immediately, trigger manually to ensure render
+        if (t.complete && t.naturalWidth > 0) {
+            handleLoad();
+        }
     }
 
     function handleTemplateChange(newTemplate) {
