@@ -123,26 +123,24 @@ window.initReviewDecorations = (appState, callbacks) => {
         ].sort((a, b) => a.id - b.id);
 
         // 3. Render/Update
-        allDecorations.forEach(d => {
+        allDecorations.forEach((d, index) => {
             const realObj = d.originalObj;
             let el = existingElements.get(realObj);
 
             if (el) {
                 existingElements.delete(realObj);
 
-                // Move to end (z-order)
-                if (previewContainer.lastElementChild !== el) {
-                    previewContainer.appendChild(el);
-                }
+                // Set z-index for layering (no DOM manipulation needed!)
+                el.style.zIndex = index;
 
                 // Update visuals
                 updateItemVisuals(el, realObj, d.type, scale, offsetX, offsetY);
             } else {
                 // Create New
                 if (d.type === 'text') {
-                    renderTextItem(realObj, scale, offsetX, offsetY, previewContainer);
+                    renderTextItem(realObj, scale, offsetX, offsetY, previewContainer, index);
                 } else {
-                    renderStickerItem(realObj, scale, offsetX, offsetY, previewContainer);
+                    renderStickerItem(realObj, scale, offsetX, offsetY, previewContainer, index);
                 }
             }
         });
@@ -208,6 +206,7 @@ window.initReviewDecorations = (appState, callbacks) => {
         closeHandle.className = 'sticker-handle close';
         closeHandle.textContent = 'X';
         closeHandle.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             const list = type === 'text' ? appState.placedTexts : appState.placedStickers;
             const index = list.findIndex(item => item.id === d.id);
@@ -220,12 +219,13 @@ window.initReviewDecorations = (appState, callbacks) => {
         w.appendChild(closeHandle);
     }
 
-    function renderTextItem(d, scale, offsetX, offsetY, previewContainer) {
+    function renderTextItem(d, scale, offsetX, offsetY, previewContainer, zIndex) {
         const w = document.createElement('div');
         w.className = 'placed-text-wrapper';
         w._dataReference = d; // Store reference
 
         w.style.position = 'absolute';
+        w.style.zIndex = zIndex;
         w.style.display = 'flex';
         w.style.alignItems = 'center';
         w.style.height = 'auto';
@@ -284,12 +284,13 @@ window.initReviewDecorations = (appState, callbacks) => {
         });
     }
 
-    function renderStickerItem(d, scale, offsetX, offsetY, previewContainer) {
+    function renderStickerItem(d, scale, offsetX, offsetY, previewContainer, zIndex) {
         const w = document.createElement('div');
         w.className = 'placed-sticker-wrapper';
         w._dataReference = d; // Store reference
 
         w.style.position = 'absolute';
+        w.style.zIndex = zIndex;
 
         const i = document.createElement('img');
         i.src = d.path;
