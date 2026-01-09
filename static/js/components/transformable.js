@@ -78,23 +78,147 @@ window.initTransformable = (options) => {
             const dX_natural = (e.clientX - appState.dragStart.x) / scale;
             const dY_natural = (e.clientY - appState.dragStart.y) / scale;
 
-            const newX = Math.round(appState.dragStart.initialX + dX_natural);
-            const newY = Math.round(appState.dragStart.initialY + dY_natural);
+            let newX = Math.round(appState.dragStart.initialX + dX_natural);
+            let newY = Math.round(appState.dragStart.initialY + dY_natural);
 
             if (!isNaN(newX)) item.x = newX;
             if (!isNaN(newY)) item.y = newY;
 
-            const itemCenterScreenX = previewRect.left + offsetX + (item.x + item.width / 2) * scale;
-            const canvasCenterScreenX = previewRect.left + previewRect.width / 2;
+            // Helper to get bounds of a decoration item
+            const getItemBounds = (decorationItem, type) => {
+                const height = type === 'text' ? decorationItem.height : decorationItem.height;
+                return {
+                    left: decorationItem.x,
+                    right: decorationItem.x + decorationItem.width,
+                    top: decorationItem.y,
+                    bottom: decorationItem.y + height,
+                    centerX: decorationItem.x + decorationItem.width / 2,
+                    centerY: decorationItem.y + height / 2
+                };
+            };
 
-            if (Math.abs(itemCenterScreenX - canvasCenterScreenX) < SNAP_THRESHOLD) {
-                const template = document.querySelector('#review-preview .preview-template-img');
-                const imageNaturalWidth = template.naturalWidth;
-                item.x = Math.round((imageNaturalWidth - item.width) / 2); // Round this too
-                updateVerticalSnapLine(true, canvasCenterScreenX);
+            // Get all other decorations (excluding the one being dragged)
+            const otherDecorations = [];
+            if (appState.placedStickers) {
+                appState.placedStickers.forEach(s => {
+                    if (s.id !== item.id) {
+                        otherDecorations.push({ item: s, type: 'sticker' });
+                    }
+                });
+            }
+            if (appState.placedTexts) {
+                appState.placedTexts.forEach(t => {
+                    if (t.id !== item.id) {
+                        otherDecorations.push({ item: t, type: 'text' });
+                    }
+                });
+            }
+
+            const draggedHeight = appState.activeTransformable.type === 'text' ? item.height : item.height;
+            const dragBounds = getItemBounds(item, appState.activeTransformable.type);
+
+            const threshold = SNAP_THRESHOLD / scale;
+            let bestSnapX = null;
+            let bestSnapY = null;
+            let minDistX = threshold;
+            let minDistY = threshold;
+            let snapLineXPos = null;
+            let snapLineYPos = null;
+
+            // Check snapping to other decorations
+            for (const { item: other, type: otherType } of otherDecorations) {
+                const otherBounds = getItemBounds(other, otherType);
+
+                // Check horizontal (X-axis) snapping points only if not yet found
+                if (bestSnapX === null) {
+                    const xChecks = [
+                        { drag: dragBounds.left, other: otherBounds.left, line: otherBounds.left },
+                        { drag: dragBounds.left, other: otherBounds.right, line: otherBounds.right },
+                        { drag: dragBounds.left, other: otherBounds.centerX, line: otherBounds.centerX },
+                        { drag: dragBounds.right, other: otherBounds.left, line: otherBounds.left },
+                        { drag: dragBounds.right, other: otherBounds.right, line: otherBounds.right },
+                        { drag: dragBounds.right, other: otherBounds.centerX, line: otherBounds.centerX },
+                        { drag: dragBounds.centerX, other: otherBounds.left, line: otherBounds.left },
+                        { drag: dragBounds.centerX, other: otherBounds.right, line: otherBounds.right },
+                        { drag: dragBounds.centerX, other: otherBounds.centerX, line: otherBounds.centerX }
+                    ];
+
+                    for (const check of xChecks) {
+                        const dist = Math.abs(check.drag - check.other);
+                        if (dist < minDistX) {
+                            minDistX = dist;
+                            bestSnapX = check.other - (check.drag - item.x);
+                            snapLineXPos = check.line;
+                        }
+                    }
+                }
+
+                // Check vertical (Y-axis) snapping points only if not yet found
+                if (bestSnapY === null) {
+                    const yChecks = [
+                        { drag: dragBounds.top, other: otherBounds.top, line: otherBounds.top },
+                        { drag: dragBounds.top, other: otherBounds.bottom, line: otherBounds.bottom },
+                        { drag: dragBounds.top, other: otherBounds.centerY, line: otherBounds.centerY },
+                        { drag: dragBounds.bottom, other: otherBounds.top, line: otherBounds.top },
+                        { drag: dragBounds.bottom, other: otherBounds.bottom, line: otherBounds.bottom },
+                        { drag: dragBounds.bottom, other: otherBounds.centerY, line: otherBounds.centerY },
+                        { drag: dragBounds.centerY, other: otherBounds.top, line: otherBounds.top },
+                        { drag: dragBounds.centerY, other: otherBounds.bottom, line: otherBounds.bottom },
+                        { drag: dragBounds.centerY, other: otherBounds.centerY, line: otherBounds.centerY }
+                    ];
+
+                    for (const check of yChecks) {
+                        const dist = Math.abs(check.drag - check.other);
+                        if (dist < minDistY) {
+                            minDistY = dist;
+                            bestSnapY = check.other - (check.drag - item.y);
+                            snapLineYPos = check.line;
+                        }
+                    }
+                }
+
+                // Early exit if both X and Y snaps found
+                if (bestSnapX !== null && bestSnapY !== null) {
+                    break;
+                }
+            }
+
+            // Apply decoration snapping if found
+            if (bestSnapX !== null) {
+                item.x = Math.round(bestSnapX);
+            }
+            if (bestSnapY !== null) {
+                item.y = Math.round(bestSnapY);
+            }
+
+            // Show snap lines for decoration snapping
+            if (snapLineXPos !== null) {
+                const screenX = previewRect.left + offsetX + snapLineXPos * scale;
+                updateVerticalSnapLine(true, screenX);
             } else {
                 updateVerticalSnapLine(false);
             }
+
+            if (snapLineYPos !== null) {
+                const screenY = previewRect.top + offsetY + snapLineYPos * scale;
+                updateSnapLine(true, screenY);
+            } else {
+                updateSnapLine(false);
+            }
+
+            // Also check snap to preview center (fallback if no decoration snap)
+            if (bestSnapX === null) {
+                const itemCenterScreenX = previewRect.left + offsetX + (item.x + item.width / 2) * scale;
+                const canvasCenterScreenX = previewRect.left + previewRect.width / 2;
+
+                if (Math.abs(itemCenterScreenX - canvasCenterScreenX) < SNAP_THRESHOLD) {
+                    const template = document.querySelector('#review-preview .preview-template-img');
+                    const imageNaturalWidth = template.naturalWidth;
+                    item.x = Math.round((imageNaturalWidth - item.width) / 2);
+                    updateVerticalSnapLine(true, canvasCenterScreenX);
+                }
+            }
+
 
         } else if (appState.activeTransformable.action === 'resize-rotate') {
             const centerX = appState.dragStart.centerX;
