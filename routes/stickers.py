@@ -39,8 +39,17 @@ def generate_thumbnail(source_path, thumbnail_size=(100, 100)):
             # Generate thumbnail filename
             source_basename = os.path.basename(source_path)
             name_without_ext = os.path.splitext(source_basename)[0]
+            
+            # Check for naming conflicts and add number suffix if needed
             thumbnail_filename = f"{name_without_ext}_thumb.png"
             thumbnail_path = os.path.join(THUMBNAILS_DIR, thumbnail_filename)
+            
+            # If file exists, add number suffix
+            counter = 1
+            while os.path.exists(thumbnail_path):
+                thumbnail_filename = f"{name_without_ext}_thumb_{counter}.png"
+                thumbnail_path = os.path.join(THUMBNAILS_DIR, thumbnail_filename)
+                counter += 1
             
             # Save as PNG
             img.save(thumbnail_path, 'PNG', optimize=True)
@@ -95,7 +104,8 @@ async def get_sticker_categories(request: Request):
     categories = []
     if os.path.exists(STICKERS_DIR):
         for item in os.listdir(STICKERS_DIR):
-            if os.path.isdir(os.path.join(STICKERS_DIR, item)):
+            item_path = os.path.join(STICKERS_DIR, item)
+            if os.path.isdir(item_path) and item != "thumbnails":
                 categories.append(item)
     return JSONResponse(content=categories)
 
