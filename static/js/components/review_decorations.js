@@ -314,6 +314,28 @@ window.initReviewDecorations = (appState, callbacks) => {
         renderDecorations: renderDecorations
     });
 
+    // Natural sort helper - sorts filenames with numbers correctly
+    function naturalSort(a, b) {
+        const getFilename = (path) => path.split('/').pop() || path;
+        const ax = [], bx = [];
+
+        getFilename(a.sticker_path).replace(/(\d+)|(\D+)/g, (_, num, str) => {
+            ax.push([num || Infinity, str || '']);
+        });
+        getFilename(b.sticker_path).replace(/(\d+)|(\D+)/g, (_, num, str) => {
+            bx.push([num || Infinity, str || '']);
+        });
+
+        while (ax.length && bx.length) {
+            const an = ax.shift();
+            const bn = bx.shift();
+            const nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
+            if (nn) return nn;
+        }
+
+        return ax.length - bx.length;
+    }
+
     async function loadStickerGallery(selectedCategory = null, shouldUpdateHeader = true) {
         try {
             const [stickersResponse, categoriesResponse] = await Promise.all([
@@ -334,7 +356,10 @@ window.initReviewDecorations = (appState, callbacks) => {
                 stickerGallery.style.display = 'flex';
                 categoryGallery.dataset.category = selectedCategory;
 
-                stickers.filter(s => s.category === selectedCategory).forEach((s) => {
+                // Sort stickers naturally by filename
+                const categoryStickers = stickers.filter(s => s.category === selectedCategory).sort(naturalSort);
+
+                categoryStickers.forEach((s) => {
                     const i = document.createElement('div');
                     i.className = 'sticker-item';
                     const m = document.createElement('img');
@@ -410,7 +435,10 @@ window.initReviewDecorations = (appState, callbacks) => {
                     categoryGallery.appendChild(categoryItem);
                 });
 
-                stickers.filter(s => !s.category).forEach((s) => {
+                // Sort uncategorized stickers naturally by filename
+                const uncategorizedStickers = stickers.filter(s => !s.category).sort(naturalSort);
+
+                uncategorizedStickers.forEach((s) => {
                     const i = document.createElement('div');
                     i.className = 'sticker-item';
                     const m = document.createElement('img');
