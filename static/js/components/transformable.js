@@ -191,6 +191,51 @@ window.initTransformable = (options) => {
                 item.y = Math.round(bestSnapY);
             }
 
+            // Get template dimensions for edge snapping
+            const template = document.querySelector('#review-preview .preview-template-img');
+            if (template) {
+                const templateWidth = template.naturalWidth;
+                const templateHeight = template.naturalHeight;
+
+                // Snap to template edges if no decoration snap found
+                if (bestSnapX === null) {
+                    // Check left edge snap
+                    if (Math.abs(dragBounds.left) < threshold) {
+                        item.x = 0;
+                        snapLineXPos = 0;
+                    }
+                    // Check right edge snap
+                    else if (Math.abs(dragBounds.right - templateWidth) < threshold) {
+                        item.x = templateWidth - item.width;
+                        snapLineXPos = templateWidth;
+                    }
+                    // Check center snap (fallback)
+                    else {
+                        const itemCenterScreenX = previewRect.left + offsetX + (item.x + item.width / 2) * scale;
+                        const canvasCenterScreenX = previewRect.left + previewRect.width / 2;
+
+                        if (Math.abs(itemCenterScreenX - canvasCenterScreenX) < SNAP_THRESHOLD) {
+                            item.x = Math.round((templateWidth - item.width) / 2);
+                            snapLineXPos = templateWidth / 2;
+                        }
+                    }
+                }
+
+                if (bestSnapY === null) {
+                    // Check top edge snap
+                    if (Math.abs(dragBounds.top) < threshold) {
+                        item.y = 0;
+                        snapLineYPos = 0;
+                    }
+                    // Check bottom edge snap
+                    else if (Math.abs(dragBounds.bottom - templateHeight) < threshold) {
+                        item.y = templateHeight - draggedHeight;
+                        snapLineYPos = templateHeight;
+                    }
+                    // Center Y snap would go here if needed
+                }
+            }
+
             // Show snap lines for decoration snapping
             if (snapLineXPos !== null) {
                 const screenX = previewRect.left + offsetX + snapLineXPos * scale;
@@ -204,19 +249,6 @@ window.initTransformable = (options) => {
                 updateSnapLine(true, screenY);
             } else {
                 updateSnapLine(false);
-            }
-
-            // Also check snap to preview center (fallback if no decoration snap)
-            if (bestSnapX === null) {
-                const itemCenterScreenX = previewRect.left + offsetX + (item.x + item.width / 2) * scale;
-                const canvasCenterScreenX = previewRect.left + previewRect.width / 2;
-
-                if (Math.abs(itemCenterScreenX - canvasCenterScreenX) < SNAP_THRESHOLD) {
-                    const template = document.querySelector('#review-preview .preview-template-img');
-                    const imageNaturalWidth = template.naturalWidth;
-                    item.x = Math.round((imageNaturalWidth - item.width) / 2);
-                    updateVerticalSnapLine(true, canvasCenterScreenX);
-                }
             }
 
 
