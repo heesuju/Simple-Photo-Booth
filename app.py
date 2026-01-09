@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 # Import route modules
 from routes import templates, colors, styles, stickers, fonts, photos, videos, settings
+from routes.stickers import generate_thumbnail
 
 load_dotenv()
 
@@ -59,12 +60,30 @@ async def lifespan(app: FastAPI):
 
     for root, dirs, files in os.walk(STICKERS_DIR):
         for filename in files:
+            # Skip thumbnail files themselves
+            if filename.endswith('_thumb.png') or root.endswith('thumbnails'):
+                continue
+                
             cat = root.replace('\\', '/')
             sticker_path = f"/{cat}/{filename}"
             if sticker_path not in existing_stickers:
                 category = os.path.basename(root) if root != STICKERS_DIR else None
-                db_manager.add_sticker(sticker_path, category)
+                # Generate thumbnail for new sticker
+                file_path = sticker_path[1:]  # Remove leading slash
+                thumbnail_path = generate_thumbnail(file_path)
+                db_manager.add_sticker(sticker_path, category, thumbnail_path)
                 print(f"Added new sticker to DB: {sticker_path} with category: {category}")
+    
+    # Generate missing thumbnails for existing stickers
+    all_stickers = db_manager.get_all_stickers()
+    for sticker in all_stickers:
+        if not sticker.get('thumbnail_path'):
+            file_path = sticker['sticker_path'][1:]  # Remove leading slash
+            if os.path.exists(file_path):
+                thumbnail_path = generate_thumbnail(file_path)
+                if thumbnail_path:
+                    db_manager.update_sticker_thumbnail(sticker['id'], thumbnail_path)
+                    print(f"Generated thumbnail for existing sticker: {sticker['sticker_path']}")
 
     # --- Sync Fonts with DB ---
     existing_fonts = {f['font_path'] for f in db_manager.get_all_fonts()}

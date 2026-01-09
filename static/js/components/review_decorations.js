@@ -314,27 +314,6 @@ window.initReviewDecorations = (appState, callbacks) => {
         renderDecorations: renderDecorations
     });
 
-    // Helper to extract first frame from animated WebP
-    function extractFirstFrame(imagePath) {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL('image/png'));
-            };
-            img.onerror = () => {
-                // Fallback to original if extraction fails
-                resolve(imagePath);
-            };
-            img.src = imagePath;
-        });
-    }
-
     async function loadStickerGallery(selectedCategory = null, shouldUpdateHeader = true) {
         try {
             const [stickersResponse, categoriesResponse] = await Promise.all([
@@ -355,26 +334,29 @@ window.initReviewDecorations = (appState, callbacks) => {
                 stickerGallery.style.display = 'flex';
                 categoryGallery.dataset.category = selectedCategory;
 
-                stickers.filter(s => s.category === selectedCategory).forEach(async (s) => {
+                stickers.filter(s => s.category === selectedCategory).forEach((s) => {
                     const i = document.createElement('div');
                     i.className = 'sticker-item';
                     const m = document.createElement('img');
                     m.draggable = false;
 
-                    // Extract first frame for static display
-                    const firstFrame = await extractFirstFrame(s.sticker_path);
-                    m.src = firstFrame;
+                    // Use thumbnail if available, otherwise use original
+                    const thumbnailSrc = s.thumbnail_path || s.sticker_path;
+                    m.src = thumbnailSrc;
+                    m.dataset.thumbnailSrc = thumbnailSrc;
                     m.dataset.animatedSrc = s.sticker_path;
-                    m.dataset.staticSrc = firstFrame;
 
-                    // Hover to animate
-                    i.addEventListener('mouseenter', () => {
-                        m.src = m.dataset.animatedSrc;
-                    });
-                    i.addEventListener('mouseleave', () => {
-                        m.src = m.dataset.staticSrc;
-                    });
+                    // Hover to animate (only if thumbnail exists)
+                    if (s.thumbnail_path) {
+                        i.addEventListener('mouseenter', () => {
+                            m.src = m.dataset.animatedSrc;
+                        });
+                        i.addEventListener('mouseleave', () => {
+                            m.src = m.dataset.thumbnailSrc;
+                        });
+                    }
 
+                    // Click handler works immediately
                     i.addEventListener('click', () => addStickerToCenter(s));
                     i.appendChild(m);
                     stickerGallery.appendChild(i);
@@ -428,26 +410,29 @@ window.initReviewDecorations = (appState, callbacks) => {
                     categoryGallery.appendChild(categoryItem);
                 });
 
-                stickers.filter(s => !s.category).forEach(async (s) => {
+                stickers.filter(s => !s.category).forEach((s) => {
                     const i = document.createElement('div');
                     i.className = 'sticker-item';
                     const m = document.createElement('img');
                     m.draggable = false;
 
-                    // Extract first frame for static display
-                    const firstFrame = await extractFirstFrame(s.sticker_path);
-                    m.src = firstFrame;
+                    // Use thumbnail if available, otherwise use original
+                    const thumbnailSrc = s.thumbnail_path || s.sticker_path;
+                    m.src = thumbnailSrc;
+                    m.dataset.thumbnailSrc = thumbnailSrc;
                     m.dataset.animatedSrc = s.sticker_path;
-                    m.dataset.staticSrc = firstFrame;
 
-                    // Hover to animate
-                    i.addEventListener('mouseenter', () => {
-                        m.src = m.dataset.animatedSrc;
-                    });
-                    i.addEventListener('mouseleave', () => {
-                        m.src = m.dataset.staticSrc;
-                    });
+                    // Hover to animate (only if thumbnail exists)
+                    if (s.thumbnail_path) {
+                        i.addEventListener('mouseenter', () => {
+                            m.src = m.dataset.animatedSrc;
+                        });
+                        i.addEventListener('mouseleave', () => {
+                            m.src = m.dataset.thumbnailSrc;
+                        });
+                    }
 
+                    // Click handler works immediately
                     i.addEventListener('click', () => addStickerToCenter(s));
                     i.appendChild(m);
                     categoryGallery.appendChild(i);
