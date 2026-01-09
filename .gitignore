@@ -12,3 +12,4 @@ generated_templates/
 videos/
 placeholder/
 .env
+temp/

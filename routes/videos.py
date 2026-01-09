@@ -415,6 +415,16 @@ async def compose_video(
         def compose_video_sync():
             final_clip.write_videofile(result_path, codec="libx264", fps=24, logger=logger)
             video_progress[session_id] = 100
+            
+            # Cleanup temp files after successful composition
+            try:
+                for file in os.listdir(TEMP_DIR):
+                    if file.endswith('.png'):
+                        file_path = os.path.join(TEMP_DIR, file)
+                        os.remove(file_path)
+                print(f"Cleaned up temp files for session {session_id}")
+            except Exception as e:
+                print(f"Warning: Failed to cleanup temp files: {e}")
         
         # Execute in thread pool to not block the event loop
         await asyncio.to_thread(compose_video_sync)
