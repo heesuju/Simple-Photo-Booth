@@ -1049,7 +1049,11 @@ window.eventBus.on('app:init', (appState) => {
             const r = await fetch(`/templates_by_layout?aspect_ratio=${aspect_ratio}&cell_layout=${cell_layout}`);
             const d = await r.json();
             const c = document.getElementById('template-gallery-review');
-            c.innerHTML = '';
+
+            while (c.firstChild) {
+                c.removeChild(c.firstChild);
+            }
+
             d.forEach(t => {
                 const item = document.createElement('div');
                 item.className = 'review-template-item';
