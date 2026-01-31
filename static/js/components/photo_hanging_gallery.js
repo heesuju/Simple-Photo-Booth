@@ -352,6 +352,12 @@
         }
     });
 
+    window.eventBus.on('theme:changed', (theme) => {
+        if (document.getElementById('photo-hanging-gallery')) {
+            updatePanningBackground(theme);
+        }
+    });
+
     window.eventBus.on('screen:show', (screenId) => {
         if (screenId === 'photo-hanging-gallery') {
             const currentTheme = Array.from(document.body.classList).find(c => c.endsWith('-theme'));
