@@ -121,9 +121,11 @@ window.eventBus.on('app:init', (appState) => {
             document.getElementById('flip-camera-controls').style.display = 'none';
         } else {
             timerOptionsRow.style.display = 'none';
-            timerMainBtn.style.display = 'flex';
-            flashToggleControls.style.display = 'flex';
-            document.getElementById('flip-camera-controls').style.display = 'flex';
+            if (!appState.isCapturing) {
+                timerMainBtn.style.display = 'flex';
+                flashToggleControls.style.display = 'flex';
+                document.getElementById('flip-camera-controls').style.display = 'flex';
+            }
         }
     };
 
@@ -218,6 +220,7 @@ window.eventBus.on('app:init', (appState) => {
     });
 
     function startPhotoSession() {
+        appState.isCapturing = false;
         appState.isRetaking = false;
         appState.photosToRetake = [];
         appState.newlyCapturedPhotos = [];
@@ -225,6 +228,9 @@ window.eventBus.on('app:init', (appState) => {
         document.getElementById('app-title').textContent = '사진 촬영';
         switchCaptureMode('camera');
         modeSelection.style.display = 'flex';
+        document.getElementById('camera-controls-row').style.display = 'flex';
+        document.getElementById('action-buttons').style.display = 'flex';
+        document.getElementById('flip-camera-controls').style.display = 'flex';
         timerControls.style.display = 'flex';
         flashToggleControls.style.display = 'flex';
         flipCameraBtn.style.display = 'block';
@@ -260,6 +266,7 @@ window.eventBus.on('app:init', (appState) => {
     }
 
     function startRetakeSession() {
+        appState.isCapturing = false;
         appState.isRetaking = true;
         appState.newlyCapturedPhotos = [];
         appState.newlyCapturedVideos = [];
@@ -267,6 +274,9 @@ window.eventBus.on('app:init', (appState) => {
         document.getElementById('app-title').textContent = '사진 재촬영';
         switchCaptureMode('camera');
         modeSelection.style.display = 'none';
+        document.getElementById('camera-controls-row').style.display = 'flex';
+        document.getElementById('action-buttons').style.display = 'flex';
+        document.getElementById('flip-camera-controls').style.display = 'flex';
         timerControls.style.display = 'flex';
         flashToggleControls.style.display = 'flex';
         flipCameraBtn.style.display = 'block';
@@ -437,10 +447,15 @@ window.eventBus.on('app:init', (appState) => {
 
         if (appState.selectedTimer === 0) {
             captureBtn.style.display = 'block';
+            document.getElementById('action-buttons').style.display = 'flex';
         } else {
             captureBtn.style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'none';
             runTimerCapture();
         }
+
+        document.getElementById('camera-controls-row').style.display = 'none';
+        document.getElementById('flip-camera-controls').style.display = 'none';
 
         startRecording();
     });

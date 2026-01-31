@@ -153,6 +153,7 @@
     height: auto;
     min-height: auto;
     padding: 0;
+    min-width: 60px;
     width: auto;
     justify-content: center;
     gap: 0.5rem;
